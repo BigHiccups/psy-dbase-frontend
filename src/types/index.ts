@@ -14,6 +14,12 @@ export type Patient = {
   updated_at: string;
 };
 
+export type ScheduleInput = {
+  weekday: number;      // 0=domingo, 6=sábado
+  startTime: string;    // "HH:MM"
+  durationMin: number;  // default 50
+};
+
 export type InviteResponse = {
   inviteId: string;
   token: string;
@@ -21,4 +27,12 @@ export type InviteResponse = {
   shortUrl: string;
   whatsappUrl: string;
   phone: string;
+  schedules: ScheduleInput[];
+};
+
+export type InviteCheck = {
+  valid: boolean;
+  reason: string | null;
+  patient_name_hint: string | null;
+  schedules: ScheduleInput[];
 };
