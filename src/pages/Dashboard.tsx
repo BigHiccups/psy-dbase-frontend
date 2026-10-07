@@ -1,7 +1,18 @@
+import { useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import { Link } from "react-router-dom";
+
 
 export function Dashboard() {
   const { user, signOut } = useAuth();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      console.log("TOKEN:", data.session?.access_token);
+      console.log("EXPIRA EM:", new Date((data.session?.expires_at ?? 0) * 1000));
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -36,6 +47,13 @@ export function Dashboard() {
           Login funcionando. Próximo passo: Fase 2 — pacientes e formulário público.
         </p>
       </div>
+
+      <Link
+        to="/patients"
+        className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+      >
+        Ver pacientes
+      </Link>
     </div>
   );
 }
