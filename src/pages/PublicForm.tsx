@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { CheckCircle2, CalendarClock, ShieldCheck } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { weekdayLong } from "../lib/weekdays";
-import type { InviteCheck, ScheduleInput } from "../types";
+import type { InviteCheck } from "../types";
 
 type FormState = {
   full_name: string;
