@@ -1,13 +1,9 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
-/* Fonte Inter */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-
-/* Tema do produto */
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
 
-  /* Cor primária (teal) exposta como brand-* */
   --color-brand-50: #f0fdfa;
   --color-brand-100: #ccfbf1;
   --color-brand-200: #99f6e4;
