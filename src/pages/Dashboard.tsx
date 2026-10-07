@@ -1,22 +1,7 @@
-import { useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../lib/supabase";
 
 export function Dashboard() {
   const { user, signOut } = useAuth();
-
-  // Teste temporário: confirma que o profile foi criado pelo trigger
-  useEffect(() => {
-    if (!user) return;
-
-    supabase
-      .from("profiles")
-      .select("*")
-      .single()
-      .then(({ data, error }) => {
-        console.log("profile:", data, "error:", error);
-      });
-  }, [user]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
