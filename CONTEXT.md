@@ -10,9 +10,9 @@
 
 Interface web do **psy-dbase**, sistema de gestão para psicólogo autônomo.
 
-Cobre cadastro de pacientes via formulário público com link único, submissões
-pendentes com aprovação, agenda (Fase 3), prontuário com evolução SOAP (Fase 4),
-financeiro (Fase 5) e relatórios.
+Cobre cadastro de pacientes via formulário público com link único, CRUD completo
+de pacientes, configurações e integração com Google Calendar. Agenda visual,
+prontuário e financeiro vêm nas próximas fases.
 
 **Repositório irmão:** `psy-dbase` (backend Node + integrações).
 **Um psicólogo por conta.** Não é multi-tenant compartilhado.
@@ -43,28 +43,35 @@ financeiro (Fase 5) e relatórios.
 ```
 src/
 ├── components/
-│   ├── layout/          # Sidebar, Header, AppLayout
-│   ├── ui/              # Button, Input, Card, Badge, Modal, EmptyState, Spinner, index.ts
+│   ├── layout/           # Sidebar, Header, AppLayout
+│   ├── ui/               # Button, Input, Card, Badge, Modal, ConfirmDialog,
+│   │                     # EmptyState, Spinner, index.ts
 │   ├── InvitePatientModal.tsx
 │   └── SubmissionCard.tsx
 ├── contexts/
 │   └── AuthContext.tsx
 ├── hooks/
-│   ├── usePatients.ts
+│   ├── usePatient.ts     # busca 1 paciente por id
+│   ├── usePatients.ts    # busca lista com filtro
 │   └── useSubmissions.ts
 ├── lib/
-│   ├── supabase.ts      # cliente único do Supabase
-│   ├── api.ts           # fetch autenticado para o backend Node
-│   └── weekdays.ts      # mapeamento 0–6 → "Dom".."Sáb"
+│   ├── supabase.ts       # cliente único do Supabase
+│   ├── api.ts            # fetch autenticado para o backend Node
+│   ├── masks.ts          # maskCPF, maskPhone + validações
+│   ├── text.ts           # toTitleCase
+│   └── weekdays.ts       # mapeamento 0–6 → "Dom".."Sáb"
 ├── pages/
 │   ├── Login.tsx
 │   ├── Dashboard.tsx
 │   ├── Patients.tsx
-│   └── PublicForm.tsx
+│   ├── PatientDetail.tsx
+│   ├── PatientForm.tsx         # cria e edita
+│   ├── PublicForm.tsx
+│   └── Settings.tsx            # Google Calendar + preferências
 ├── types/
-│   └── index.ts         # Patient, InviteResponse, ScheduleInput, InviteCheck…
+│   └── index.ts
 ├── App.tsx
-├── index.css            # Tailwind v4 + @theme
+├── index.css             # Tailwind v4 + @theme
 └── main.tsx
 ```
 
@@ -75,13 +82,13 @@ src/
 ### 4.1 Dados vão direto para o Supabase
 
 O frontend **não** passa pelo backend Node para ler/escrever dados de aplicação.
-Ele fala direto com o Supabase via `@supabase/supabase-js`, e o **RLS** garante
+Fala direto com o Supabase via `@supabase/supabase-js`, e o **RLS** garante
 isolamento.
 
 O backend Node só é usado para operações que exigem **segredos**:
 
 - Geração de convites (TinyURL + telefone + JWT validation)
-- Google Calendar / Meet (Fase 3)
+- **Google Calendar (OAuth, importação, sincronização)**
 - Envio de WhatsApp / e-mail (Fase 6)
 - Geração de PDF de recibo (Fase 5)
 - Transcrição de áudio (a decidir)
@@ -100,72 +107,64 @@ Toda chamada ao backend passa por `src/lib/api.ts`, que:
 
 Toda tabela no Supabase precisa de **duas coisas**:
 
-1. `alter table … enable row level security;` + **policies** (`auth.uid() = user_id`)
+1. RLS + **policies** (`auth.uid() = user_id`)
 2. `grant select, insert, update, delete on … to authenticated;`
 
-**Sem o GRANT, o Postgres barra antes da RLS** — o erro é
-`42501 permission denied for table`. Já aconteceu uma vez com `profiles` e outra
-com `patient_invites`.
+**Sem o GRANT, o Postgres barra antes da RLS** — erro `42501 permission denied
+for table`.
 
 ### 4.4 Tailwind v4 — não é v3
 
 - **Não existe** `tailwind.config.js`
 - **Não existe** `postcss.config.js`
-- Plugin registrado em `vite.config.ts` via `@tailwindcss/vite`
-- Tema (cores, fontes) vai em `src/index.css` dentro de `@theme { … }`
-- Cor primária é `brand-*` (mapeada para teal-600 do Tailwind)
-- Fonte Inter carregada via `<link>` no `index.html` (não via `@import` no CSS,
-  que conflita com a ordem do Tailwind v4)
+- Plugin em `vite.config.ts` via `@tailwindcss/vite`
+- Tema (cores, fontes) em `src/index.css` dentro de `@theme { … }`
+- Cor primária: `brand-*` (teal-600)
+- Fonte Inter via `<link>` no `index.html` (não via `@import` no CSS)
 
 ### 4.5 Design system próprio em `components/ui/`
 
-Componentes base reutilizados em todas as telas:
+Componentes base:
 
 - `Button` — variantes: `primary` (brand), `secondary`, `ghost`, `danger`
 - `Input` — com `label`, `error`, `hint`
 - `Card` — container com borda e sombra sutil
 - `Badge` — variantes: `success`, `warning`, `danger`, `neutral`, `brand`
-- `Modal` — overlay + Esc para fechar, com título opcional
+- `Modal` — overlay + Esc para fechar
+- `ConfirmDialog` — modal de confirmação com tons (`default`, `warning`, `danger`, `success`)
 - `EmptyState` — ícone + título + descrição + ação
 - `Spinner` — loading circular
 
-**Regra:** telas novas devem usar esses componentes, não recriar botões/inputs
-do zero.
+**Regra:** telas novas devem usar esses componentes.
 
 ### 4.6 Layout de app autenticado
 
-Rotas protegidas são envelopadas por `<AppLayout />`, que fornece:
+Rotas protegidas envelopadas por `<AppLayout />`:
 
 - `Sidebar` fixa em desktop (>= `lg`), drawer em mobile
-- `Header` sticky no topo com avatar/nome + botão de logout
+- `Header` sticky com avatar + logout
 
 Estrutura no `App.tsx`:
 
 ```
 <Route element={<ProtectedRoute />}>
   <Route element={<AppLayout />}>
-    <Route path="/dashboard" … />
-    <Route path="/patients" … />
+    ...rotas protegidas...
   </Route>
 </Route>
 ```
 
 ### 4.7 Rotas públicas fora do ProtectedRoute
 
-`/login` e `/form/:token` ficam **antes** do `<ProtectedRoute>` no `App.tsx`.
-O formulário público não exige sessão — o paciente não tem conta.
+`/login` e `/form/:token` ficam **antes** do `<ProtectedRoute>`.
 
-**Atenção:** qualquer rota nova que não esteja explicitamente declarada cai no
-fallback `*` → redireciona para `/dashboard` → `ProtectedRoute` → `/login`.
-Foi isso que fez o link do formulário cair na tela de login na primeira vez.
+**Atenção:** qualquer rota nova não declarada cai no fallback `*` → `/dashboard`
+→ `ProtectedRoute` → `/login`.
 
 ### 4.8 SPA routing na Vercel
 
-O React Router gerencia as rotas **no navegador**. Quando o navegador pede
-`https://psy-dbase-frontend.vercel.app/dashboard` direto, a Vercel procura um
-arquivo físico chamado `dashboard`, não encontra, e devolve 404.
-
-Solução: `vercel.json` na raiz do frontend com rewrite:
+React Router gerencia rotas **no navegador**. Para evitar 404 em URLs diretas,
+existe `vercel.json` com rewrite:
 
 ```json
 {
@@ -175,58 +174,29 @@ Solução: `vercel.json` na raiz do frontend com rewrite:
 }
 ```
 
-Sem isso, links diretos (formulário público, atalhos, F5 em rotas internas)
-quebram em produção.
-
 ### 4.9 Variáveis `VITE_*` são injetadas em build time
 
-O Vite **congela** o valor de `import.meta.env.VITE_*` no bundle JavaScript
-durante o build. Isso significa:
+O Vite congela o valor de `import.meta.env.VITE_*` no bundle. Mudar env var no
+painel da Vercel exige **redeploy sem cache**.
 
-- Mudar uma env var no painel da Vercel **não afeta** deploys existentes
-- É preciso **redeploy sem cache** para a nova variável valer
-- Se o build usar cache, o Vite reaproveita o bundle antigo e o valor antigo
-  persiste
-
-**Sintoma clássico:** bundle em produção aponta para `http://localhost:3333`
-mesmo depois de você ter configurado `VITE_API_URL` no painel — porque o deploy
-é anterior à configuração.
+**Sintoma clássico:** bundle aponta para `localhost` mesmo após configurar.
 
 ### 4.10 Env vars de produção ficam no painel da Vercel
 
-O `.env.local` do disco **só vale para desenvolvimento local**. Em produção,
-quem manda são as variáveis configuradas no painel da Vercel (projeto
-`psy-dbase-frontend`).
-
-Deixar as três como **Config** (não Secret) simplifica debug — todas são
-públicas por design.
-
-Frontend (painel Vercel):
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_API_URL`
-
-Backend (painel Vercel):
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `FRONTEND_URL`
-- `CORS_ORIGINS`
-- `TINYURL_API_TOKEN`
+`.env.local` local **só vale para desenvolvimento**. Em produção, painel da
+Vercel manda. Deixar tudo como **Config** (nada é segredo real com prefixo
+`VITE_`).
 
 ### 4.11 Nada de diálogos nativos do navegador
 
-**Regra:** nunca usar `alert()`, `confirm()` ou `prompt()` nativos do Chrome
-(ou de qualquer navegador). Eles são feios, bloqueiam a UI, não seguem o design
-system, e não funcionam bem em mobile.
+**Regra:** nunca usar `alert()`, `confirm()` ou `prompt()` nativos.
 
 Sempre usar:
 
-- **`ConfirmDialog`** (`src/components/ui/ConfirmDialog.tsx`) para confirmações
-  destrutivas ou decisões importantes (aprovar/rejeitar, excluir, cancelar)
-- **`Modal`** (`src/components/ui/Modal.tsx`) para formulários, avisos extensos
-  e qualquer outro conteúdo
+- **`ConfirmDialog`** — confirmações destrutivas ou decisões importantes
+- **`Modal`** — formulários, avisos extensos
 
-Exemplo de uso do `ConfirmDialog`:
+Exemplo:
 
 ```tsx
 <ConfirmDialog
@@ -240,7 +210,51 @@ Exemplo de uso do `ConfirmDialog`:
 />
 ```
 
-Tons disponíveis: `default`, `warning`, `danger`, `success`.
+**Exceção conhecida:** `alert(error.message)` em `PatientDetail.tsx` em dois
+handlers (`handleArchive`, `handleReactivate`) — só dispara em erro raro do
+Supabase. Trocar por `AlertDialog` futuramente.
+
+### 4.12 Normalização de nome vs. máscaras in-locus
+
+- **Nome:** normaliza **silenciosamente ao enviar** (`toTitleCase`). O input
+  mostra o que o usuário digita; o banco recebe limpo.
+- **Telefone e CPF:** máscara **in-locus** enquanto digita (`maskPhone`,
+  `maskCPF`).
+
+### 4.13 CRUD de pacientes
+
+- **Criar do zero:** rota `/patients/new` (`PatientForm.tsx`), sem convite
+- **Editar:** rota `/patients/:id/edit` (mesmo componente, com `id`)
+- **Arquivar (soft delete):** muda `status='inactive'`. Reversível.
+- **Excluir (hard delete):** botão ghost no detalhe, `ConfirmDialog` tone
+  `danger`. Irreversível.
+- **Listagem:** filtros "Ativos | Arquivados | Todos" via hook `usePatients(filter)`
+
+### 4.14 Integração Google Calendar
+
+- **Conectar:** botão em `/settings` chama `GET /calendar/connect`, abre URL
+  em **nova aba**
+- **Callback:** backend redireciona para `/settings?google=connected`, que
+  exibe feedback e limpa o parâmetro da URL
+- **Importar:** botão em `/settings` chama `POST /calendar/import` com
+  `{ daysAhead: 90 }`
+- **Desconectar:** botão + `ConfirmDialog` + `DELETE /calendar/disconnect`
+
+**Sobre o fluxo em nova aba:** a aba original **não sabe** automaticamente que
+a conexão foi concluída. F5 é necessário. Melhoria futura: `postMessage`.
+
+### 4.15 Status `prospect`
+
+`patients.status` aceita 4 valores: `prospect`, `active`, `inactive`,
+`discharged`.
+
+**`prospect`** = paciente importado do Google que ainda não foi revisado. A
+UI de revisão ainda não existe — provisórios aparecem na lista de pacientes
+como qualquer outro, mas com o nome cru do Google (`Atendimento Eduardo`).
+
+**Heurística de exibição planejada:** `displayName()` que remove prefixos
+comuns (`Atendimento `, `Sessão `) apenas visualmente — o banco mantém o texto
+cru.
 
 ---
 
@@ -249,76 +263,93 @@ Tons disponíveis: `default`, `warning`, `danger`, `success`.
 ### 5.1 Login
 
 1. Usuário clica em "Entrar com Google" na `/login`
-2. `supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: <window.location.origin>/dashboard } })`
-3. Redireciona para o Google → volta para `/dashboard`
+2. `supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: <origin>/dashboard } })`
+3. Redireciona para Google → volta para `/dashboard`
 4. `AuthContext` mantém a sessão via `onAuthStateChange`
-5. Trigger no banco (`on_auth_user_created`) cria linha em `profiles`
-   automaticamente no signup
+5. Trigger no banco cria `profiles` automaticamente
 
-**Importante:** o Supabase valida o `redirectTo` contra a lista de **Redirect
-URLs** configurada no painel. Se a URL não estiver na lista, cai no fallback
-(**Site URL**). Ambas precisam ter o domínio de produção **e** `localhost:5173`.
+**Importante:** o Supabase valida `redirectTo` contra a lista de **Redirect
+URLs** no painel. `Site URL` **e** `Redirect URLs` precisam ter produção e
+`localhost:5173`.
 
 ### 5.2 Convite de paciente
 
-1. Psicólogo vai em `/patients` → botão "Convidar paciente"
-2. `InvitePatientModal` coleta:
-   - Nome (opcional)
-   - Telefone (obrigatório)
-   - **Pelo menos 1 horário** (obrigatório): dia da semana + hora + duração
-     (default 50 min)
-3. Chama `POST /invites` no backend Node via `apiFetch`
-4. Backend:
-   - Cria registro em `patient_invites` com token UUID
-   - Cria registros em `patient_invite_schedules`
-   - Encurta URL via TinyURL oficial (com fallback para URL longa)
-   - Monta link `wa.me/<phone>?text=<mensagem>`
+1. Psicólogo vai em `/patients` → "Convidar"
+2. `InvitePatientModal` coleta nome (opcional), telefone (obrigatório) e pelo
+   menos 1 horário (obrigatório)
+3. Chama `POST /invites` no backend
+4. Backend cria convite, encurta URL, monta link do WhatsApp
 5. Frontend abre `whatsappUrl` em nova aba
 6. Modal mostra resumo dos horários + botão "Copiar link"
 
 ### 5.3 Formulário público
 
-1. Paciente recebe link `https://psy-dbase-frontend.vercel.app/form/<token>`
-   via WhatsApp
-2. `PublicForm` valida o token via RPC `get_invite_by_token` (retorna
-   `valid`, `reason`, `patient_name_hint`, `schedules`)
-3. Se válido, mostra:
-   - Bloco "Sessões combinadas" em modo leitura (dias + horários + duração)
-   - Campos cadastrais (nome, CPF, cidade, nascimento, telefone, contato de
-     urgência)
+1. Paciente abre `https://psy-dbase-frontend.vercel.app/form/<token>`
+2. `PublicForm` valida token via RPC `get_invite_by_token`
+3. Mostra:
+   - Bloco "Sessões combinadas" (leitura)
+   - Campos cadastrais com máscaras (CPF, telefone)
    - Checkbox do **termo de confidencialidade**
-   - Checkbox da **orientação sobre o local** (ambiente tranquilo, silencioso,
-     privado)
-4. Ao enviar, chama RPC `submit_patient_form` (valida token de novo, grava os
+   - Checkbox da **orientação sobre o local**
+4. Ao enviar, chama RPC `submit_patient_form` (valida tudo de novo, grava os
    dois aceites com timestamp, marca convite como usado)
 5. Paciente vê tela de sucesso
 
-### 5.4 Aprovação de submissão
+### 5.4 Aprovar/Rejeitar submissão
 
 1. Psicólogo vai em `/patients`
-2. Seção "Submissões pendentes" mostra cards dos formulários enviados
-3. Cada card tem botão **Aprovar** e **Rejeitar**
-4. **Aprovar** chama RPC `approve_submission`:
-   - Valida que o usuário logado é o dono
-   - Cria registro em `patients` com os dados da submissão
-   - Marca a submissão como `approved`
-5. **Rejeitar** faz `update status='rejected', reviewed_at=now()`
-6. Após qualquer ação, `reload()` é chamado nos hooks `usePatients` e
-   `useSubmissions`
+2. Seção "Submissões pendentes" (âmbar) mostra os formulários enviados
+3. **Aprovar** → RPC `approve_submission` cria `patients` com `status='prospect'`
+4. **Rejeitar** → `update status='rejected'`
+5. Após qualquer ação, `reload()` é chamado nos hooks
+
+### 5.5 Criar/editar paciente manual
+
+1. `/patients/new` ou `/patients/:id/edit` (mesmo componente `PatientForm`)
+2. Validação de CPF (`isValidCPF`) e telefone (`isValidPhoneBR`)
+3. `toTitleCase` no nome ao enviar
+4. Redireciona para `/patients/:id`
+
+### 5.6 Arquivar / Reativar / Excluir paciente
+
+Em `/patients/:id`:
+
+- **Arquivar** → `ConfirmDialog` (tone `warning`) → `update status='inactive'`
+- **Reativar** → `ConfirmDialog` (tone `success`) → `update status='active'`
+- **Excluir** → `ConfirmDialog` (tone `danger`) → `delete` → redireciona
+
+### 5.7 Google Calendar — conectar
+
+1. Em `/settings`, clica em "Conectar Google Calendar"
+2. Chama `GET /calendar/connect` → recebe `{ url }`
+3. `window.open(url, "_blank")`
+4. Usuário autoriza no Google
+5. Backend processa e redireciona para `/settings?google=connected`
+6. Frontend mostra feedback verde e limpa o parâmetro
+
+### 5.8 Google Calendar — importar
+
+1. Em `/settings`, clica em "Importar agenda"
+2. Chama `POST /calendar/import` com `{ daysAhead: 90 }`
+3. Feedback mostra `X agendamentos e Y pacientes criados. Z já existiam.`
+
+### 5.9 Google Calendar — desconectar
+
+1. Botão "Desconectar" → `ConfirmDialog` (tone `danger`)
+2. `DELETE /calendar/disconnect`
+3. Feedback verde, card volta para "Não conectado"
 
 ---
 
 ## 6. Convenções de código
 
-- **Idioma:** variáveis, funções, tipos, arquivos em **inglês**. Comentários em
-  **português**.
-- **Componentes:** função nomeada (`export function Foo()`), não arrow function
-  anônima.
-- **Tipos:** usar `type`, não `interface` (exceto quando precisar de extensão).
+- **Idioma:** variáveis, funções, tipos, arquivos em **inglês**. Comentários
+  em **português**.
+- **Componentes:** função nomeada (`export function Foo()`).
+- **Tipos:** usar `type`, não `interface`.
 - **Estados de fetch:** sempre tratar `loading`, `error` e `empty`.
-- **Rotas:** PascalCase para arquivos de página (`Patients.tsx`), kebab-case
-  para componentes utilitários.
-- **Nada de `any`:** exceto em integrações de bibliotecas com tipos divergentes.
+- **Rotas:** PascalCase para páginas, kebab-case para utilitários.
+- **Nada de `any`:** exceto em integrações com bibliotecas.
 
 ---
 
@@ -326,42 +357,40 @@ URLs** configurada no painel. Se a URL não estiver na lista, cai no fallback
 
 | Sintoma                                             | Causa                                           | Solução                                                     |
 |-----------------------------------------------------|-------------------------------------------------|-------------------------------------------------------------|
-| `42501 permission denied for table`                 | Faltou GRANT                                    | `grant … to authenticated;` na migration                    |
-| `Unsupported provider: provider is not enabled`     | Google OAuth não salvo no Supabase              | Salvar em Authentication → Providers                        |
-| `redirect_uri_mismatch`                             | Callback do Google ≠ do Supabase                | `https://<ref>.supabase.co/auth/v1/callback` no Google Cloud |
-| Login redireciona para `localhost` em produção      | Site URL no Supabase aponta para localhost      | Ajustar Site URL **e** Redirect URLs no painel Supabase      |
-| Link `/form/:token` cai em `/login`                 | Rota pública ausente ou fallback errado         | Declarar rota **antes** do `ProtectedRoute`                 |
-| `/dashboard` dá 404 em produção                     | Falta `vercel.json` com rewrite para `index.html` | Criar `vercel.json` com SPA routing                        |
-| Tailwind não aplica estilos novos                   | Config de v3 em projeto v4, ou dev server não reiniciado | Usar `@theme` no CSS e plugin Vite; reiniciar        |
-| Erro `@import statements must precede all other…`   | `@import` da fonte após outras regras no CSS     | Mover a fonte para `<link>` no `index.html`                 |
-| Bundle aponta para `localhost` mesmo após config    | Env var `VITE_*` só vale em novo build           | Redeploy **sem cache**                                      |
-| `VITE_API_URL não configurada` no site em produção  | Variável ausente ou deploy antigo                | Criar no painel + redeploy sem cache                        |
-| Erro de CORS no site de produção                    | Backend fora do ar (500 no boot)                 | Corrigir o backend primeiro; CORS nem chega a ser avaliado  |
-| `tsc -b` falha com `declared but never used`        | Import não usado (build é mais rigoroso que dev) | Remover o import                                            |
+| `42501 permission denied for table`                 | Faltou GRANT                                    | `grant … to authenticated;`                                 |
+| `Unsupported provider: provider is not enabled`     | Google OAuth não salvo no Supabase              | Authentication → Providers                                  |
+| `redirect_uri_mismatch`                             | Callback do Google ≠ do Supabase                | `https://<ref>.supabase.co/auth/v1/callback`                |
+| Login redireciona para `localhost` em produção      | Site URL aponta para localhost                  | Ajustar **Site URL** e **Redirect URLs**                    |
+| `/dashboard` dá 404 em produção                     | Falta `vercel.json` com SPA rewrite             | Criar `vercel.json`                                         |
+| Tailwind não aplica estilos novos                   | Config v3 em projeto v4                         | Usar `@theme` + plugin Vite                                 |
+| `@import statements must precede all other…`        | `@import` da fonte após Tailwind                | Fonte via `<link>` no `index.html`                          |
+| Bundle aponta para `localhost` mesmo após config    | `VITE_*` só em novo build                       | Redeploy **sem cache**                                      |
+| `VITE_API_URL não configurada` em produção          | Variável ausente ou deploy antigo               | Painel + redeploy sem cache                                 |
+| CORS no site de produção                            | Backend fora do ar (500)                        | Corrigir backend primeiro                                   |
+| `tsc -b` falha com `declared but never used`        | Import não usado                                | Remover o import                                            |
+| Callback OAuth do Google não volta para `/settings` | `FRONTEND_URL` no backend errado                | Confirmar `http://localhost:5173`                           |
+| `Access blocked: app not verified`                  | Conta não está como Test User no Google Cloud   | Adicionar em Público-alvo                                   |
 
 ---
 
 ## 8. Segurança
 
-- **`anon key`:** vai no painel da Vercel e no `.env.local`. É segura ali
-  **porque o RLS protege**. Nunca commitar `.env.local`.
-- **`service_role key`:** exclusiva do backend. Nunca no frontend.
-- **`access_token` do usuário:** vai no header `Authorization`. Expira em 1h e
-  é renovado automaticamente pelo SDK.
-- **Links de prontuário:** hash expirável, sem indexação (Fase 4).
+- **`anon key`:** painel da Vercel + `.env.local`. Segura ali **porque o RLS
+  protege**.
+- **`service_role`:** exclusiva do backend. Nunca no frontend.
+- **`access_token`:** header `Authorization`. Expira em 1h, renovado pelo SDK.
+- **Env vars `VITE_*` são públicas:** aparecem no bundle. Nunca colocar segredo
+  com esse prefixo.
 - **LGPD:** dado sensível de saúde. Consentimento explícito, direito ao
-  esquecimento, auditoria de acesso ao prontuário.
-- **Env vars `VITE_*` são públicas:** qualquer pessoa vê no bundle. Nunca
-  colocar segredo com prefixo `VITE_`.
+  esquecimento.
 
 ---
 
-## 9. O que está fora do escopo deste repositório
+## 9. O que está fora do escopo
 
-- Lógica de negócio pesada (geração de convite, encurtamento de URL, integração
-  Google Calendar, envio de WhatsApp) → **backend `psy-dbase`**
-- Migrations SQL → **rodadas manualmente no SQL Editor do Supabase**
-- Autenticação OAuth → **Supabase Auth**
+- Lógica pesada (convite, OAuth, importação) → **backend `psy-dbase`**
+- Migrations SQL → **SQL Editor do Supabase**
+- Autenticação OAuth (login) → **Supabase Auth**
 - Deploy do backend → **Vercel** (projeto separado)
 
 ---
@@ -370,30 +399,29 @@ URLs** configurada no painel. Se a URL não estiver na lista, cai no fallback
 
 **Concluído:**
 
-- ✅ Fase 1: Auth Google, `profiles` com trigger, RLS, deploy Vercel
-- ✅ Fase 2: convite com horários, formulário público, submissões,
-  aprovação/rejeição
-- ✅ Design system (`Button`, `Input`, `Card`, `Badge`, `Modal`, `EmptyState`,
-  `Spinner`)
-- ✅ Layout autenticado (`Sidebar`, `Header`, `AppLayout`)
-- ✅ Migração Tailwind v3 → v4 com plugin Vite
-- ✅ `vercel.json` com SPA routing
-- ✅ Env vars configuradas no painel da Vercel
-- ✅ TinyURL oficial (sem interstitial)
-
-**Pendente (Fase 2 residual):**
-
-- ⏳ Redesenhar `Login`, `Dashboard` e `PublicForm` com o design system
-  (`Patients` já está pronta)
-- ⏳ Substituir inputs crus do `InvitePatientModal` pelos componentes `ui/`
-- ⏳ Tela de detalhes do paciente (`/patients/:id`)
+- ✅ Fase 1: Auth Google, deploy Vercel, SPA routing
+- ✅ Fase 2: convite com horários, formulário público, submissões, aprovação
+- ✅ Design system + layout autenticado
+- ✅ Migração Tailwind v3 → v4
+- ✅ CRUD completo de pacientes (criar, editar, arquivar, reativar, excluir)
+- ✅ Detalhe do paciente
+- ✅ Filtros na listagem (Ativos / Arquivados / Todos)
+- ✅ Máscaras (CPF, telefone) + normalização de nome
+- ✅ Página `/settings` com Google Calendar (conectar, importar, desconectar)
+- ✅ Feedback pós-OAuth
 
 **Pendente (Fase 3+):**
 
-- ⏳ Agenda (`/agenda`) com Google Calendar + Meet
+- ⏳ UI de revisão de provisórios (`prospect`) — vincular, promover, rejeitar
+- ⏳ Página `/agenda` (visualização semanal de `appointments`)
+- ⏳ Bloqueio rígido no `InvitePatientModal` (slots ocupados)
+- ⏳ Horários na criação de paciente manual (`PatientForm`)
+- ⏳ Sessões avulsas
+- ⏳ Sincronização visual com Google Calendar
+- ⏳ Preferências do consultório editáveis
+- ⏳ Edição de perfil
 - ⏳ Prontuário (`/patients/:id/records`)
 - ⏳ Financeiro (`/finance`)
-- ⏳ Configurações (`/settings`)
 - ⏳ Notificações
 
 **Branches ativas:**
@@ -406,10 +434,9 @@ URLs** configurada no painel. Se a URL não estiver na lista, cai no fallback
 
 Ao entrar no projeto, leia na ordem:
 
-1. Este `CONTEXT.md` (decisões e armadilhas)
-2. `README.md` (como rodar)
-3. `TODO.md` (o que falta)
+1. Este `CONTEXT.md`
+2. `README.md`
+3. `TODO.md`
 4. Código em `src/`
 
-Se algo aqui estiver desatualizado, **atualize antes de codar**. Contexto
-desatualizado é pior que contexto ausente.
+Se algo aqui estiver desatualizado, **atualize antes de codar**.
