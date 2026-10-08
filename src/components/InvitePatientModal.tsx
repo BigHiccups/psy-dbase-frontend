@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { WEEKDAYS, weekdayLong } from "../lib/weekdays";
+import { maskPhone, isValidPhoneBR } from "../lib/masks";
+import { toTitleCase } from "../lib/text";
 import { Button, Input, Modal, Badge } from "./ui";
 import type { InviteResponse, ScheduleInput } from "../types";
 
@@ -63,11 +65,23 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
       return;
     }
 
+    if (!isValidPhoneBR(phone)) {
+      setError("Telefone inválido. Use DDD + número.");
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await apiFetch<InviteResponse>("/invites", {
         method: "POST",
-        body: JSON.stringify({ patientNameHint, phone, schedules }),
+        body: JSON.stringify({
+          // Nome normalizado silenciosamente ao enviar
+          patientNameHint: patientNameHint
+            ? toTitleCase(patientNameHint)
+            : "",
+          phone,
+          schedules,
+        }),
       });
       setResult(data);
       window.open(data.whatsappUrl, "_blank");
@@ -193,9 +207,10 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
           <Input
             label="Telefone (WhatsApp)"
             type="tel"
+            inputMode="tel"
             placeholder="(11) 99999-9999"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(maskPhone(e.target.value))}
             required
             hint="Formato brasileiro. Será normalizado para o padrão internacional."
           />

@@ -4,6 +4,8 @@ import { ArrowLeft, Save, AlertCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
 import { usePatient } from "../hooks/usePatient";
+import { toTitleCase } from "../lib/text";
+import { maskCPF, maskPhone, isValidCPF, isValidPhoneBR } from "../lib/masks";
 
 type FormState = {
   full_name: string;
@@ -37,7 +39,6 @@ export function PatientForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Preenche o formulário quando carregar o paciente (modo edição)
   useEffect(() => {
     if (patient) {
       setForm({
@@ -60,16 +61,33 @@ export function PatientForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    // Validações extras (frontend)
+    if (form.cpf && !isValidCPF(form.cpf)) {
+      setError("CPF inválido. Confira os dígitos.");
+      return;
+    }
+    if (form.phone && !isValidPhoneBR(form.phone)) {
+      setError("Telefone inválido. Use DDD + número.");
+      return;
+    }
+    if (form.emergency_contact_phone && !isValidPhoneBR(form.emergency_contact_phone)) {
+      setError("Telefone do contato de urgência inválido.");
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
-      full_name: form.full_name.trim(),
+      full_name: toTitleCase(form.full_name),
       cpf: form.cpf.trim() || null,
       city: form.city.trim() || null,
       birth_date: form.birth_date || null,
-      phone: form.phone.trim() || null,
-      emergency_contact_name: form.emergency_contact_name.trim() || null,
-      emergency_contact_phone: form.emergency_contact_phone.trim() || null,
+      phone: form.phone || null,
+      emergency_contact_name: form.emergency_contact_name
+        ? toTitleCase(form.emergency_contact_name)
+        : null,
+      emergency_contact_phone: form.emergency_contact_phone || null,
       notes: form.notes.trim() || null,
     };
 
@@ -158,8 +176,9 @@ export function PatientForm() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="CPF"
+              inputMode="numeric"
               value={form.cpf}
-              onChange={(e) => update("cpf", e.target.value)}
+              onChange={(e) => update("cpf", maskCPF(e.target.value))}
               placeholder="000.000.000-00"
             />
 
@@ -181,9 +200,10 @@ export function PatientForm() {
             <Input
               label="Telefone"
               type="tel"
+              inputMode="tel"
               value={form.phone}
-              onChange={(e) => update("phone", e.target.value)}
-              placeholder="(11) 99999-9999"
+              onChange={(e) => update("phone", maskPhone(e.target.value))}
+              placeholder="(00) 00000-0000"
             />
           </div>
         </Card>
@@ -205,10 +225,12 @@ export function PatientForm() {
             <Input
               label="Telefone"
               type="tel"
+              inputMode="tel"
               value={form.emergency_contact_phone}
               onChange={(e) =>
-                update("emergency_contact_phone", e.target.value)
+                update("emergency_contact_phone", maskPhone(e.target.value))
               }
+              placeholder="(00) 00000-0000"
             />
           </div>
         </Card>

@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { weekdayLong } from "../lib/weekdays";
+import { toTitleCase } from "../lib/text";
+import { maskCPF, maskPhone } from "../lib/masks";
 import type { InviteCheck } from "../types";
 
 type FormState = {
@@ -34,10 +36,6 @@ const INITIAL_FORM: FormState = {
   consent_accepted: false,
   place_acknowledged: false,
 };
-
-export function PatientForm() {
-  return <div>PatientForm em construção</div>;
-}
 
 export function PublicForm() {
   const { token } = useParams<{ token: string }>();
@@ -82,12 +80,13 @@ export function PublicForm() {
 
     const { error } = await supabase.rpc("submit_patient_form", {
       p_token: token,
-      p_full_name: form.full_name,
+      // Nome normalizado silenciosamente ao enviar
+      p_full_name: toTitleCase(form.full_name),
       p_cpf: form.cpf || null,
-      p_city: form.city || null,
+      p_city: form.city.trim() || null,
       p_birth_date: form.birth_date || null,
       p_phone: form.phone || null,
-      p_emergency_contact_name: form.emergency_contact_name || null,
+      p_emergency_contact_name: toTitleCase(form.emergency_contact_name),
       p_emergency_contact_phone: form.emergency_contact_phone || null,
       p_consent_accepted: form.consent_accepted,
       p_place_acknowledged: form.place_acknowledged,
@@ -206,12 +205,10 @@ export function PublicForm() {
           className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
         >
           <div className="border-b border-gray-100 p-6">
-            <h2 className="text-base font-medium text-gray-900">
-              Seus dados
-            </h2>
+            <h2 className="text-base font-medium text-gray-900">Seus dados</h2>
             <p className="mt-1 text-xs text-gray-500">
-              Todos os campos marcados com <span className="text-red-500">*</span>{" "}
-              são obrigatórios.
+              Todos os campos marcados com{" "}
+              <span className="text-red-500">*</span> são obrigatórios.
             </p>
           </div>
 
@@ -230,15 +227,18 @@ export function PublicForm() {
               <Field label="CPF">
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={form.cpf}
-                  onChange={(e) => update("cpf", e.target.value)}
+                  onChange={(e) => update("cpf", maskCPF(e.target.value))}
                   className={inputClass}
+                  placeholder="000.000.000-00"
                 />
               </Field>
 
               <Field label="Data de nascimento" required>
                 <input
                   type="date"
+                  required
                   value={form.birth_date}
                   onChange={(e) => update("birth_date", e.target.value)}
                   className={inputClass}
@@ -250,6 +250,7 @@ export function PublicForm() {
               <Field label="Cidade" required>
                 <input
                   type="text"
+                  required
                   value={form.city}
                   onChange={(e) => update("city", e.target.value)}
                   className={inputClass}
@@ -259,9 +260,12 @@ export function PublicForm() {
               <Field label="Telefone" required>
                 <input
                   type="tel"
+                  inputMode="tel"
+                  required
                   value={form.phone}
-                  onChange={(e) => update("phone", e.target.value)}
+                  onChange={(e) => update("phone", maskPhone(e.target.value))}
                   className={inputClass}
+                  placeholder="(00) 00000-0000"
                 />
               </Field>
             </div>
@@ -285,11 +289,16 @@ export function PublicForm() {
                 <Field label="Telefone">
                   <input
                     type="tel"
+                    inputMode="tel"
                     value={form.emergency_contact_phone}
                     onChange={(e) =>
-                      update("emergency_contact_phone", e.target.value)
+                      update(
+                        "emergency_contact_phone",
+                        maskPhone(e.target.value)
+                      )
                     }
                     className={inputClass}
+                    placeholder="(00) 00000-0000"
                   />
                 </Field>
               </div>
@@ -318,7 +327,10 @@ export function PublicForm() {
 
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-                <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
+                <AlertCircle
+                  size={16}
+                  className="mt-0.5 shrink-0 text-red-600"
+                />
                 <p className="text-sm text-red-700">{error}</p>
               </div>
             )}
