@@ -8,6 +8,7 @@ import { Patients } from "./pages/Patients";
 import { PatientDetail } from "./pages/PatientDetail";
 import { PatientForm } from "./pages/PatientForm";
 import { PublicForm } from "./pages/PublicForm";
+import { Settings } from "./pages/Settings";
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
               <Route path="/patients/new" element={<PatientForm />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/patients/:id/edit" element={<PatientForm />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
 

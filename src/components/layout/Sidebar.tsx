@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { to: "/records", label: "Prontuário", icon: FileText, disabled: true },
   { to: "/finance", label: "Financeiro", icon: Wallet, disabled: true },
   { to: "/settings", label: "Configurações", icon: Settings, disabled: true },
+  { to: "/settings", label: "Configurações", icon: Settings },
 ];
 
 export function Sidebar({ open, onClose }: Props) {
