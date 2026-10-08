@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { UserPlus, Users, Inbox, Plus } from "lucide-react";
 import { usePatients, type PatientFilter } from "../hooks/usePatients";
 import { useSubmissions } from "../hooks/useSubmissions";
@@ -30,7 +30,6 @@ const FILTERS: { value: PatientFilter; label: string }[] = [
 ];
 
 export function Patients() {
-  const navigate = useNavigate();
   const [filter, setFilter] = useState<PatientFilter>("active");
   const patients = usePatients(filter);
   const submissions = useSubmissions();

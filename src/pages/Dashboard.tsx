@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { Button, Card, Badge, Spinner } from "../components/ui";
+import { Button, Card, Badge } from "../components/ui";
 
 type Profile = {
   full_name: string | null;
