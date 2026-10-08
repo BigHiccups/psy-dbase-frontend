@@ -213,6 +213,35 @@ Backend (painel Vercel):
 - `CORS_ORIGINS`
 - `TINYURL_API_TOKEN`
 
+### 4.11 Nada de diálogos nativos do navegador
+
+**Regra:** nunca usar `alert()`, `confirm()` ou `prompt()` nativos do Chrome
+(ou de qualquer navegador). Eles são feios, bloqueiam a UI, não seguem o design
+system, e não funcionam bem em mobile.
+
+Sempre usar:
+
+- **`ConfirmDialog`** (`src/components/ui/ConfirmDialog.tsx`) para confirmações
+  destrutivas ou decisões importantes (aprovar/rejeitar, excluir, cancelar)
+- **`Modal`** (`src/components/ui/Modal.tsx`) para formulários, avisos extensos
+  e qualquer outro conteúdo
+
+Exemplo de uso do `ConfirmDialog`:
+
+```tsx
+<ConfirmDialog
+  open={open}
+  onClose={() => setOpen(false)}
+  onConfirm={handleDelete}
+  title="Excluir paciente?"
+  description="Esta ação não pode ser desfeita."
+  confirmLabel="Excluir"
+  tone="danger"
+/>
+```
+
+Tons disponíveis: `default`, `warning`, `danger`, `success`.
+
 ---
 
 ## 5. Fluxos principais
