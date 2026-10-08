@@ -254,13 +254,17 @@ export function Settings() {
 
             {/* Ações */}
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handleImport} disabled={importing}>
+              <Button
+                onClick={handleImport}
+                disabled={importing || disconnecting}
+              >
                 <Download size={16} />
                 {importing ? "Importando..." : "Importar agenda"}
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => setConfirmDisconnect(true)}
+                disabled={disconnecting}
               >
                 <Link2Off size={16} />
                 Desconectar
@@ -298,9 +302,7 @@ export function Settings() {
           </div>
           <div className="flex-1">
             <h2 className="text-sm font-medium text-gray-900">Perfil</h2>
-            <p className="mt-0.5 text-xs text-gray-500">
-              {user?.email}
-            </p>
+            <p className="mt-0.5 text-xs text-gray-500">{user?.email}</p>
             <div className="mt-3 flex items-center gap-1 text-xs text-gray-400">
               <Clock size={12} />
               Edição disponível em breve
