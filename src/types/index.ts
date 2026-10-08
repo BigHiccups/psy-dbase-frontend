@@ -1,3 +1,5 @@
+export type PatientStatus = "active" | "inactive" | "discharged";
+
 export type Patient = {
   id: string;
   user_id: string;
@@ -8,12 +10,11 @@ export type Patient = {
   phone: string | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
-  status: "active" | "inactive" | "discharged";
+  status: PatientStatus;
   notes: string | null;
   created_at: string;
   updated_at: string;
 };
-
 export type ScheduleInput = {
   weekday: number;      // 0=domingo, 6=sábado
   startTime: string;    // "HH:MM"
@@ -36,3 +37,4 @@ export type InviteCheck = {
   patient_name_hint: string | null;
   schedules: ScheduleInput[];
 };
+

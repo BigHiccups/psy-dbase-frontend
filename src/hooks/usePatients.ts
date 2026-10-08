@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import type { Patient } from "../types";
 
-export function usePatients() {
+export type PatientFilter = "active" | "inactive" | "all";
+
+export function usePatients(filter: PatientFilter = "active") {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -11,10 +13,19 @@ export function usePatients() {
     setLoading(true);
     setError(null);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("patients")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("full_name", { ascending: true });
+
+    if (filter === "active") {
+      query = query.eq("status", "active");
+    } else if (filter === "inactive") {
+      query = query.neq("status", "active");
+    }
+    // filter === "all" → sem cláusula where
+
+    const { data, error } = await query;
 
     if (error) {
       setError(error.message);
@@ -27,7 +38,8 @@ export function usePatients() {
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
 
   return { patients, loading, error, reload: load };
 }

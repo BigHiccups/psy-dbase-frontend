@@ -35,6 +35,10 @@ const INITIAL_FORM: FormState = {
   place_acknowledged: false,
 };
 
+export function PatientForm() {
+  return <div>PatientForm em construção</div>;
+}
+
 export function PublicForm() {
   const { token } = useParams<{ token: string }>();
   const [invite, setInvite] = useState<InviteCheck | null>(null);
