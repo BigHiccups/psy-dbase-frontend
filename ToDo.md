@@ -6,8 +6,10 @@
 **Legenda:** `[ ]` pendente · `[~]` em andamento · `[x]` concluído · `[!]` bloqueado
 
 **Branches ativas:**
-- Frontend: `feat/design-imp`
-- Backend: `feature/form-creation`
+- Frontend: `main`
+- Backend: `main`
+
+**URL de produção:** `https://psy-dbase-frontend.vercel.app`
 
 ---
 
@@ -15,13 +17,12 @@
 
 Ordem sugerida para a próxima sessão de trabalho:
 
-1. **Tela de submissões pendentes** — listar `patient_form_submissions` com
-   `status='pending'` e botão "Aprovar" que chama a RPC `approve_submission`
-2. **Captura de horários no convite** — adicionar seção "Horários das sessões"
-   no `InvitePatientModal` (obrigatório), salvar em `patient_invite_schedules`
-   via backend, exibir em modo leitura no `PublicForm`
-3. **Checkbox de orientação sobre o local** no `PublicForm` (mesmo padrão do
-   termo de confidencialidade)
+1. **Polimento visual** — redesenhar `Login`, `Dashboard` e `PublicForm` com o
+   design system (a `Patients` já está pronta como referência)
+2. **Ajustar `InvitePatientModal`** — substituir inputs crus pelos componentes
+   `ui/Input` e `ui/Button`
+3. **Tela de detalhes do paciente** (`/patients/:id`) — dados cadastrais +
+   placeholder para prontuário
 
 ---
 
@@ -36,103 +37,82 @@ Ordem sugerida para a próxima sessão de trabalho:
 - [x] Tela de login com Google
 - [x] Deploy na Vercel com variáveis de ambiente
 - [x] Redirecionamento pós-login para `/dashboard`
+- [x] `vercel.json` com SPA routing
 
 ---
 
-## Fase 2 — Pacientes + Formulário Público
+## Fase 2 — Pacientes + Formulário Público ✅
 
 ### Concluído
 
-- [x] Tipos compartilhados (`Patient`, `InviteResponse`)
+- [x] Tipos compartilhados (`Patient`, `InviteResponse`, `ScheduleInput`, `InviteCheck`)
 - [x] Hook `usePatients`
+- [x] Hook `useSubmissions`
 - [x] Cliente HTTP autenticado (`src/lib/api.ts`)
 - [x] Página `Patients` com listagem
-- [x] `InvitePatientModal` (nome + telefone → chama `POST /invites`)
+- [x] `InvitePatientModal` com seção de horários (múltiplos dias, hora, duração)
+- [x] Validação de horários no frontend (pelo menos 1)
 - [x] Abertura do `whatsappUrl` em nova aba após gerar convite
 - [x] Página `PublicForm` com validação de token via RPC
+- [x] Bloco "Sessões combinadas" em modo leitura
 - [x] Checkbox do termo de confidencialidade
+- [x] Checkbox da orientação sobre o local
 - [x] Rota pública `/form/:token` fora do `ProtectedRoute`
+- [x] `SubmissionCard` com aprovar/rejeitar
+- [x] Seção "Submissões pendentes" em `/patients`
+- [x] Design system (`Button`, `Input`, `Card`, `Badge`, `Modal`, `EmptyState`, `Spinner`)
+- [x] Layout autenticado (`Sidebar`, `Header`, `AppLayout`)
+- [x] Migração Tailwind v3 → v4
+- [x] Fonte Inter via `<link>` no `index.html`
 
-### Pendente — funcionalidade
-
-- [ ] **Tela de submissões pendentes** em `/patients/submissions` ou seção na
-      própria `Patients`
-  - [ ] Listar submissões com `status='pending'`
-  - [ ] Mostrar nome, telefone, data de envio
-  - [ ] Botão "Ver detalhes" (modal)
-  - [ ] Botão "Aprovar" → chama RPC `approve_submission`
-  - [ ] Botão "Rejeitar" → `update status='rejected'`
-  - [ ] Atualizar lista após aprovação (`reload`)
-- [ ] **Captura de horários no convite** (regra de negócio: obrigatório)
-  - [ ] Nova tabela `patient_invite_schedules` (SQL no backend/README)
-  - [ ] Backend aceita `schedules: [{ weekday, startTime, durationMin }]`
-  - [ ] Modal adiciona seção "Horários das sessões"
-  - [ ] Botão "+ Adicionar horário" (select de dia + input de hora + duração)
-  - [ ] Validação: pelo menos 1 horário obrigatório
-  - [ ] Duração default 50 min (herda de `profiles.default_session_duration_minutes`)
-  - [ ] Formulário público exibe os horários em modo **leitura**
-- [ ] **Orientação sobre o local no formulário**
-  - [ ] Bloco informativo: "ambiente tranquilo, silencioso e privado"
-  - [ ] Checkbox adicional de confirmação
-- [ ] **Tela de detalhes do paciente** (`/patients/:id`)
-  - [ ] Dados cadastrais
-  - [ ] Histórico de submissões
-  - [ ] Placeholder para evoluções (Fase 4)
-
-### Pendente — UI / design system
+### Pendente — polimento visual
 
 - [ ] Redesenhar `Login.tsx` com o design system
 - [ ] Redesenhar `Dashboard.tsx` com o design system
-- [ ] Redesenhar `Patients.tsx` com o design system
 - [ ] Redesenhar `PublicForm.tsx` com o design system
 - [ ] Substituir inputs crus do `InvitePatientModal` pelos componentes `ui/`
 - [ ] Substituir o `<button>` cru do modal pelo `Button` do design system
-- [ ] Loading states com `Spinner`
-- [ ] Empty states com `EmptyState`
+- [ ] Padronizar loading states com `Spinner`
+- [ ] Padronizar empty states com `EmptyState`
+
+### Pendente — funcionalidade
+
+- [ ] Tela de detalhes do paciente (`/patients/:id`)
+  - [ ] Dados cadastrais
+  - [ ] Histórico de submissões
+  - [ ] Placeholder para evoluções (Fase 4)
+  - [ ] Botão de editar dados do paciente
+  - [ ] Botão de mudar status (ativo / inativo / alta)
+- [ ] Editar paciente (modal ou página)
+- [ ] Excluir paciente (soft delete via `status='discharged'`)
+- [ ] Filtros e busca em `/patients`
+- [ ] Paginação em `/patients` (quando crescer)
 
 ---
 
 ## Fase 3 — Agenda + Google Calendar + Meet
-
-### Banco (migrations a rodar no Supabase)
-
-- [ ] Tabela `appointments`
-- [ ] Tabela `appointment_attendees` (N participantes por atendimento)
-- [ ] Policies RLS + GRANT para `authenticated`
-- [ ] GRANT para `service_role` (backend vai criar eventos)
 
 ### Frontend
 
 - [ ] Página `/agenda` com visualização mensal
 - [ ] Visualização semanal
 - [ ] Modal de criação/edição de sessão
-- [ ] Configuração de duração padrão na tela de configurações
-- [ ] Configuração de política de remarcação
-- [ ] Configuração de multa por falta
 - [ ] Exibição do link do Meet na sessão
-- [ ] Geração de eventos recorrentes a partir dos horários combinados no convite
+- [ ] Configuração de duração padrão (`/settings`)
+- [ ] Configuração de política de remarcação (`/settings`)
+- [ ] Configuração de multa por falta (`/settings`)
+- [ ] Geração de eventos recorrentes a partir dos `schedules` do convite
+- [ ] Botão "Conectar Google Calendar" (`/settings`)
 
-### Backend (registrar no TODO do backend)
+### Backend (registrado no TODO do backend)
 
-- [ ] OAuth do Google para o psicólogo
+- [ ] OAuth do Google
 - [ ] Criação de evento no Calendar com `conferenceData` (Meet)
-- [ ] Convite opcional para a agenda do paciente
-- [ ] Suporte a N participantes
 - [ ] Sincronização de cancelamento/remarcação
 
 ---
 
 ## Fase 4 — Prontuário + Anamnese + Evolução SOAP
-
-### Banco
-
-- [ ] Tabela `anamnesis`
-- [ ] Tabela `sessions`
-- [ ] Tabela `evolutions` (S, O, A, P + Atuação do psicólogo)
-- [ ] Tabela `evolution_audio`
-- [ ] Tabela `evolution_keywords`
-- [ ] Tabela `share_links` (hash expirável)
-- [ ] Tabela `audit_log`
 
 ### Frontend
 
@@ -145,24 +125,25 @@ Ordem sugerida para a próxima sessão de trabalho:
 - [ ] Página pública de visualização via hash
 - [ ] Invalidação automática após expirar
 
+### Banco (a rodar manualmente no Supabase)
+
+- [ ] `anamnesis`
+- [ ] `sessions`
+- [ ] `evolutions`
+- [ ] `evolution_audio`
+- [ ] `evolution_keywords`
+- [ ] `share_links`
+- [ ] `audit_log`
+
 ---
 
 ## Fase 5 — Financeiro + Recibos + Relatórios
-
-### Banco
-
-- [ ] `incomes`
-- [ ] `expenses`
-- [ ] `expense_categories`
-- [ ] `session_payments`
-- [ ] `personal_therapy` (gastos do psicólogo como paciente)
-- [ ] `receipts`
 
 ### Frontend
 
 - [ ] Lançamento de entradas (tabela completa conforme RF04)
 - [ ] Lançamento de saídas categorizadas
-- [ ] Lançamento de gastos específicos
+- [ ] Lançamento de gastos específicos (terapia pessoal etc.)
 - [ ] Filtros por período, status, forma de pagamento
 - [ ] Alertas de vencimento
 - [ ] Suporte a pagamento por sessão e por pacote
@@ -170,6 +151,15 @@ Ordem sugerida para a próxima sessão de trabalho:
 - [ ] Relatório de pacientes novos
 - [ ] Relatório de ocupação da agenda
 - [ ] Download do recibo em PDF (chama backend)
+
+### Banco
+
+- [ ] `incomes`
+- [ ] `expenses`
+- [ ] `expense_categories`
+- [ ] `session_payments`
+- [ ] `personal_therapy`
+- [ ] `receipts`
 
 ---
 
@@ -180,6 +170,7 @@ Ordem sugerida para a próxima sessão de trabalho:
 - [ ] Política de privacidade e termos de uso
 - [ ] Fluxo de consentimento LGPD no formulário
 - [ ] Direito ao esquecimento (excluir dados do paciente)
+- [ ] Central de notificações (histórico de lembretes enviados)
 
 ---
 
@@ -191,6 +182,7 @@ Ordem sugerida para a próxima sessão de trabalho:
 - [ ] Monitoramento de erros no frontend (Sentry)
 - [ ] Acessibilidade (foco, contraste, ARIA)
 - [ ] Responsividade testada em mobile real
+- [ ] PWA (opcional, para o psicólogo acessar pelo celular)
 
 ---
 
@@ -200,16 +192,18 @@ Ordem sugerida para a próxima sessão de trabalho:
 - [ ] Provedor de WhatsApp (Cloud API vs. intermediário) — afeta apenas backend
 - [ ] Provedor de transcrição de áudio — afeta apenas backend
 - [ ] Layout do recibo em PDF — afeta backend + talvez preview no front
-- [ ] Host do backend Node (Render / Railway / Fly.io)
 - [ ] Quando versionar migrations SQL (hoje são rodadas manualmente no SQL Editor)
 
 ---
 
 ## Concluído (registro histórico)
 
-- **Fase 1 completa:** auth Google, `profiles` com trigger, RLS, deploy Vercel
-- **Fase 2 parcial:** convite via backend, encurtamento TinyURL, `wa.me`,
-  formulário público com token, submissão `pending`
+- **Fase 1 completa:** auth Google, `profiles` com trigger, RLS, deploy Vercel,
+  SPA routing via `vercel.json`
+- **Fase 2 completa:** convite com horários via backend, TinyURL oficial,
+  `wa.me`, formulário público com sessões combinadas e dois checkboxes,
+  submissões pendentes com aprovar/rejeitar
 - **Design system:** `Button`, `Input`, `Card`, `Badge`, `Modal`, `EmptyState`,
   `Spinner` + `Sidebar`, `Header`, `AppLayout`
 - **Migração Tailwind v3 → v4** com plugin Vite
+- **Env vars** configuradas no painel da Vercel (Production)

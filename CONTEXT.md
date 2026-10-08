@@ -9,32 +9,32 @@
 ## 1. O que é este projeto
 
 Interface web do **psy-dbase**, sistema de gestão para psicólogo autônomo.
-Cobre cadastro de pacientes, agenda (Google Calendar + Meet), prontuário com
-evolução SOAP, financeiro e relatórios.
+
+Cobre cadastro de pacientes via formulário público com link único, submissões
+pendentes com aprovação, agenda (Fase 3), prontuário com evolução SOAP (Fase 4),
+financeiro (Fase 5) e relatórios.
 
 **Repositório irmão:** `psy-dbase` (backend Node + integrações).
-**Um psicólogo por conta.** Não é multi-tenant compartilhado — cada conta é
-isolada por `auth.uid()`.
+**Um psicólogo por conta.** Não é multi-tenant compartilhado.
+**Status:** em produção na Vercel — `https://psy-dbase-frontend.vercel.app`
 
 ---
 
 ## 2. Stack e versões
 
-| Camada        | Tecnologia                                  | Versão       |
-|---------------|---------------------------------------------|--------------|
-| Build         | Vite                                        | 7.x          |
-| UI            | React                                       | 19.x         |
-| Tipagem       | TypeScript                                  | 5.9.x        |
-| Estilo        | **Tailwind CSS v4** (plugin `@tailwindcss/vite`) | 4.3.x  |
-| Roteamento    | React Router                                | 7.x          |
-| Ícones        | lucide-react                                | última       |
-| Auth          | Supabase Auth (Google OAuth)                | —            |
-| Dados         | `@supabase/supabase-js`                     | 2.x          |
-| HTTP          | fetch nativo (via `src/lib/api.ts`)         | —            |
-| Gerenciador   | npm                                         | —            |
-| Deploy        | Vercel                                      | —            |
-
-**Node:** 20.x (o backend usa `ws` por causa disso — ver CONTEXT do backend).
+| Camada        | Tecnologia                                              | Versão       |
+|---------------|---------------------------------------------------------|--------------|
+| Build         | Vite                                                    | 7.x          |
+| UI            | React                                                   | 19.x         |
+| Tipagem       | TypeScript                                              | 5.9.x        |
+| Estilo        | **Tailwind CSS v4** (plugin `@tailwindcss/vite`)        | 4.3.x        |
+| Roteamento    | React Router                                            | 7.x          |
+| Ícones        | lucide-react                                            | última       |
+| Auth          | Supabase Auth (Google OAuth)                            | —            |
+| Dados         | `@supabase/supabase-js`                                 | 2.x          |
+| HTTP          | fetch nativo (via `src/lib/api.ts`)                     | —            |
+| Gerenciador   | npm                                                     | —            |
+| Deploy        | Vercel                                                  | —            |
 
 ---
 
@@ -44,21 +44,25 @@ isolada por `auth.uid()`.
 src/
 ├── components/
 │   ├── layout/          # Sidebar, Header, AppLayout
-│   └── ui/              # Button, Input, Card, Badge, Modal, EmptyState, Spinner, index.ts
+│   ├── ui/              # Button, Input, Card, Badge, Modal, EmptyState, Spinner, index.ts
+│   ├── InvitePatientModal.tsx
+│   └── SubmissionCard.tsx
 ├── contexts/
 │   └── AuthContext.tsx
 ├── hooks/
-│   └── usePatients.ts
+│   ├── usePatients.ts
+│   └── useSubmissions.ts
 ├── lib/
 │   ├── supabase.ts      # cliente único do Supabase
-│   └── api.ts           # fetch autenticado para o backend Node
+│   ├── api.ts           # fetch autenticado para o backend Node
+│   └── weekdays.ts      # mapeamento 0–6 → "Dom".."Sáb"
 ├── pages/
 │   ├── Login.tsx
 │   ├── Dashboard.tsx
 │   ├── Patients.tsx
 │   └── PublicForm.tsx
 ├── types/
-│   └── index.ts         # Patient, InviteResponse, …
+│   └── index.ts         # Patient, InviteResponse, ScheduleInput, InviteCheck…
 ├── App.tsx
 ├── index.css            # Tailwind v4 + @theme
 └── main.tsx
@@ -76,6 +80,7 @@ isolamento.
 
 O backend Node só é usado para operações que exigem **segredos**:
 
+- Geração de convites (TinyURL + telefone + JWT validation)
 - Google Calendar / Meet (Fase 3)
 - Envio de WhatsApp / e-mail (Fase 6)
 - Geração de PDF de recibo (Fase 5)
@@ -100,10 +105,7 @@ Toda tabela no Supabase precisa de **duas coisas**:
 
 **Sem o GRANT, o Postgres barra antes da RLS** — o erro é
 `42501 permission denied for table`. Já aconteceu uma vez com `profiles` e outra
-com `patient_invites`. Sempre incluir GRANT nas migrations.
-
-O backend usa `service_role` (ignora RLS e GRANT), mas o frontend usa `anon` +
-`authenticated`, então as duas camadas importam.
+com `patient_invites`.
 
 ### 4.4 Tailwind v4 — não é v3
 
@@ -112,13 +114,12 @@ O backend usa `service_role` (ignora RLS e GRANT), mas o frontend usa `anon` +
 - Plugin registrado em `vite.config.ts` via `@tailwindcss/vite`
 - Tema (cores, fontes) vai em `src/index.css` dentro de `@theme { … }`
 - Cor primária é `brand-*` (mapeada para teal-600 do Tailwind)
-
-Se precisar adicionar cor/fonte nova, edite o `@theme` no `src/index.css`,
-**não** crie `tailwind.config.js`.
+- Fonte Inter carregada via `<link>` no `index.html` (não via `@import` no CSS,
+  que conflita com a ordem do Tailwind v4)
 
 ### 4.5 Design system próprio em `components/ui/`
 
-Componentes base a serem reutilizados em todas as telas:
+Componentes base reutilizados em todas as telas:
 
 - `Button` — variantes: `primary` (brand), `secondary`, `ghost`, `danger`
 - `Input` — com `label`, `error`, `hint`
@@ -158,6 +159,60 @@ O formulário público não exige sessão — o paciente não tem conta.
 fallback `*` → redireciona para `/dashboard` → `ProtectedRoute` → `/login`.
 Foi isso que fez o link do formulário cair na tela de login na primeira vez.
 
+### 4.8 SPA routing na Vercel
+
+O React Router gerencia as rotas **no navegador**. Quando o navegador pede
+`https://psy-dbase-frontend.vercel.app/dashboard` direto, a Vercel procura um
+arquivo físico chamado `dashboard`, não encontra, e devolve 404.
+
+Solução: `vercel.json` na raiz do frontend com rewrite:
+
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+Sem isso, links diretos (formulário público, atalhos, F5 em rotas internas)
+quebram em produção.
+
+### 4.9 Variáveis `VITE_*` são injetadas em build time
+
+O Vite **congela** o valor de `import.meta.env.VITE_*` no bundle JavaScript
+durante o build. Isso significa:
+
+- Mudar uma env var no painel da Vercel **não afeta** deploys existentes
+- É preciso **redeploy sem cache** para a nova variável valer
+- Se o build usar cache, o Vite reaproveita o bundle antigo e o valor antigo
+  persiste
+
+**Sintoma clássico:** bundle em produção aponta para `http://localhost:3333`
+mesmo depois de você ter configurado `VITE_API_URL` no painel — porque o deploy
+é anterior à configuração.
+
+### 4.10 Env vars de produção ficam no painel da Vercel
+
+O `.env.local` do disco **só vale para desenvolvimento local**. Em produção,
+quem manda são as variáveis configuradas no painel da Vercel (projeto
+`psy-dbase-frontend`).
+
+Deixar as três como **Config** (não Secret) simplifica debug — todas são
+públicas por design.
+
+Frontend (painel Vercel):
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_URL`
+
+Backend (painel Vercel):
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `FRONTEND_URL`
+- `CORS_ORIGINS`
+- `TINYURL_API_TOKEN`
+
 ---
 
 ## 5. Fluxos principais
@@ -165,41 +220,62 @@ Foi isso que fez o link do formulário cair na tela de login na primeira vez.
 ### 5.1 Login
 
 1. Usuário clica em "Entrar com Google" na `/login`
-2. `supabase.auth.signInWithOAuth({ provider: "google" })`
+2. `supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: <window.location.origin>/dashboard } })`
 3. Redireciona para o Google → volta para `/dashboard`
 4. `AuthContext` mantém a sessão via `onAuthStateChange`
 5. Trigger no banco (`on_auth_user_created`) cria linha em `profiles`
    automaticamente no signup
 
+**Importante:** o Supabase valida o `redirectTo` contra a lista de **Redirect
+URLs** configurada no painel. Se a URL não estiver na lista, cai no fallback
+(**Site URL**). Ambas precisam ter o domínio de produção **e** `localhost:5173`.
+
 ### 5.2 Convite de paciente
 
 1. Psicólogo vai em `/patients` → botão "Convidar paciente"
-2. `InvitePatientModal` coleta nome (opcional) + telefone (obrigatório)
+2. `InvitePatientModal` coleta:
+   - Nome (opcional)
+   - Telefone (obrigatório)
+   - **Pelo menos 1 horário** (obrigatório): dia da semana + hora + duração
+     (default 50 min)
 3. Chama `POST /invites` no backend Node via `apiFetch`
 4. Backend:
    - Cria registro em `patient_invites` com token UUID
-   - Gera URL curta via TinyURL (com fallback para URL longa se falhar)
+   - Cria registros em `patient_invite_schedules`
+   - Encurta URL via TinyURL oficial (com fallback para URL longa)
    - Monta link `wa.me/<phone>?text=<mensagem>`
-5. Backend devolve `{ inviteId, token, publicUrl, shortUrl, whatsappUrl, phone }`
-6. Frontend abre `whatsappUrl` em nova aba
+5. Frontend abre `whatsappUrl` em nova aba
+6. Modal mostra resumo dos horários + botão "Copiar link"
 
 ### 5.3 Formulário público
 
-1. Paciente recebe link `https://…/form/<token>` via WhatsApp
-2. `PublicForm` valida o token via RPC `get_invite_by_token`
-3. Se válido: mostra formulário com dados cadastrais + checkbox do termo
-4. Ao enviar, chama RPC `submit_patient_form`
-5. RPC:
-   - Valida o token de novo (não usado, não expirado)
-   - Cria linha em `patient_form_submissions` com `status='pending'`
-   - Marca o convite como `used_at = now()`
-6. Paciente vê tela de sucesso
+1. Paciente recebe link `https://psy-dbase-frontend.vercel.app/form/<token>`
+   via WhatsApp
+2. `PublicForm` valida o token via RPC `get_invite_by_token` (retorna
+   `valid`, `reason`, `patient_name_hint`, `schedules`)
+3. Se válido, mostra:
+   - Bloco "Sessões combinadas" em modo leitura (dias + horários + duração)
+   - Campos cadastrais (nome, CPF, cidade, nascimento, telefone, contato de
+     urgência)
+   - Checkbox do **termo de confidencialidade**
+   - Checkbox da **orientação sobre o local** (ambiente tranquilo, silencioso,
+     privado)
+4. Ao enviar, chama RPC `submit_patient_form` (valida token de novo, grava os
+   dois aceites com timestamp, marca convite como usado)
+5. Paciente vê tela de sucesso
 
-### 5.4 Aprovação (pendente de UI)
+### 5.4 Aprovação de submissão
 
-RPC `approve_submission` já existe no banco. Cria `patient` a partir da
-submissão e marca `status='approved'`. **Falta a tela no frontend** para o
-psicólogo revisar e aprovar.
+1. Psicólogo vai em `/patients`
+2. Seção "Submissões pendentes" mostra cards dos formulários enviados
+3. Cada card tem botão **Aprovar** e **Rejeitar**
+4. **Aprovar** chama RPC `approve_submission`:
+   - Valida que o usuário logado é o dono
+   - Cria registro em `patients` com os dados da submissão
+   - Marca a submissão como `approved`
+5. **Rejeitar** faz `update status='rejected', reviewed_at=now()`
+6. Após qualquer ação, `reload()` é chamado nos hooks `usePatients` e
+   `useSubmissions`
 
 ---
 
@@ -212,9 +288,8 @@ psicólogo revisar e aprovar.
 - **Tipos:** usar `type`, não `interface` (exceto quando precisar de extensão).
 - **Estados de fetch:** sempre tratar `loading`, `error` e `empty`.
 - **Rotas:** PascalCase para arquivos de página (`Patients.tsx`), kebab-case
-  para componentes utilitários (`invite-patient-modal.tsx` quando for o caso).
-- **Nada de `any`:** exceto em integrações de bibliotecas com tipos divergentes
-  (ex: `transport: ws as any` no backend).
+  para componentes utilitários.
+- **Nada de `any`:** exceto em integrações de bibliotecas com tipos divergentes.
 
 ---
 
@@ -225,51 +300,76 @@ psicólogo revisar e aprovar.
 | `42501 permission denied for table`                 | Faltou GRANT                                    | `grant … to authenticated;` na migration                    |
 | `Unsupported provider: provider is not enabled`     | Google OAuth não salvo no Supabase              | Salvar em Authentication → Providers                        |
 | `redirect_uri_mismatch`                             | Callback do Google ≠ do Supabase                | `https://<ref>.supabase.co/auth/v1/callback` no Google Cloud |
+| Login redireciona para `localhost` em produção      | Site URL no Supabase aponta para localhost      | Ajustar Site URL **e** Redirect URLs no painel Supabase      |
 | Link `/form/:token` cai em `/login`                 | Rota pública ausente ou fallback errado         | Declarar rota **antes** do `ProtectedRoute`                 |
-| Tailwind não aplica estilos novos                   | Config de v3 em projeto v4, ou dev server não reiniciado | Usar `@theme` no CSS e plugin Vite; reiniciar           |
-| `Token inválido` no curl do backend                 | Colou a `service_role` em vez do `access_token` | Usar o token do usuário (payload `"role":"authenticated"`)  |
-| `permission denied` no backend mesmo com GRANT      | `.env` do backend com `anon` em vez de `service_role` | Decodificar o JWT e conferir o campo `role`             |
+| `/dashboard` dá 404 em produção                     | Falta `vercel.json` com rewrite para `index.html` | Criar `vercel.json` com SPA routing                        |
+| Tailwind não aplica estilos novos                   | Config de v3 em projeto v4, ou dev server não reiniciado | Usar `@theme` no CSS e plugin Vite; reiniciar        |
+| Erro `@import statements must precede all other…`   | `@import` da fonte após outras regras no CSS     | Mover a fonte para `<link>` no `index.html`                 |
+| Bundle aponta para `localhost` mesmo após config    | Env var `VITE_*` só vale em novo build           | Redeploy **sem cache**                                      |
+| `VITE_API_URL não configurada` no site em produção  | Variável ausente ou deploy antigo                | Criar no painel + redeploy sem cache                        |
+| Erro de CORS no site de produção                    | Backend fora do ar (500 no boot)                 | Corrigir o backend primeiro; CORS nem chega a ser avaliado  |
+| `tsc -b` falha com `declared but never used`        | Import não usado (build é mais rigoroso que dev) | Remover o import                                            |
 
 ---
 
 ## 8. Segurança
 
-- **`anon key`:** vai no `.env.local` do frontend. É segura ali **porque o RLS
-  protege**. Nunca comitar `.env.local`.
-- **`service_role key`:** exclusiva do backend Node. Nunca no frontend, nunca em
-  log, nunca em chat. Se vazar, rotacionar imediatamente.
+- **`anon key`:** vai no painel da Vercel e no `.env.local`. É segura ali
+  **porque o RLS protege**. Nunca commitar `.env.local`.
+- **`service_role key`:** exclusiva do backend. Nunca no frontend.
 - **`access_token` do usuário:** vai no header `Authorization`. Expira em 1h e
   é renovado automaticamente pelo SDK.
 - **Links de prontuário:** hash expirável, sem indexação (Fase 4).
 - **LGPD:** dado sensível de saúde. Consentimento explícito, direito ao
   esquecimento, auditoria de acesso ao prontuário.
+- **Env vars `VITE_*` são públicas:** qualquer pessoa vê no bundle. Nunca
+  colocar segredo com prefixo `VITE_`.
 
 ---
 
 ## 9. O que está fora do escopo deste repositório
 
-- Lógica de negócio pesada (cálculos financeiros complexos, geração de PDF,
-  integração Google Calendar, envio de WhatsApp) → **backend `psy-dbase`**
-- Migrations SQL → **rodadas manualmente no SQL Editor do Supabase** por
-  enquanto (não há versionamento ainda; a decidir se vale usar `supabase/migrations`)
-- Deploy do backend → **a definir** (Render / Railway / Fly.io)
+- Lógica de negócio pesada (geração de convite, encurtamento de URL, integração
+  Google Calendar, envio de WhatsApp) → **backend `psy-dbase`**
+- Migrations SQL → **rodadas manualmente no SQL Editor do Supabase**
+- Autenticação OAuth → **Supabase Auth**
+- Deploy do backend → **Vercel** (projeto separado)
 
 ---
 
 ## 10. Estado atual (última atualização)
 
-- ✅ Fase 1 concluída: Auth Google, `profiles` com trigger, RLS, deploy Vercel
-- ✅ Fase 2 parcial: convite de paciente, formulário público, submissão
-- ⏳ Pendente Fase 2: tela de submissões pendentes + botão de aprovação
-- ⏳ Pendente Fase 2: captura de horários das sessões no convite (obrigatório),
-  leitura no formulário, checkbox de orientação sobre o local
-- ⏳ Pendente Fase 2: telas redesenhadas com o design system (Login, Dashboard,
-  Patients, PublicForm)
-- ⏳ Fase 3+: Agenda, Prontuário, Financeiro, Notificações
+**Concluído:**
+
+- ✅ Fase 1: Auth Google, `profiles` com trigger, RLS, deploy Vercel
+- ✅ Fase 2: convite com horários, formulário público, submissões,
+  aprovação/rejeição
+- ✅ Design system (`Button`, `Input`, `Card`, `Badge`, `Modal`, `EmptyState`,
+  `Spinner`)
+- ✅ Layout autenticado (`Sidebar`, `Header`, `AppLayout`)
+- ✅ Migração Tailwind v3 → v4 com plugin Vite
+- ✅ `vercel.json` com SPA routing
+- ✅ Env vars configuradas no painel da Vercel
+- ✅ TinyURL oficial (sem interstitial)
+
+**Pendente (Fase 2 residual):**
+
+- ⏳ Redesenhar `Login`, `Dashboard` e `PublicForm` com o design system
+  (`Patients` já está pronta)
+- ⏳ Substituir inputs crus do `InvitePatientModal` pelos componentes `ui/`
+- ⏳ Tela de detalhes do paciente (`/patients/:id`)
+
+**Pendente (Fase 3+):**
+
+- ⏳ Agenda (`/agenda`) com Google Calendar + Meet
+- ⏳ Prontuário (`/patients/:id/records`)
+- ⏳ Financeiro (`/finance`)
+- ⏳ Configurações (`/settings`)
+- ⏳ Notificações
 
 **Branches ativas:**
-- Frontend: `feat/design-imp`
-- Backend: `feature/form-creation`
+- Frontend: `main`
+- Backend: `main`
 
 ---
 
