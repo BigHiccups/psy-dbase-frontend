@@ -1,13 +1,37 @@
 import { useState } from "react";
-import { UserPlus, Users, Inbox } from "lucide-react";
-import { usePatients } from "../hooks/usePatients";
+import { Link } from "react-router-dom";
+import { UserPlus, Users, Inbox, Plus } from "lucide-react";
+import { usePatients, type PatientFilter } from "../hooks/usePatients";
 import { useSubmissions } from "../hooks/useSubmissions";
 import { InvitePatientModal } from "../components/InvitePatientModal";
 import { SubmissionCard } from "../components/SubmissionCard";
 import { Button, Badge, EmptyState, Spinner } from "../components/ui";
+import type { PatientStatus } from "../types";
+
+const STATUS_LABEL: Record<PatientStatus, string> = {
+  active: "Ativo",
+  inactive: "Arquivado",
+  discharged: "Alta",
+};
+
+const STATUS_VARIANT: Record<
+  PatientStatus,
+  "success" | "neutral" | "brand"
+> = {
+  active: "success",
+  inactive: "neutral",
+  discharged: "brand",
+};
+
+const FILTERS: { value: PatientFilter; label: string }[] = [
+  { value: "active", label: "Ativos" },
+  { value: "inactive", label: "Arquivados" },
+  { value: "all", label: "Todos" },
+];
 
 export function Patients() {
-  const patients = usePatients();
+  const [filter, setFilter] = useState<PatientFilter>("active");
+  const patients = usePatients(filter);
   const submissions = useSubmissions();
   const [inviteOpen, setInviteOpen] = useState(false);
 
@@ -18,18 +42,27 @@ export function Patients() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Cabeçalho */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Pacientes</h1>
           <p className="text-sm text-gray-500">
-            Gerencie seus pacientes e convites pendentes.
+            Gerencie seus pacientes, convites e cadastros.
           </p>
         </div>
-        <Button onClick={() => setInviteOpen(true)}>
-          <UserPlus size={16} />
-          Convidar paciente
-        </Button>
+
+        <div className="flex gap-2">
+          <Link to="/patients/new">
+            <Button variant="secondary">
+              <Plus size={16} />
+              Novo paciente
+            </Button>
+          </Link>
+          <Button onClick={() => setInviteOpen(true)}>
+            <UserPlus size={16} />
+            Convidar
+          </Button>
+        </div>
       </div>
 
       {/* Submissões pendentes */}
@@ -69,9 +102,22 @@ export function Patients() {
 
       {/* Lista de pacientes */}
       <section>
-        <h2 className="mb-3 text-sm font-medium text-gray-900">
-          Pacientes ativos
-        </h2>
+        {/* Filtros */}
+        <div className="mb-4 flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                filter === f.value
+                  ? "bg-brand-50 text-brand-700"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
 
         {patients.loading && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -84,13 +130,27 @@ export function Patients() {
           <p className="text-sm text-red-600">Erro: {patients.error}</p>
         )}
 
-        {!patients.loading && !patients.error && patients.patients.length === 0 && (
-          <EmptyState
-            icon={<Users size={20} />}
-            title="Nenhum paciente cadastrado ainda"
-            description='Clique em "Convidar paciente" para enviar o formulário de cadastro.'
-          />
-        )}
+        {!patients.loading &&
+          !patients.error &&
+          patients.patients.length === 0 && (
+            <EmptyState
+              icon={<Users size={20} />}
+              title={
+                filter === "active"
+                  ? "Nenhum paciente ativo"
+                  : filter === "inactive"
+                    ? "Nenhum paciente arquivado"
+                    : "Nenhum paciente cadastrado ainda"
+              }
+              description={
+                filter === "active"
+                  ? 'Clique em "Novo paciente" ou "Convidar" para começar.'
+                  : filter === "inactive"
+                    ? "Pacientes arquivados aparecem aqui."
+                    : 'Clique em "Novo paciente" para começar.'
+              }
+            />
+          )}
 
         {!patients.loading && patients.patients.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -98,24 +158,39 @@ export function Patients() {
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
                   <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Telefone</th>
+                  <th className="hidden px-4 py-3 sm:table-cell">Telefone</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {patients.patients.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {p.full_name}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {p.phone ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="success">{p.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
+                {patients.patients.map((p) => {
+                  const isArchived = p.status !== "active";
+                  return (
+                    <tr
+                      key={p.id}
+                      className={`transition hover:bg-gray-50 ${
+                        isArchived ? "opacity-60" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <Link
+                          to={`/patients/${p.id}`}
+                          className="font-medium text-gray-900 hover:text-brand-700 hover:underline"
+                        >
+                          {p.full_name}
+                        </Link>
+                      </td>
+                      <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">
+                        {p.phone ?? "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={STATUS_VARIANT[p.status]}>
+                          {STATUS_LABEL[p.status]}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -133,4 +208,4 @@ export function Patients() {
       )}
     </div>
   );
-} 
+}

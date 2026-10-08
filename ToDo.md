@@ -65,15 +65,17 @@ Ordem sugerida para a próxima sessão de trabalho:
 - [x] Migração Tailwind v3 → v4
 - [x] Fonte Inter via `<link>` no `index.html`
 
-### Pendente — polimento visual
+### Pendente — polimento visual ✅
 
-- [ ] Redesenhar `Login.tsx` com o design system
-- [ ] Redesenhar `Dashboard.tsx` com o design system
-- [ ] Redesenhar `PublicForm.tsx` com o design system
-- [ ] Substituir inputs crus do `InvitePatientModal` pelos componentes `ui/`
-- [ ] Substituir o `<button>` cru do modal pelo `Button` do design system
-- [ ] Padronizar loading states com `Spinner`
-- [ ] Padronizar empty states com `EmptyState`
+- [x] Redesenhar `Login.tsx` com o design system
+- [x] Redesenhar `Dashboard.tsx` com o design system
+- [x] Redesenhar `PublicForm.tsx` com o design system
+- [x] Substituir inputs crus do `InvitePatientModal` pelos componentes `ui/`
+- [x] Substituir o `<button>` cru do modal pelo `Button` do design system
+- [x] Padronizar loading states com `Spinner`
+- [x] Padronizar empty states com `EmptyState`
+- [x] Adicionar `ConfirmDialog` para confirmações (sem `confirm()` nativo)
+- [x] Validação obrigatória: cidade, telefone, data de nascimento (front + banco)
 
 ### Pendente — funcionalidade
 
