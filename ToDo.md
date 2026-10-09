@@ -10,23 +10,24 @@
 
 ## 🎯 Próximos 3 passos
 
-1. **UI de revisão de provisórios** — bloco "Aguardando confirmação" em
-   `/patients`, com botões "É paciente novo" / "É paciente existente" / "Não é
-   paciente" para resolver os 3 importados do Google
-2. **Página `/agenda`** — visualização semanal dos `appointments`, com cores
-   por tipo (session/personal/blocked)
-3. **Bloqueio rígido no `InvitePatientModal`** — slots ocupados ficam cinza
+1. **Página `/agenda`** — visualização semanal dos `appointments`, com cores
+   por tipo (`session` brand, `personal` cinza, `blocked` listrado, `due`
+   marcador). É o que dá sentido visual à integração Google.
+2. **Bloqueio rígido no `InvitePatientModal`** — slots ocupados ficam cinza;
+   tooltip mostra o nome do paciente/provider.
+3. **Horários na criação manual de paciente** — `PatientForm` permite definir
+   recorrência desde o início (com o mesmo bloqueio).
 
 ---
 
 ## Fase 1 — Fundação ✅
 
 - [x] Setup Vite + React + TypeScript
-- [x] Tailwind v4 com plugin `@tailwindcss/vite`
-- [x] Cliente Supabase (`src/lib/supabase.ts`)
+- [x] Tailwind v4
+- [x] Cliente Supabase
 - [x] `AuthContext`
 - [x] `ProtectedRoute`
-- [x] Tela de login com Google (redesenhada)
+- [x] Login com Google
 - [x] Deploy na Vercel
 - [x] `vercel.json` com SPA routing
 
@@ -34,13 +35,12 @@
 
 ## Fase 2 — Pacientes + Formulário Público ✅
 
-- [x] Tipos compartilhados
-- [x] `usePatients`, `usePatient`, `useSubmissions`
-- [x] Cliente HTTP autenticado (`api.ts`)
-- [x] `Patients.tsx` com listagem, filtros e ações
-- [x] `InvitePatientModal` com seção de horários
-- [x] `PublicForm` com sessões combinadas e dois checkboxes
-- [x] `SubmissionCard` com aprovar/rejeitar
+- [x] Hooks `usePatient`, `usePatients`, `useSubmissions`
+- [x] `api.ts` autenticado
+- [x] `Patients` com filtros e ações
+- [x] `InvitePatientModal` com horários
+- [x] `PublicForm` com sessões combinadas + 2 checkboxes
+- [x] `SubmissionCard` (aprovar/rejeitar)
 - [x] Design system completo
 - [x] `AppLayout` com `Sidebar` + `Header`
 - [x] Migração Tailwind v3 → v4
@@ -50,51 +50,65 @@
 - [x] Soft delete (arquivar) + hard delete (excluir)
 - [x] Máscaras (CPF, telefone)
 - [x] Normalização de nome (`toTitleCase`)
-- [x] Validação de CPF e telefone
 
 ---
 
-## Fase 3 — Agenda + Google Calendar
+## Fase 3 — Google Calendar + Revisão de Provisórios
 
-### ✅ Concluído — Integração Google (conectar + importar)
+### ✅ Concluído — Integração + Revisão + Prestadores
 
-- [x] Página `/settings`
-- [x] Card "Google Calendar" com status
-- [x] Botão "Conectar Google Calendar" (abre nova aba)
+- [x] Página `/settings` com Google Calendar
+- [x] Botão "Conectar Google Calendar" (nova aba)
 - [x] Feedback pós-OAuth (`?google=connected|denied|invalid|error`)
 - [x] Botão "Importar agenda"
 - [x] Botão "Desconectar" com `ConfirmDialog`
-- [x] Rota `/settings` no `App.tsx`
-- [x] Item "Configurações" habilitado na `Sidebar`
-
-### ⏳ Pendente — UI de revisão de provisórios
-
-- [ ] Bloco "Aguardando confirmação" em `/patients` (quando há `prospect`)
-- [ ] Contador de provisórios
-- [ ] Ação "É paciente novo" → abre `PatientForm` para completar e promover
-- [ ] Ação "É paciente existente" → busca paciente e mescla
-- [ ] Ação "Não é paciente" → abre opção `personal` / `blocked` e remove o
-      `patient` provisório
-- [ ] Helper `displayName()` em `src/lib/patient-display.ts` (heurística visual)
-- [ ] Filtro "Provisórios" na listagem
+- [x] Bloco "Aguardando revisão" em `/patients`
+- [x] `ProspectCard` com 3 ações
+- [x] Página `/patients/:id/review`
+- [x] Helper `displayName` em `src/lib/patient-display.ts`
+- [x] CRUD completo de prestadores
+- [x] `Providers` (listagem com filtros)
+- [x] `ProviderDetail` (detalhes + arquivar/reativar/excluir)
+- [x] `ProviderForm` (formulário dinâmico por `kind`)
+- [x] Máscara e validação de CNPJ (`maskCNPJ`, `isValidCNPJ`)
+- [x] Item "Prestadores" na sidebar
+- [x] Rotas `/providers`, `/providers/new`, `/providers/:id`,
+      `/providers/:id/edit`
+- [x] `PatientForm` redireciona `prospect` para `/patients/:id/review`
+- [x] `usePatients` exclui `prospect` do filtro "all"
 
 ### ⏳ Pendente — Página `/agenda`
 
 - [ ] Visualização semanal (segunda a domingo)
 - [ ] Navegação entre semanas
-- [ ] Blocos coloridos por tipo (`session` brand, `personal` cinza, `blocked`
-      listrado)
+- [ ] Blocos coloridos por tipo (`session` brand, `personal` cinza,
+      `blocked` listrado)
+- [ ] `due` renderizado como marcador no cabeçalho do dia (sem horário)
 - [ ] Clicar num slot abre detalhe
 - [ ] Clique em slot vazio cria sessão avulsa
 - [ ] Filtro por paciente
 - [ ] Toggle "Mostrar Google Calendar" (sincroniza visualmente)
+- [ ] Sessões avulsas (`is_recurring=false`)
 
 ### ⏳ Pendente — Bloqueio no convite
 
 - [ ] `InvitePatientModal` consulta `appointments` ativos
 - [ ] Slots ocupados ficam cinza/desabilitados
-- [ ] Mostrar qual paciente ocupa (ou "compromisso pessoal" se for `personal`)
+- [ ] Mostrar qual paciente/provider ocupa
 - [ ] Aplicar o mesmo bloqueio no `PatientForm` (criar paciente manual)
+- [ ] Aplicar no `/patients/:id/review` (revisão)
+
+### ⏳ Pendente — Horários no paciente
+
+- [ ] `PatientForm` com seção "Horários das sessões" (recorrência)
+- [ ] `PatientReview` com seção "Horários das sessões"
+- [ ] Criação de `appointments` recorrentes ao salvar
+
+### ⏳ Pendente — Vencimentos (`due`)
+
+- [ ] Tela de vencimentos em `/providers/:id`
+- [ ] Criação de N parcelas (mensais/anuais)
+- [ ] Marcar como pago
 
 ---
 
@@ -132,21 +146,23 @@
 - [ ] Política de privacidade e termos de uso
 - [ ] Fluxo de consentimento LGPD no formulário
 - [ ] Direito ao esquecimento (excluir dados do paciente)
-- [ ] Central de notificações (histórico)
+- [ ] Central de notificações
 
 ---
 
 ## Ajustes finos pendentes
 
 - [ ] Página 404 customizada
-- [ ] Favicon customizado (hoje usa o padrão do Vite)
+- [ ] Favicon customizado
 - [ ] Metadados (`<title>`, `<meta description>`, Open Graph)
 - [ ] Landing page pública (opcional)
-- [ ] Trocar `alert()` do `PatientDetail` por `AlertDialog` do design system
-- [ ] Criar `AlertDialog` no design system (aviso sem confirmação)
-- [ ] `postMessage` do OAuth callback para a aba original (evitar F5 manual)
+- [ ] Trocar `alert()` do `PatientDetail` e `ProviderDetail` por `AlertDialog`
+- [ ] Criar `AlertDialog` no design system
+- [ ] `postMessage` do OAuth callback para a aba original
 - [ ] Editar perfil em `/settings`
 - [ ] Editar preferências do consultório em `/settings`
+- [ ] Melhorar busca em `/patients` e `/providers`
+- [ ] Paginação quando a lista crescer
 
 ---
 
@@ -163,21 +179,21 @@
 
 ## Decisões pendentes
 
-- [ ] Como exibir provisórios (bloco dedicado vs. seção separada)
 - [ ] Layout da `/agenda` (grade semanal fixa vs. scroll infinito)
 - [ ] Como mesclar paciente provisório com existente (nome + telefone? e-mail?)
 - [ ] Se o Google Calendar aparece visualmente na agenda ou se é só leitura de
       disponibilidade
+- [ ] Se a `/agenda` mostra vencimentos (`due`) no rodapé ou no cabeçalho
 
 ---
 
 ## Concluído (registro histórico)
 
 - **Fase 1 completa:** auth Google, deploy Vercel, SPA routing
-- **Fase 2 completa:** convite, formulário público, submissões, aprovação,
-  CRUD de pacientes, máscaras, design system
-- **Fase 3 parcial:** página `/settings`, integração Google Calendar (conectar,
-  importar, desconectar)
+- **Fase 2 completa:** convite, formulário público, submissões, CRUD de pacientes,
+  máscaras, design system
+- **Fase 3 parcial:** `/settings`, integração Google Calendar (conectar,
+  importar, desconectar), bloco de revisão de provisórios, CRUD de prestadores
 - **Design system:** Button, Input, Card, Badge, Modal, ConfirmDialog,
   EmptyState, Spinner + Sidebar, Header, AppLayout
 - **Migração Tailwind v3 → v4**
