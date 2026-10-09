@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { UserPlus, Users, Inbox, Plus } from "lucide-react";
+import { UserPlus, Users, Inbox, Plus, AlertCircle } from "lucide-react";
 import { usePatients, type PatientFilter } from "../hooks/usePatients";
+import { useProspects } from "../hooks/useProspects";
 import { useSubmissions } from "../hooks/useSubmissions";
 import { InvitePatientModal } from "../components/InvitePatientModal";
 import { SubmissionCard } from "../components/SubmissionCard";
+import { ProspectCard } from "../components/ProspectCard";
 import { Button, Badge, EmptyState, Spinner } from "../components/ui";
 import type { PatientStatus } from "../types";
 
 const STATUS_LABEL: Record<PatientStatus, string> = {
+  prospect: "Em revisão",
   active: "Ativo",
   inactive: "Arquivado",
   discharged: "Alta",
@@ -16,8 +19,9 @@ const STATUS_LABEL: Record<PatientStatus, string> = {
 
 const STATUS_VARIANT: Record<
   PatientStatus,
-  "success" | "neutral" | "brand"
+  "success" | "neutral" | "brand" | "warning"
 > = {
+  prospect: "warning",
   active: "success",
   inactive: "neutral",
   discharged: "brand",
@@ -32,12 +36,14 @@ const FILTERS: { value: PatientFilter; label: string }[] = [
 export function Patients() {
   const [filter, setFilter] = useState<PatientFilter>("active");
   const patients = usePatients(filter);
+  const prospects = useProspects();
   const submissions = useSubmissions();
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  function handleSubmissionDone() {
-    submissions.reload();
+  function handleReloadAll() {
+    prospects.reload();
     patients.reload();
+    submissions.reload();
   }
 
   return (
@@ -65,6 +71,28 @@ export function Patients() {
         </div>
       </div>
 
+      {/* Aguardando revisão (provisórios do Google) */}
+      {prospects.prospects.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <AlertCircle size={16} className="text-amber-600" />
+            <h2 className="text-sm font-medium text-gray-900">
+              Aguardando revisão
+            </h2>
+            <Badge variant="warning">{prospects.prospects.length}</Badge>
+          </div>
+          <p className="mb-3 text-xs text-gray-500">
+            Importados do Google Calendar. Classifique cada um como paciente,
+            prestador ou remova.
+          </p>
+          <div className="space-y-3">
+            {prospects.prospects.map((p) => (
+              <ProspectCard key={p.id} patient={p} onDone={handleReloadAll} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Submissões pendentes */}
       {(submissions.loading || submissions.submissions.length > 0) && (
         <section>
@@ -91,8 +119,8 @@ export function Patients() {
                 <SubmissionCard
                   key={s.id}
                   submission={s}
-                  onApproved={handleSubmissionDone}
-                  onRejected={handleSubmissionDone}
+                  onApproved={handleReloadAll}
+                  onRejected={handleReloadAll}
                 />
               ))}
             </div>
@@ -202,7 +230,7 @@ export function Patients() {
           onClose={() => setInviteOpen(false)}
           onSuccess={() => {
             setInviteOpen(false);
-            handleSubmissionDone();
+            handleReloadAll();
           }}
         />
       )}

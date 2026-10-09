@@ -1,4 +1,4 @@
-export type PatientStatus = "active" | "inactive" | "discharged";
+export type PatientStatus = "prospect" | "active" | "inactive" | "discharged";
 
 export type Patient = {
   id: string;
@@ -38,3 +38,20 @@ export type InviteCheck = {
   schedules: ScheduleInput[];
 };
 
+export type ProviderKind = "person" | "company";
+export type ProviderStatus = "active" | "archived";
+
+export type Provider = {
+  id: string;
+  user_id: string;
+  kind: ProviderKind;
+  display_name: string;
+  legal_name: string | null;
+  document: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  status: ProviderStatus;
+  created_at: string;
+  updated_at: string;
+};

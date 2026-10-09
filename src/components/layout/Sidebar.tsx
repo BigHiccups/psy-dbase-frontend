@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
+  Building2,
   Calendar,
   FileText,
   Wallet,
@@ -17,6 +18,7 @@ type Props = {
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/patients", label: "Pacientes", icon: Users },
+  { to: "/providers", label: "Prestadores", icon: Building2 },
   { to: "/agenda", label: "Agenda", icon: Calendar, disabled: true },
   { to: "/records", label: "Prontuário", icon: FileText, disabled: true },
   { to: "/finance", label: "Financeiro", icon: Wallet, disabled: true },
