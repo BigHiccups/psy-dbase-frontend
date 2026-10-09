@@ -3,10 +3,8 @@ import { useNavigate } from "react-router-dom";
 import {
   UserCheck,
   Building2,
-  User,
   Trash2,
   AlertCircle,
-  MoreHorizontal,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Button, ConfirmDialog } from "./ui";

@@ -20,6 +20,7 @@ import { Button, Card, Badge, ConfirmDialog, Spinner } from "../components/ui";
 import type { PatientStatus } from "../types";
 
 const STATUS_LABEL: Record<PatientStatus, string> = {
+  prospect: "Em revisão",
   active: "Ativo",
   inactive: "Arquivado",
   discharged: "Alta",
@@ -27,8 +28,9 @@ const STATUS_LABEL: Record<PatientStatus, string> = {
 
 const STATUS_VARIANT: Record<
   PatientStatus,
-  "success" | "neutral" | "brand"
+  "success" | "neutral" | "brand" | "warning"
 > = {
+  prospect: "warning",
   active: "success",
   inactive: "neutral",
   discharged: "brand",

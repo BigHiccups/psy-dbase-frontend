@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Building2, User, Users } from "lucide-react";
+import { Plus, Building2, User } from "lucide-react";
 import { useProviders, type ProviderFilter } from "../hooks/useProviders";
 import { Button, Badge, EmptyState, Spinner } from "../components/ui";
 import type { ProviderKind } from "../types";

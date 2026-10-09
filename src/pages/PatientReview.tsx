@@ -12,7 +12,7 @@ import { displayName } from "../lib/patient-display";
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { patient, loading, error, reload } = usePatient(id);
+  const { patient, loading, error } = usePatient(id);
 
   const [form, setForm] = useState({
     full_name: "",
