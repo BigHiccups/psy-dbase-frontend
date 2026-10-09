@@ -11,8 +11,8 @@
 Interface web do **psy-dbase**, sistema de gestão para psicólogo autônomo.
 
 Cobre cadastro de pacientes via formulário público, CRUD completo de pacientes,
-CRUD de prestadores, revisão de provisórios importados do Google, agenda
-(em construção), prontuário e financeiro (fases futuras).
+CRUD de prestadores, revisão de provisórios importados do Google, agenda com
+visualização em dia/semana/mês, prontuário e financeiro (fases futuras).
 
 **Repositório irmão:** `psy-dbase` (backend Node + integrações).
 **Status:** em produção na Vercel — `https://psy-dbase-frontend.vercel.app`
@@ -42,44 +42,64 @@ CRUD de prestadores, revisão de provisórios importados do Google, agenda
 ```
 src/
 ├── components/
-│   ├── layout/           # Sidebar, Header, AppLayout
-│   ├── ui/               # Button, Input, Card, Badge, Modal, ConfirmDialog,
-│   │                     # EmptyState, Spinner, index.ts
+│   ├── agenda/               # Componentes da página /agenda
+│   │   ├── AgendaToolbar.tsx
+│   │   ├── AppointmentBlock.tsx
+│   │   ├── AppointmentDetailModal.tsx
+│   │   ├── CancelSeriesModal.tsx
+│   │   ├── CreateAppointmentModal.tsx
+│   │   ├── DayHeader.tsx
+│   │   ├── DayOverviewModal.tsx
+│   │   ├── DayView.tsx
+│   │   ├── MonthDayCell.tsx
+│   │   ├── MonthView.tsx
+│   │   ├── ScheduleEditor.tsx
+│   │   ├── TimeColumn.tsx
+│   │   └── WeekView.tsx
+│   ├── layout/               # Sidebar, Header, AppLayout
+│   ├── ui/                   # Button, Input, Card, Badge, Modal,
+│   │                         # ConfirmDialog, EmptyState, Spinner
 │   ├── InvitePatientModal.tsx
-│   ├── SubmissionCard.tsx
-│   └── ProspectCard.tsx
+│   ├── ProspectCard.tsx
+│   └── SubmissionCard.tsx
 ├── contexts/
 │   └── AuthContext.tsx
 ├── hooks/
-│   ├── usePatient.ts         # busca 1 paciente por id
-│   ├── usePatients.ts        # lista com filtro
-│   ├── useProvider.ts        # busca 1 provider por id
-│   ├── useProviders.ts       # lista com filtro
-│   ├── useProspects.ts       # lista pacientes em prospect
+│   ├── useAgendaView.ts      # modo (day/week/month) + navegação
+│   ├── useAppointments.ts    # busca appointments por período
+│   ├── usePatient.ts
+│   ├── usePatients.ts
+│   ├── usePatientSchedules.ts
+│   ├── useProvider.ts
+│   ├── useProviders.ts
+│   ├── useProspects.ts
 │   └── useSubmissions.ts
 ├── lib/
-│   ├── supabase.ts           # cliente único do Supabase
-│   ├── api.ts                # fetch autenticado para o backend Node
+│   ├── agenda-date.ts        # helpers de data para a agenda
+│   ├── api.ts
+│   ├── appointment-colors.ts # cores por tipo de appointment
 │   ├── masks.ts              # maskCPF, maskCNPJ, maskPhone + validações
-│   ├── text.ts               # toTitleCase
 │   ├── patient-display.ts    # displayName (heurística visual)
-│   └── weekdays.ts           # mapeamento 0–6 → "Dom".."Sáb"
+│   ├── supabase.ts
+│   ├── text.ts               # toTitleCase
+│   └── weekdays.ts           # mapeamento 0–6 → "Dom".."Sáb" (formato JS)
 ├── pages/
-│   ├── Login.tsx
+│   ├── Agenda.tsx
 │   ├── Dashboard.tsx
-│   ├── Patients.tsx
+│   ├── Login.tsx
 │   ├── PatientDetail.tsx
-│   ├── PatientForm.tsx        # cria e edita
-│   ├── PatientReview.tsx      # promove prospect a ativo
-│   ├── PublicForm.tsx
-│   ├── Providers.tsx
+│   ├── PatientForm.tsx
+│   ├── PatientReview.tsx
+│   ├── Patients.tsx
 │   ├── ProviderDetail.tsx
 │   ├── ProviderForm.tsx
+│   ├── Providers.tsx
+│   ├── PublicForm.tsx
 │   └── Settings.tsx
 ├── types/
-│   └── index.ts               # Patient, Provider, InviteResponse, ScheduleInput...
+│   └── index.ts
 ├── App.tsx
-├── index.css                  # Tailwind v4 + @theme
+├── index.css
 └── main.tsx
 ```
 
@@ -103,8 +123,8 @@ O backend Node só é usado para operações que exigem **segredos**:
 
 ### 4.2 Cliente HTTP autenticado
 
-Toda chamada ao backend passa por `src/lib/api.ts`, que injeta o `Authorization:
-Bearer <token>` automaticamente. **Nunca** chamar `fetch` direto.
+Toda chamada ao backend passa por `src/lib/api.ts`, que injeta
+`Authorization: Bearer <token>`. **Nunca** chamar `fetch` direto.
 
 ### 4.3 RLS + GRANT obrigatórios em toda tabela nova
 
@@ -145,8 +165,8 @@ Rotas protegidas envelopadas por `<AppLayout />`:
 - `Sidebar` fixa em desktop (>= `lg`), drawer em mobile
 - `Header` sticky com avatar + logout
 
-Ordem da sidebar: Dashboard, Pacientes, **Prestadores**, Agenda (futuro),
-Prontuário (futuro), Financeiro (futuro), Configurações.
+Ordem da sidebar: Dashboard, Pacientes, Prestadores, Agenda, Prontuário
+(futuro), Financeiro (futuro), Configurações.
 
 ### 4.7 Rotas públicas fora do ProtectedRoute
 
@@ -155,9 +175,8 @@ Prontuário (futuro), Financeiro (futuro), Configurações.
 **Atenção:** rota não declarada cai no fallback `*` → `/dashboard` →
 `ProtectedRoute` → `/login`.
 
-**Ordem das rotas dinâmicas importa:** `/patients/new` e
-`/patients/:id/review` **antes** de `/patients/:id`, senão o `:id` captura
-`new` e `review`.
+**Ordem das rotas dinâmicas importa:** `/patients/new`,
+`/patients/:id/review` **antes** de `/patients/:id`.
 
 ### 4.8 SPA routing na Vercel
 
@@ -188,8 +207,8 @@ Sempre usar:
 - **`Modal`** — formulários, avisos extensos
 
 **Exceção conhecida:** `alert(error.message)` em `PatientDetail.tsx` e
-`ProviderDetail.tsx` em handlers de arquivar/reativar — só dispara em erro raro
-do Supabase. Trocar por `AlertDialog` futuramente.
+`ProviderDetail.tsx` em handlers de arquivar/reativar/excluir — só dispara em
+erro raro do Supabase. Trocar por `AlertDialog` futuramente.
 
 ### 4.12 Normalização de nome vs. máscaras in-locus
 
@@ -200,13 +219,14 @@ do Supabase. Trocar por `AlertDialog` futuramente.
 ### 4.13 CRUD de pacientes
 
 - **Criar do zero:** `/patients/new` (`PatientForm.tsx`)
-- **Editar:** `/patients/:id/edit` (mesmo componente)
-- **Arquivar (soft delete):** `status='inactive'`. Reversível.
-- **Excluir (hard delete):** botão ghost no detalhe, `ConfirmDialog` `danger`.
+- **Editar:** `/patients/:id/edit`
+- **Arquivar (soft delete):** `status='inactive'`. Cancela appointments futuros.
+- **Reativar:** `status='active'`. Recria appointments a partir de
+  `patient_schedules`.
+- **Excluir (hard delete):** RPC `delete_patient` (deleta tudo em transação).
 - **Listagem:** filtros "Ativos | Arquivados | Todos" via `usePatients(filter)`
 
-**Atenção:** `PatientForm` redireciona `prospect` para `/patients/:id/review`
-(impede edição comum de provisório).
+**Atenção:** `PatientForm` redireciona `prospect` para `/patients/:id/review`.
 
 ### 4.14 CRUD de prestadores
 
@@ -217,8 +237,7 @@ do Supabase. Trocar por `AlertDialog` futuramente.
 - **Listagem:** filtros "Todos | Pessoas | Empresas | Arquivados"
 
 **Formulário dinâmico:** se `kind='person'`, mostra CPF e esconde Razão social;
-se `kind='company'`, mostra CNPJ + Razão social. Ao trocar tipo, o campo
-`document` é limpo (máscara diferente).
+se `kind='company'`, mostra CNPJ + Razão social.
 
 ### 4.15 Revisão de provisórios
 
@@ -227,10 +246,9 @@ Provisórios (`patients.status='prospect'`) aparecem **apenas** no bloco
 
 Três ações por card (`ProspectCard`), cada uma chamando uma RPC:
 
-- **É paciente** → navega para `/patients/:id/review` onde o usuário completa
-  e ativa (chama `promote_prospect_to_active`)
-- **É prestador** → `ConfirmDialog` → `convert_prospect_to_provider`
-- **Remover** → `ConfirmDialog` → `discard_prospect`
+- **É paciente** → `/patients/:id/review` → `promote_prospect_to_active`
+- **É prestador** → `convert_prospect_to_provider`
+- **Remover** → `discard_prospect`
 
 **Heurística de exibição:** `displayName()` remove prefixos comuns
 ("Atendimento ", "Sessão ") apenas na UI. O banco mantém o texto cru
@@ -238,16 +256,85 @@ Três ações por card (`ProspectCard`), cada uma chamando uma RPC:
 
 ### 4.16 Integração Google Calendar
 
-- **Conectar:** botão em `/settings` chama `GET /calendar/connect`, abre URL
-  em **nova aba**
-- **Callback:** backend redireciona para `/settings?google=connected`, que
-  exibe feedback e limpa o parâmetro da URL
-- **Importar:** botão em `/settings` chama `POST /calendar/import` com
-  `{ daysAhead: 90 }`
+- **Conectar:** botão em `/settings` → `GET /calendar/connect` → abre em nova
+  aba
+- **Callback:** backend redireciona para `/settings?google=connected`
+- **Importar:** `POST /calendar/import` com `{ daysAhead: 90 }`
 - **Desconectar:** `ConfirmDialog` + `DELETE /calendar/disconnect`
 
 **Sobre o fluxo em nova aba:** a aba original **não sabe** automaticamente que
 a conexão foi concluída. F5 é necessário. Melhoria futura: `postMessage`.
+
+### 4.17 Agenda — 3 modos e 3 tipos de sujeito
+
+A agenda lê `appointments` e renderiza em 3 modos: **Dia**, **Semana**, **Mês**.
+Cada modo tem seu componente (`DayView`, `WeekView`, `MonthView`).
+
+**Tipos de appointment** com cores distintas (`appointment-colors.ts`):
+
+| Tipo | Cor | Ocupa horário? |
+|---|---|---|
+| `session` | brand (teal) | sim |
+| `personal` | cinza | sim |
+| `blocked` | cinza listrado | sim |
+| `due` | âmbar | **não** (marcador no cabeçalho) |
+
+**Status visual:**
+
+- `active` → normal
+- `cancelled` → riscado + opacidade
+- `completed` → esmaecido + ✓
+
+### 4.18 Dia da semana — atenção ao formato
+
+**Dois formatos coexistem** e não devem se misturar:
+
+**Formato JS** (0=domingo, 6=sábado):
+- Coluna `appointments.weekday`
+- Coluna `patient_schedules.weekday`
+- Coluna `patient_invite_schedules.weekday`
+- `src/lib/weekdays.ts` (usado em `ScheduleEditor`, `InvitePatientModal`)
+- `Date.getDay()`
+
+**Formato ISO** (0=segunda, 6=domingo):
+- `WEEKDAY_SHORT` e `WEEKDAY_LONG` em `agenda-date.ts`
+- Usado **apenas para exibição**
+
+**Conversão:**
+
+```ts
+isoWeekday(jsDay)   // JS → ISO
+jsWeekday(isoDay)   // ISO → JS
+```
+
+**Sempre** usar `isoWeekday` antes de indexar `WEEKDAY_SHORT`/`WEEKDAY_LONG`.
+
+**Histórico:** já tivemos bug de blocos aparecendo na coluna errada por
+misturar os dois formatos.
+
+### 4.19 Horários recorrentes (`patient_schedules`)
+
+Pacientes ativos podem ter N horários recorrentes em `patient_schedules`. Ao
+salvar (criar/editar paciente ou promover prospect), a RPC
+`set_patient_schedules`:
+
+1. **Deleta** appointments futuros ativos desse paciente (não cancela — limpa
+   para evitar poluição)
+2. Remove os `patient_schedules` antigos
+3. Insere os novos
+4. Gera appointments para 90 dias
+
+**Reconfiguração vs. cancelamento:** reconfigurar **deleta**; cancelar
+(paciente avisou que não vem) **cancela** (`status='cancelled'`).
+
+### 4.20 Cancelamento de série — 3 modos
+
+`CancelSeriesModal` oferece:
+
+- **Definitivo a partir de hoje** — cancela todos os futuros, deleta schedules
+- **Definitivo a partir de uma data** — idem, com data escolhida
+- **Suspender por período** — cancela só o intervalo, mantém schedules,
+  estende horizonte se necessário
 
 ---
 
@@ -256,8 +343,8 @@ a conexão foi concluída. F5 é necessário. Melhoria futura: `postMessage`.
 ### 5.1 Login
 
 `supabase.auth.signInWithOAuth({ provider: "google", redirectTo: <origin>/dashboard })`.
-Supabase valida `redirectTo` contra **Redirect URLs**. **Site URL** e **Redirect
-URLs** precisam ter produção e `localhost:5173`.
+Supabase valida `redirectTo` contra **Redirect URLs**. **Site URL** e
+**Redirect URLs** precisam ter produção e `localhost:5173`.
 
 ### 5.2 Convite de paciente
 
@@ -271,10 +358,8 @@ URLs** precisam ter produção e `localhost:5173`.
 
 1. Paciente abre `/form/<token>`
 2. `PublicForm` valida token via RPC `get_invite_by_token`
-3. Mostra sessões combinadas + campos com máscara + 2 checkboxes (termo +
-   orientação sobre o local)
-4. Envia via RPC `submit_patient_form` (valida tudo, grava os dois aceites,
-   marca convite como usado)
+3. Mostra sessões combinadas + campos com máscara + 2 checkboxes
+4. Envia via RPC `submit_patient_form`
 
 ### 5.4 Aprovar/Rejeitar submissão
 
@@ -282,27 +367,39 @@ URLs** precisam ter produção e `localhost:5173`.
 2. **Aprovar** → RPC `approve_submission` cria `patient` com `status='prospect'`
 3. **Rejeitar** → `update status='rejected'`
 
-**Nota:** pacientes aprovados via submissão entram como `prospect`, e vão para
-o bloco "Aguardando revisão" — não direto para ativos.
-
-### 5.5 Criar/editar paciente manual
-
-1. `/patients/new` ou `/patients/:id/edit`
-2. Validações de CPF/telefone; `toTitleCase` no nome
-3. Redireciona para `/patients/:id`
-
-### 5.6 Revisar provisório
+### 5.5 Promover provisório a paciente
 
 1. `/patients` → bloco "Aguardando revisão"
-2. Cada card mostra `displayName` + nome cru
-3. Três ações (ver seção 4.15)
+2. `ProspectCard` → "É paciente" → `/patients/:id/review`
+3. `PatientReview`:
+   - Carrega horários do convite (se houver)
+   - Usuário completa dados + ajusta horários
+   - Salva: RPC `promote_prospect_to_active` com `p_schedules`
+4. Vira `active` + `appointments` criados
 
-### 5.7 CRUD de prestador
+### 5.6 Criar/editar paciente manual
 
-Análogo ao de paciente, com `kind` (person/company), `legal_name` (empresas),
-`document` (CPF/CNPJ).
+1. `/patients/new` ou `/patients/:id/edit`
+2. `PatientForm` com `ScheduleEditor`
+3. Ao salvar, chama `set_patient_schedules` se houver horários
 
-### 5.8 Google Calendar — conectar / importar / desconectar
+### 5.7 Arquivar / Reativar / Excluir paciente
+
+- **Arquivar** → RPC `cancel_future_appointments` + status `inactive`
+- **Reativar** → status `active` + RPC `set_patient_schedules` (recria)
+- **Excluir** → RPC `delete_patient` (transação completa)
+
+### 5.8 Agenda
+
+1. `/agenda` → redireciona para `/agenda/week/<hoje>`
+2. Modos: `AgendaToolbar` (Dia/Semana/Mês)
+3. Navegação: setas + "Hoje"
+4. Clicar em bloco → `AppointmentDetailModal`
+5. Clicar em slot vazio → `CreateAppointmentModal`
+6. Clicar em célula do mês → `DayOverviewModal`
+7. Cancelar série → `CancelSeriesModal`
+
+### 5.9 Google Calendar — conectar / importar / desconectar
 
 Ver seção 4.16.
 
@@ -332,8 +429,10 @@ Ver seção 4.16.
 | `tsc -b` falha com `declared but never used`        | Import não usado                                | Remover o import                                            |
 | Rota `:id` captura `new` ou `review`                | Ordem das rotas                                 | Declarar literais antes de dinâmicas                        |
 | Prospect aparece na tabela normal                   | Filtro não exclui `prospect`                    | `usePatients` filtra por `.neq("status", "prospect")`       |
-| `PatientStatus` sem `prospect` no `Record`          | Tipo desatualizado                              | Adicionar `prospect` nos records                            |
-| Prestador não aparece em `/providers`               | `status='archived'` ou `kind` errado            | Conferir filtros                                            |
+| **Bloco aparece na coluna errada da agenda**        | `WEEKDAY_SHORT/LONG` em ordem JS, não ISO       | Usar `isoWeekday()` antes de indexar                        |
+| `appointments_subject_check` violada ao excluir     | FK com `on delete set null` conflita            | Usar RPC `delete_patient`                                   |
+| Horários antigos poluem a agenda após reconfigurar  | `set_patient_schedules` cancelava em vez de deletar | RPC agora deleta appointments futuros                    |
+| `<input type="date">` mostra mm/dd/aaaa             | Locale do navegador                             | Adicionar Português (BR) nas configs do Chrome              |
 
 ---
 
@@ -370,21 +469,25 @@ Ver seção 4.16.
 - ✅ Página `/settings` com Google Calendar
 - ✅ Bloco "Aguardando revisão" com `ProspectCard`
 - ✅ Página `/patients/:id/review` (promoção de prospect a paciente)
-- ✅ CRUD de prestadores (listagem, criar, editar, arquivar, excluir)
-- ✅ Filtros por tipo em `/providers` (pessoas / empresas / arquivados)
+- ✅ CRUD de prestadores
+- ✅ **Página `/agenda` funcional** com 3 modos (Dia/Semana/Mês)
+- ✅ `ScheduleEditor` reutilizável
+- ✅ `CancelSeriesModal` (3 modos de cancelamento)
+- ✅ Horários em `PatientForm` e `PatientReview`
+- ✅ `PatientDetail` com "Suspender agendamentos"
+- ✅ Arquivar cancela futuros / Reativar recria
+- ✅ Correção de timezone em `WEEKDAY_SHORT/LONG`
 
 **Pendente (Fase 3+):**
 
-- ⏳ Página `/agenda` (visualização semanal de `appointments`)
 - ⏳ Bloqueio rígido no `InvitePatientModal` (slots ocupados)
-- ⏳ Horários na criação manual de paciente
-- ⏳ CRUD de `due` (vencimentos de provider)
+- ⏳ Bloqueio no `PatientForm` e `PatientReview`
+- ⏳ Vencimentos (`due`) na UI
+- ⏳ Ajustes finos (404, favicon, metadados, `AlertDialog`)
 - ⏳ Prontuário (`/patients/:id/records`)
 - ⏳ Financeiro (`/finance`)
 - ⏳ Notificações
-- ⏳ Preferências do consultório editáveis
-- ⏳ Edição de perfil
-- ⏳ Ajustes finos (404 customizada, favicon, metadados)
+- ⏳ Testes automatizados (Playwright)
 
 **Branches ativas:**
 - Frontend: `main`

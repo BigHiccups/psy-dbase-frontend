@@ -10,13 +10,12 @@
 
 ## 🎯 Próximos 3 passos
 
-1. **Página `/agenda`** — visualização semanal dos `appointments`, com cores
-   por tipo (`session` brand, `personal` cinza, `blocked` listrado, `due`
-   marcador). É o que dá sentido visual à integração Google.
-2. **Bloqueio rígido no `InvitePatientModal`** — slots ocupados ficam cinza;
-   tooltip mostra o nome do paciente/provider.
-3. **Horários na criação manual de paciente** — `PatientForm` permite definir
-   recorrência desde o início (com o mesmo bloqueio).
+1. **Bloqueio rígido no `InvitePatientModal`** — slots ocupados ficam cinza;
+   tooltip mostra o paciente/provider que ocupa
+2. **Bloqueio no `PatientForm` e `PatientReview`** — mesmo tratamento; o
+   `ScheduleEditor` já aceita `disabledSlots`, só falta passar
+3. **Ajustes finos** — 404 customizada, favicon, metadados, `AlertDialog` no
+   lugar dos `alert()` restantes
 
 ---
 
@@ -53,62 +52,76 @@
 
 ---
 
-## Fase 3 — Google Calendar + Revisão de Provisórios
+## Fase 3 — Google Calendar + Agenda + Revisão
 
 ### ✅ Concluído — Integração + Revisão + Prestadores
 
 - [x] Página `/settings` com Google Calendar
-- [x] Botão "Conectar Google Calendar" (nova aba)
-- [x] Feedback pós-OAuth (`?google=connected|denied|invalid|error`)
-- [x] Botão "Importar agenda"
-- [x] Botão "Desconectar" com `ConfirmDialog`
-- [x] Bloco "Aguardando revisão" em `/patients`
-- [x] `ProspectCard` com 3 ações
+- [x] Bloco "Aguardando revisão" com `ProspectCard`
 - [x] Página `/patients/:id/review`
-- [x] Helper `displayName` em `src/lib/patient-display.ts`
+- [x] `displayName` (heurística visual)
 - [x] CRUD completo de prestadores
-- [x] `Providers` (listagem com filtros)
-- [x] `ProviderDetail` (detalhes + arquivar/reativar/excluir)
-- [x] `ProviderForm` (formulário dinâmico por `kind`)
-- [x] Máscara e validação de CNPJ (`maskCNPJ`, `isValidCNPJ`)
+- [x] Filtros em `/providers`
+- [x] Máscara e validação de CNPJ
 - [x] Item "Prestadores" na sidebar
-- [x] Rotas `/providers`, `/providers/new`, `/providers/:id`,
-      `/providers/:id/edit`
 - [x] `PatientForm` redireciona `prospect` para `/patients/:id/review`
 - [x] `usePatients` exclui `prospect` do filtro "all"
 
-### ⏳ Pendente — Página `/agenda`
+### ✅ Concluído — Agenda
 
-- [ ] Visualização semanal (segunda a domingo)
-- [ ] Navegação entre semanas
-- [ ] Blocos coloridos por tipo (`session` brand, `personal` cinza,
-      `blocked` listrado)
-- [ ] `due` renderizado como marcador no cabeçalho do dia (sem horário)
-- [ ] Clicar num slot abre detalhe
-- [ ] Clique em slot vazio cria sessão avulsa
-- [ ] Filtro por paciente
-- [ ] Toggle "Mostrar Google Calendar" (sincroniza visualmente)
-- [ ] Sessões avulsas (`is_recurring=false`)
+- [x] Hook `useAppointments` (busca por período com JOIN)
+- [x] Hook `useAgendaView` (modo + navegação + persistência em localStorage)
+- [x] `src/lib/agenda-date.ts` (helpers)
+- [x] `src/lib/appointment-colors.ts`
+- [x] `TimeColumn`, `DayHeader`, `AppointmentBlock`, `AgendaToolbar`
+- [x] `WeekView` (grade 7 colunas × 15h)
+- [x] `DayView` (grade 1 coluna)
+- [x] `MonthView` + `MonthDayCell`
+- [x] `DayOverviewModal` (lista do dia no mês)
+- [x] `AppointmentDetailModal` (detalhe + cancelar)
+- [x] `CreateAppointmentModal` (sessão avulsa / bloqueio)
+- [x] `CancelSeriesModal` (3 modos)
+- [x] `ScheduleEditor`
+- [x] Rota `/agenda/:view/:date` com URL canônica
+- [x] Item "Agenda" na sidebar
+- [x] Tipos `Appointment`, `AppointmentWithRelations`, `AppointmentType`
+- [x] Corrigido bug de timezone (WEEKDAY_SHORT/LONG em ordem ISO)
 
-### ⏳ Pendente — Bloqueio no convite
+### ✅ Concluído — Horários recorrentes
+
+- [x] Hook `usePatientSchedules`
+- [x] `ScheduleEditor` em `PatientReview`
+- [x] `ScheduleEditor` em `PatientForm`
+- [x] `PatientDetail` exibe horários
+- [x] Botão "Suspender agendamentos" em `PatientDetail`
+- [x] Arquivar cancela futuros
+- [x] Reativar recria a partir de schedules
+- [x] Excluir via RPC `delete_patient`
+
+### ⏳ Pendente — Bloqueio rígido
 
 - [ ] `InvitePatientModal` consulta `appointments` ativos
 - [ ] Slots ocupados ficam cinza/desabilitados
-- [ ] Mostrar qual paciente/provider ocupa
-- [ ] Aplicar o mesmo bloqueio no `PatientForm` (criar paciente manual)
-- [ ] Aplicar no `/patients/:id/review` (revisão)
-
-### ⏳ Pendente — Horários no paciente
-
-- [ ] `PatientForm` com seção "Horários das sessões" (recorrência)
-- [ ] `PatientReview` com seção "Horários das sessões"
-- [ ] Criação de `appointments` recorrentes ao salvar
+- [ ] Tooltip mostrando quem ocupa
+- [ ] Aplicar no `PatientForm`
+- [ ] Aplicar no `PatientReview`
+- [ ] Aplicar no `ScheduleEditor` (prop `disabledSlots` já existe)
 
 ### ⏳ Pendente — Vencimentos (`due`)
 
 - [ ] Tela de vencimentos em `/providers/:id`
 - [ ] Criação de N parcelas (mensais/anuais)
 - [ ] Marcar como pago
+- [ ] Renderização de `due` no mês
+
+### ⏳ Pendente — Melhorias na agenda
+
+- [ ] Filtro por paciente
+- [ ] Drag-and-drop para remarcar
+- [ ] Editar horário/duração de um appointment
+- [ ] Marcar como concluído (hoje só leitura)
+- [ ] Banner de renovação (quando appointments estão perto do fim)
+- [ ] Sincronização visual com Google Calendar
 
 ---
 
@@ -170,6 +183,7 @@
 
 - [ ] Testes unitários (Vitest)
 - [ ] Testes de componentes (React Testing Library)
+- [ ] **Testes E2E com Playwright** (fluxos críticos: login, criar paciente, agendar, cancelar)
 - [ ] CI no GitHub Actions (lint + build)
 - [ ] Sentry
 - [ ] Acessibilidade (foco, contraste, ARIA)
@@ -179,21 +193,18 @@
 
 ## Decisões pendentes
 
-- [ ] Layout da `/agenda` (grade semanal fixa vs. scroll infinito)
 - [ ] Como mesclar paciente provisório com existente (nome + telefone? e-mail?)
-- [ ] Se o Google Calendar aparece visualmente na agenda ou se é só leitura de
-      disponibilidade
+- [ ] Se o Google Calendar aparece visualmente na agenda ou se é só leitura
 - [ ] Se a `/agenda` mostra vencimentos (`due`) no rodapé ou no cabeçalho
+- [ ] Se o bloqueio rígido impede ou apenas avisa
 
 ---
 
 ## Concluído (registro histórico)
 
 - **Fase 1 completa:** auth Google, deploy Vercel, SPA routing
-- **Fase 2 completa:** convite, formulário público, submissões, CRUD de pacientes,
-  máscaras, design system
-- **Fase 3 parcial:** `/settings`, integração Google Calendar (conectar,
-  importar, desconectar), bloco de revisão de provisórios, CRUD de prestadores
-- **Design system:** Button, Input, Card, Badge, Modal, ConfirmDialog,
-  EmptyState, Spinner + Sidebar, Header, AppLayout
+- **Fase 2 completa:** convite, formulário público, submissões, CRUD de pacientes, máscaras, design system
+- **Fase 3 completa:** integração Google Calendar, revisão de provisórios, CRUD de prestadores, **agenda em 3 modos**, horários recorrentes, cancelamento de série
+- **Design system:** Button, Input, Card, Badge, Modal, ConfirmDialog, EmptyState, Spinner + Sidebar, Header, AppLayout
 - **Migração Tailwind v3 → v4**
+- **Correção de timezone** em WEEKDAY_SHORT/LONG
