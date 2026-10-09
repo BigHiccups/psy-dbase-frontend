@@ -19,7 +19,7 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/patients", label: "Pacientes", icon: Users },
   { to: "/providers", label: "Prestadores", icon: Building2 },
-  { to: "/agenda", label: "Agenda", icon: Calendar, disabled: true },
+  { to: "/agenda", label: "Agenda", icon: Calendar },
   { to: "/records", label: "Prontuário", icon: FileText, disabled: true },
   { to: "/finance", label: "Financeiro", icon: Wallet, disabled: true },
   { to: "/settings", label: "Configurações", icon: Settings, disabled: true },
