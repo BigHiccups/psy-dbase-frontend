@@ -8,11 +8,13 @@ import { Patients } from "./pages/Patients";
 import { PatientDetail } from "./pages/PatientDetail";
 import { PatientForm } from "./pages/PatientForm";
 import { PatientReview } from "./pages/PatientReview";
+import { Providers } from "./pages/Providers";
+import { ProviderDetail } from "./pages/ProviderDetail";
+import { ProviderForm } from "./pages/ProviderForm";
+
 import { PublicForm } from "./pages/PublicForm";
 import { Settings } from "./pages/Settings";
-import { Providers } from "./pages/Providers";
-import { ProviderForm } from "./pages/ProviderForm";
-import { ProviderDetail } from "./pages/ProviderDetail";
+import { Agenda } from "./pages/Agenda";
 
 export default function App() {
   return (
@@ -40,6 +42,10 @@ export default function App() {
               <Route path="/providers/new" element={<ProviderForm />} />
               <Route path="/providers/:id" element={<ProviderDetail />} />
               <Route path="/providers/:id/edit" element={<ProviderForm />} />
+
+              {/* Agenda */}
+              <Route path="/agenda" element={<Agenda />} />
+              <Route path="/agenda/:view/:date" element={<Agenda />} />
 
               <Route path="/settings" element={<Settings />} />
             </Route>

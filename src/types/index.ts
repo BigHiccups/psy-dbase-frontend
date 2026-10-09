@@ -55,3 +55,38 @@ export type Provider = {
   created_at: string;
   updated_at: string;
 };
+
+export type AppointmentType = "session" | "personal" | "blocked" | "due";
+export type AppointmentStatus = "active" | "cancelled" | "completed";
+
+export type Appointment = {
+  id: string;
+  user_id: string;
+  patient_id: string | null;
+  provider_id: string | null;
+  type: AppointmentType;
+  weekday: number;
+  start_time: string;
+  duration_min: number;
+  starts_on: string;   // YYYY-MM-DD
+  ends_on: string;     // YYYY-MM-DD
+  is_recurring: boolean;
+  status: AppointmentStatus;
+  google_event_id: string | null;
+  linked_expense: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// Appointment + dados do paciente/provider (retornado pelo hook)
+export type AppointmentWithRelations = Appointment & {
+  patient: {
+    id: string;
+    full_name: string;
+  } | null;
+  provider: {
+    id: string;
+    display_name: string;
+  } | null;
+};
