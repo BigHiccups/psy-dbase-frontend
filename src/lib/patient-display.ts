@@ -5,8 +5,3 @@ export function displayName(rawName: string): string {
     .replace(/^(atendimento|sessão|sessao|consulta|terapia)\s+/i, "")
     .trim();
 }
-
-// Exemplos:
-// "Atendimento Eduardo" → "Eduardo"
-// "Lara" → "Lara"
-// "Wlad" → "Wlad"

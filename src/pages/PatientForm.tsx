@@ -39,6 +39,7 @@ export function PatientForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Carrega dados do paciente no modo edição
   useEffect(() => {
     if (patient) {
       setForm({
@@ -53,6 +54,14 @@ export function PatientForm() {
       });
     }
   }, [patient]);
+
+  // Se for um paciente provisório (prospect), redireciona para a página de revisão.
+  // Não permitimos edição comum aqui porque a promoção precisa de fluxo próprio.
+  useEffect(() => {
+    if (patient && patient.status === "prospect" && isEdit) {
+      navigate(`/patients/${patient.id}/review`, { replace: true });
+    }
+  }, [patient, isEdit, navigate]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -71,7 +80,10 @@ export function PatientForm() {
       setError("Telefone inválido. Use DDD + número.");
       return;
     }
-    if (form.emergency_contact_phone && !isValidPhoneBR(form.emergency_contact_phone)) {
+    if (
+      form.emergency_contact_phone &&
+      !isValidPhoneBR(form.emergency_contact_phone)
+    ) {
       setError("Telefone do contato de urgência inválido.");
       return;
     }

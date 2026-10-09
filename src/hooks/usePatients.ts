@@ -21,9 +21,12 @@ export function usePatients(filter: PatientFilter = "active") {
     if (filter === "active") {
       query = query.eq("status", "active");
     } else if (filter === "inactive") {
-      query = query.neq("status", "active");
+      // Inativos = arquivados + alta (mas não prospect)
+      query = query.neq("status", "active").neq("status", "prospect");
+    } else {
+      // "all" → exclui prospect (eles ficam no bloco de revisão)
+      query = query.neq("status", "prospect");
     }
-    // filter === "all" → sem cláusula where
 
     const { data, error } = await query;
 
@@ -42,4 +45,4 @@ export function usePatients(filter: PatientFilter = "active") {
   }, [filter]);
 
   return { patients, loading, error, reload: load };
-}
+} 

@@ -64,3 +64,37 @@ export function isValidPhoneBR(phone: string): boolean {
 
   return true;
 }
+
+// CNPJ: 00.000.000/0000-00
+export function maskCNPJ(value: string): string {
+  const digits = onlyDigits(value).slice(0, 14);
+
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+// Valida CNPJ pelos dígitos verificadores
+export function isValidCNPJ(cnpj: string): boolean {
+  const digits = onlyDigits(cnpj);
+  if (digits.length !== 14) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
+
+  const calc = (base: string) => {
+    let sum = 0;
+    let pos = base.length - 7;
+    for (let i = 0; i < base.length; i++) {
+      sum += Number(base[i]) * pos--;
+      if (pos < 2) pos = 9;
+    }
+    const result = sum % 11;
+    return result < 2 ? 0 : 11 - result;
+  };
+
+  const base = digits.slice(0, 12);
+  const d1 = calc(base);
+  const d2 = calc(base + d1);
+  return digits.endsWith(`${d1}${d2}`);
+}

@@ -5,48 +5,33 @@ import {
   Pencil,
   Archive,
   RotateCcw,
-  Phone,
-  MapPin,
-  Cake,
-  IdCard,
-  AlertTriangle,
-  FileText,
-  Clock,
   Trash2,
+  Building2,
+  User,
+  Phone,
+  Mail,
+  FileText,
+  IdCard,
+  Clock,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { usePatient } from "../hooks/usePatient";
+import { useProvider } from "../hooks/useProvider";
 import { Button, Card, Badge, ConfirmDialog, Spinner } from "../components/ui";
-import type { PatientStatus } from "../types";
+import type { ProviderKind } from "../types";
 
-const STATUS_LABEL: Record<PatientStatus, string> = {
-  prospect: "Em revisão",
-  active: "Ativo",
-  inactive: "Arquivado",
-  discharged: "Alta",
+const KIND_LABEL: Record<ProviderKind, string> = {
+  person: "Pessoa física",
+  company: "Empresa",
 };
 
-const STATUS_VARIANT: Record<
-  PatientStatus,
-  "success" | "neutral" | "brand" | "warning"
-> = {
-  prospect: "warning",
-  active: "success",
-  inactive: "neutral",
-  discharged: "brand",
-};
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const [y, m, d] = iso.split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
+function documentLabel(kind: ProviderKind): string {
+  return kind === "company" ? "CNPJ" : "CPF";
 }
 
-export function PatientDetail() {
+export function ProviderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { patient, loading, error, reload } = usePatient(id);
+  const { provider, loading, error, reload } = useProvider(id);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [reactivateOpen, setReactivateOpen] = useState(false);
@@ -54,16 +39,16 @@ export function PatientDetail() {
   const [working, setWorking] = useState(false);
 
   async function handleArchive() {
-    if (!patient) return;
+    if (!provider) return;
     setWorking(true);
     const { error } = await supabase
-      .from("patients")
-      .update({ status: "inactive" })
-      .eq("id", patient.id);
+      .from("providers")
+      .update({ status: "archived" })
+      .eq("id", provider.id);
     setWorking(false);
 
     if (error) {
-      alert(error.message); // TODO: substituir por AlertDialog do design system
+      alert(error.message);
       return;
     }
     setArchiveOpen(false);
@@ -71,12 +56,12 @@ export function PatientDetail() {
   }
 
   async function handleReactivate() {
-    if (!patient) return;
+    if (!provider) return;
     setWorking(true);
     const { error } = await supabase
-      .from("patients")
+      .from("providers")
       .update({ status: "active" })
-      .eq("id", patient.id);
+      .eq("id", provider.id);
     setWorking(false);
 
     if (error) {
@@ -88,12 +73,12 @@ export function PatientDetail() {
   }
 
   async function handleDelete() {
-    if (!patient) return;
+    if (!provider) return;
     setWorking(true);
     const { error } = await supabase
-      .from("patients")
+      .from("providers")
       .delete()
-      .eq("id", patient.id);
+      .eq("id", provider.id);
     setWorking(false);
 
     if (error) {
@@ -101,7 +86,7 @@ export function PatientDetail() {
       return;
     }
     setDeleteOpen(false);
-    navigate("/patients");
+    navigate("/providers");
   }
 
   if (loading) {
@@ -112,11 +97,11 @@ export function PatientDetail() {
     );
   }
 
-  if (error || !patient) {
+  if (error || !provider) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-3xl">
         <Link
-          to="/patients"
+          to="/providers"
           className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
         >
           <ArrowLeft size={14} />
@@ -124,40 +109,46 @@ export function PatientDetail() {
         </Link>
         <Card className="p-12 text-center">
           <p className="text-sm text-gray-500">
-            {error ?? "Paciente não encontrado."}
+            {error ?? "Prestador não encontrado."}
           </p>
         </Card>
       </div>
     );
   }
 
-  const isArchived = patient.status !== "active";
+  const isArchived = provider.status === "archived";
+  const KindIcon = provider.kind === "company" ? Building2 : User;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Cabeçalho */}
       <div>
         <Link
-          to="/patients"
+          to="/providers"
           className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
         >
           <ArrowLeft size={14} />
-          Voltar para pacientes
+          Voltar para prestadores
         </Link>
 
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <KindIcon size={22} />
+          </div>
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-semibold text-gray-900">
-                {patient.full_name}
+                {provider.display_name}
               </h1>
-              <Badge variant={STATUS_VARIANT[patient.status]}>
-                {STATUS_LABEL[patient.status]}
-              </Badge>
+              {isArchived ? (
+                <Badge variant="neutral">Arquivado</Badge>
+              ) : (
+                <Badge variant="success">Ativo</Badge>
+              )}
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              Paciente desde{" "}
-              {new Date(patient.created_at).toLocaleDateString("pt-BR")}
+              {KIND_LABEL[provider.kind]} · Prestador desde{" "}
+              {new Date(provider.created_at).toLocaleDateString("pt-BR")}
             </p>
           </div>
         </div>
@@ -165,7 +156,7 @@ export function PatientDetail() {
 
       {/* Ações */}
       <div className="flex flex-wrap gap-2">
-        <Link to={`/patients/${patient.id}/edit`}>
+        <Link to={`/providers/${provider.id}/edit`}>
           <Button variant="secondary" size="sm" disabled={working}>
             <Pencil size={14} />
             Editar
@@ -194,8 +185,8 @@ export function PatientDetail() {
           </Button>
         )}
 
-        {/* Excluir — discreto, à direita */}
         <div className="flex-1" />
+
         <Button
           variant="ghost"
           size="sm"
@@ -208,58 +199,50 @@ export function PatientDetail() {
         </Button>
       </div>
 
-      {/* Dados cadastrais */}
+      {/* Dados */}
       <Card className="p-6">
         <h2 className="mb-4 text-sm font-medium text-gray-900">
-          Dados cadastrais
+          Dados do prestador
         </h2>
         <div className="grid gap-5 sm:grid-cols-2">
-          <InfoItem icon={<IdCard size={14} />} label="CPF" value={patient.cpf} />
           <InfoItem
-            icon={<Cake size={14} />}
-            label="Nascimento"
-            value={formatDate(patient.birth_date)}
+            icon={<IdCard size={14} />}
+            label={documentLabel(provider.kind)}
+            value={provider.document}
           />
+          {provider.kind === "company" && (
+            <InfoItem
+              icon={<Building2 size={14} />}
+              label="Razão social"
+              value={provider.legal_name}
+            />
+          )}
           <InfoItem
-            icon={<MapPin size={14} />}
-            label="Cidade"
-            value={patient.city}
+            icon={<Mail size={14} />}
+            label="E-mail"
+            value={provider.email}
           />
           <InfoItem
             icon={<Phone size={14} />}
             label="Telefone"
-            value={patient.phone}
+            value={provider.phone}
           />
         </div>
       </Card>
 
-      {/* Contato de urgência */}
-      <Card className="p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <AlertTriangle size={14} className="text-amber-600" />
-          <h2 className="text-sm font-medium text-gray-900">
-            Contato de urgência
-          </h2>
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <InfoItem label="Nome" value={patient.emergency_contact_name} />
-          <InfoItem label="Telefone" value={patient.emergency_contact_phone} />
-        </div>
-      </Card>
-
       {/* Notas */}
-      {patient.notes && (
+      {provider.notes && (
         <Card className="p-6">
           <h2 className="mb-3 text-sm font-medium text-gray-900">
             Observações internas
           </h2>
           <p className="whitespace-pre-wrap text-sm text-gray-600">
-            {patient.notes}
+            {provider.notes}
           </p>
         </Card>
       )}
 
-      {/* Placeholder do prontuário */}
+      {/* Placeholder financeiro */}
       <Card className="p-6">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
@@ -267,11 +250,11 @@ export function PatientDetail() {
           </div>
           <div className="flex-1">
             <h2 className="text-sm font-medium text-gray-900">
-              Prontuário e evoluções
+              Financeiro
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              O registro clínico (anamnese, evolução SOAP, áudio) estará
-              disponível em uma próxima versão.
+              As despesas vinculadas a este prestador estarão disponíveis em
+              uma próxima versão.
             </p>
           </div>
           <div className="flex items-center gap-1 text-xs text-gray-400">
@@ -281,51 +264,48 @@ export function PatientDetail() {
         </div>
       </Card>
 
-      {/* Modal: arquivar */}
+      {/* Modais */}
       <ConfirmDialog
         open={archiveOpen}
         onClose={() => setArchiveOpen(false)}
         onConfirm={handleArchive}
-        title="Arquivar paciente?"
+        title="Arquivar prestador?"
         description={
           <>
-            O paciente <strong>{patient.full_name}</strong> não aparecerá mais
-            na lista principal, mas continua no sistema. Você pode reativá-lo
-            quando quiser.
+            O prestador <strong>{provider.display_name}</strong> não aparecerá
+            mais na lista principal, mas continua no sistema. Você pode
+            reativá-lo quando quiser.
           </>
         }
         confirmLabel="Arquivar"
         tone="warning"
       />
 
-      {/* Modal: reativar */}
       <ConfirmDialog
         open={reactivateOpen}
         onClose={() => setReactivateOpen(false)}
         onConfirm={handleReactivate}
-        title="Reativar paciente?"
+        title="Reativar prestador?"
         description={
           <>
-            O paciente <strong>{patient.full_name}</strong> voltará para a
-            lista principal como ativo.
+            O prestador <strong>{provider.display_name}</strong> voltará para a
+            lista principal.
           </>
         }
         confirmLabel="Reativar"
         tone="success"
       />
 
-      {/* Modal: excluir permanentemente */}
       <ConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Excluir paciente permanentemente?"
+        title="Excluir prestador permanentemente?"
         description={
           <>
             <p>
               Esta ação <strong>não pode ser desfeita</strong>. Todos os dados
-              de <strong>{patient.full_name}</strong> serão removidos do
-              sistema.
+              de <strong>{provider.display_name}</strong> serão removidos.
             </p>
             <p className="mt-2 text-xs">
               Se quiser apenas tirar da lista principal, use{" "}
@@ -340,7 +320,6 @@ export function PatientDetail() {
   );
 }
 
-// Item de informação com ícone opcional
 function InfoItem({
   icon,
   label,
