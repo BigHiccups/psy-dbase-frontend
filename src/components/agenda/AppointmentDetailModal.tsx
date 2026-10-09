@@ -5,7 +5,6 @@ import {
   Clock,
   User,
   AlertCircle,
-//   CheckCircle2,
   XCircle,
   ExternalLink,
 } from "lucide-react";
@@ -16,7 +15,9 @@ import {
   formatTime,
   formatLongDate,
   WEEKDAY_LONG,
+  isoWeekday,
 } from "../../lib/agenda-date";
+import { CancelSeriesModal } from "./CancelSeriesModal";
 import type { AppointmentWithRelations } from "../../types";
 
 type Props = {
@@ -30,7 +31,8 @@ export function AppointmentDetailModal({
   onClose,
   onChanged,
 }: Props) {
-  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelThisOpen, setCancelThisOpen] = useState(false);
+  const [cancelSeriesOpen, setCancelSeriesOpen] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +55,11 @@ export function AppointmentDetailModal({
 
   const subjectLabel = appointment.patient ? "Paciente" : "Prestador";
 
-  async function handleCancel() {
+  // Só permite cancelar série se for recorrente E tiver paciente
+  const canCancelSeries =
+    appointment.is_recurring && !!appointment.patient_id;
+
+  async function handleCancelThis() {
     setWorking(true);
     setError(null);
 
@@ -69,7 +75,7 @@ export function AppointmentDetailModal({
       return;
     }
 
-    setCancelOpen(false);
+    setCancelThisOpen(false);
     onChanged();
     onClose();
   }
@@ -79,7 +85,9 @@ export function AppointmentDetailModal({
       <Modal open onClose={onClose} title="Detalhes do agendamento" size="md">
         <div className="space-y-5">
           {/* Cabeçalho com tipo */}
-          <div className={`flex items-start gap-3 rounded-xl border-l-4 p-4 ${style.bg} ${style.border}`}>
+          <div
+            className={`flex items-start gap-3 rounded-xl border-l-4 p-4 ${style.bg} ${style.border}`}
+          >
             <CalendarClock size={18} className={style.text} />
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -112,7 +120,7 @@ export function AppointmentDetailModal({
                 label="Recorrência"
                 value={
                   appointment.is_recurring
-                    ? `Toda ${WEEKDAY_LONG[appointment.weekday].toLowerCase()}`
+                    ? `Toda ${WEEKDAY_LONG[isoWeekday(appointment.weekday)].toLowerCase()}`
                     : "Sessão avulsa"
                 }
               />
@@ -156,39 +164,67 @@ export function AppointmentDetailModal({
           )}
 
           {/* Ações */}
-          <div className="flex justify-end gap-2 border-t border-gray-100 pt-5">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-5">
             <Button variant="secondary" onClick={onClose}>
               Fechar
             </Button>
             {!isCancelled && !isCompleted && (
-              <Button
-                variant="danger"
-                onClick={() => setCancelOpen(true)}
-                disabled={working}
-              >
-                <XCircle size={16} />
-                Cancelar
-              </Button>
+              <>
+                {canCancelSeries && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setCancelSeriesOpen(true)}
+                    disabled={working}
+                  >
+                    <XCircle size={16} />
+                    Cancelar série
+                  </Button>
+                )}
+                <Button
+                  variant="danger"
+                  onClick={() => setCancelThisOpen(true)}
+                  disabled={working}
+                >
+                  <XCircle size={16} />
+                  Cancelar este
+                </Button>
+              </>
             )}
           </div>
         </div>
       </Modal>
 
+      {/* Confirmar cancelar este */}
       <ConfirmDialog
-        open={cancelOpen}
-        onClose={() => setCancelOpen(false)}
-        onConfirm={handleCancel}
+        open={cancelThisOpen}
+        onClose={() => setCancelThisOpen(false)}
+        onConfirm={handleCancelThis}
         title="Cancelar este agendamento?"
         description={
           <>
-            O agendamento de <strong>{subjectName}</strong> será marcado como
-            cancelado. Ele continua visível na agenda, mas riscado.
+            O agendamento de <strong>{subjectName}</strong> em{" "}
+            {formatLongDate(appointment.starts_on)} será marcado como
+            cancelado.
           </>
         }
         confirmLabel="Cancelar agendamento"
         cancelLabel="Voltar"
         tone="danger"
       />
+
+      {/* Cancelar série (3 modos) */}
+      {cancelSeriesOpen && appointment.patient_id && (
+        <CancelSeriesModal
+          open
+          patientId={appointment.patient_id}
+          patientName={subjectName}
+          onClose={() => setCancelSeriesOpen(false)}
+          onDone={() => {
+            onChanged();
+            onClose();
+          }}
+        />
+      )}
     </>
   );
 }

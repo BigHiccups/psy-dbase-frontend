@@ -3,19 +3,19 @@ import {
   MONTH_SHORT,
   isToday,
   parseDateString,
+  isoWeekday,
 } from "../../lib/agenda-date";
 
 type Props = {
-  date: string; // YYYY-MM-DD
-  // Se true, mostra o formato mais compacto (sem o mês)
+  date: string;
   compact?: boolean;
-  // Destaque visual (usado no DayView)
   large?: boolean;
 };
 
 export function DayHeader({ date, compact, large }: Props) {
   const d = parseDateString(date);
   const today = isToday(date);
+  const iso = isoWeekday(d.getDay());
 
   return (
     <div
@@ -28,7 +28,7 @@ export function DayHeader({ date, compact, large }: Props) {
           today ? "text-brand-700" : "text-gray-500"
         } ${large ? "text-sm" : ""}`}
       >
-        {WEEKDAY_SHORT[d.getDay()]}
+        {WEEKDAY_SHORT[iso]}
       </span>
       <span
         className={`mt-0.5 font-semibold ${

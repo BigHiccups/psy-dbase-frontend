@@ -3,9 +3,12 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Save, AlertCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
+import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { usePatient } from "../hooks/usePatient";
+import { usePatientSchedules } from "../hooks/usePatientSchedules";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidCPF, isValidPhoneBR } from "../lib/masks";
+import type { ScheduleInput } from "../types";
 
 type FormState = {
   full_name: string;
@@ -35,7 +38,11 @@ export function PatientForm() {
   const isEdit = !!id;
 
   const { patient, loading: loadingPatient } = usePatient(id);
+  const { schedules: existingSchedules } = usePatientSchedules(id);
+
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,8 +62,14 @@ export function PatientForm() {
     }
   }, [patient]);
 
+  // Carrega schedules existentes (modo edição)
+  useEffect(() => {
+    if (existingSchedules.length > 0) {
+      setSchedules(existingSchedules);
+    }
+  }, [existingSchedules]);
+
   // Se for um paciente provisório (prospect), redireciona para a página de revisão.
-  // Não permitimos edição comum aqui porque a promoção precisa de fluxo próprio.
   useEffect(() => {
     if (patient && patient.status === "prospect" && isEdit) {
       navigate(`/patients/${patient.id}/review`, { replace: true });
@@ -70,6 +83,7 @@ export function PatientForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setScheduleError(null);
 
     // Validações extras (frontend)
     if (form.cpf && !isValidCPF(form.cpf)) {
@@ -115,6 +129,20 @@ export function PatientForm() {
         return;
       }
 
+      // Se tem horários, sincroniza
+      if (schedules.length > 0) {
+        const { error: scheduleErr } = await supabase.rpc(
+          "set_patient_schedules",
+          { p_patient_id: id, p_schedules: schedules }
+        );
+
+        if (scheduleErr) {
+          setScheduleError(scheduleErr.message);
+          setSaving(false);
+          return;
+        }
+      }
+
       navigate(`/patients/${id}`);
     } else {
       const {
@@ -137,6 +165,20 @@ export function PatientForm() {
         setError(error?.message ?? "Erro ao criar paciente.");
         setSaving(false);
         return;
+      }
+
+      // Se tem horários, cria
+      if (schedules.length > 0) {
+        const { error: scheduleErr } = await supabase.rpc(
+          "set_patient_schedules",
+          { p_patient_id: data.id, p_schedules: schedules }
+        );
+
+        if (scheduleErr) {
+          setScheduleError(scheduleErr.message);
+          setSaving(false);
+          return;
+        }
       }
 
       navigate(`/patients/${data.id}`);
@@ -245,6 +287,15 @@ export function PatientForm() {
               placeholder="(00) 00000-0000"
             />
           </div>
+        </Card>
+
+        <Card className="space-y-4 p-6">
+          <ScheduleEditor
+            value={schedules}
+            onChange={setSchedules}
+            error={scheduleError}
+            hint="Estes horários gerarão agendamentos recorrentes semanais pelos próximos 90 dias."
+          />
         </Card>
 
         <Card className="space-y-4 p-6">

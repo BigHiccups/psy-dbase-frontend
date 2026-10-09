@@ -13,11 +13,16 @@ import {
   FileText,
   Clock,
   Trash2,
+  PauseCircle,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { usePatient } from "../hooks/usePatient";
+import { usePatientSchedules } from "../hooks/usePatientSchedules";
 import { Button, Card, Badge, ConfirmDialog, Spinner } from "../components/ui";
+import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import type { PatientStatus } from "../types";
+import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
+
 
 const STATUS_LABEL: Record<PatientStatus, string> = {
   prospect: "Em revisão",
@@ -47,23 +52,40 @@ export function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { patient, loading, error, reload } = usePatient(id);
+  const { schedules: patientSchedules } = usePatientSchedules(id);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [reactivateOpen, setReactivateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [suspendOpen, setSuspendOpen] = useState(false);
   const [working, setWorking] = useState(false);
 
   async function handleArchive() {
     if (!patient) return;
     setWorking(true);
+
+    // 1. Cancela appointments futuros
+    const { error: cancelErr } = await supabase.rpc(
+      "cancel_future_appointments",
+      { p_patient_id: patient.id }
+    );
+
+    if (cancelErr) {
+      alert(cancelErr.message);
+      setWorking(false);
+      return;
+    }
+
+    // 2. Muda status
     const { error } = await supabase
       .from("patients")
       .update({ status: "inactive" })
       .eq("id", patient.id);
+
     setWorking(false);
 
     if (error) {
-      alert(error.message); // TODO: substituir por AlertDialog do design system
+      alert(error.message);
       return;
     }
     setArchiveOpen(false);
@@ -73,16 +95,34 @@ export function PatientDetail() {
   async function handleReactivate() {
     if (!patient) return;
     setWorking(true);
+
+    // 1. Muda status
     const { error } = await supabase
       .from("patients")
       .update({ status: "active" })
       .eq("id", patient.id);
-    setWorking(false);
 
     if (error) {
       alert(error.message);
+      setWorking(false);
       return;
     }
+
+    // 2. Recria appointments a partir dos schedules (se houver)
+    if (patientSchedules.length > 0) {
+      const { error: scheduleErr } = await supabase.rpc(
+        "set_patient_schedules",
+        { p_patient_id: patient.id, p_schedules: patientSchedules }
+      );
+
+      if (scheduleErr) {
+        alert(scheduleErr.message);
+        setWorking(false);
+        return;
+      }
+    }
+
+    setWorking(false);
     setReactivateOpen(false);
     reload();
   }
@@ -90,10 +130,11 @@ export function PatientDetail() {
   async function handleDelete() {
     if (!patient) return;
     setWorking(true);
-    const { error } = await supabase
-      .from("patients")
-      .delete()
-      .eq("id", patient.id);
+
+    const { error } = await supabase.rpc("delete_patient", {
+      p_patient_id: patient.id,
+    });
+
     setWorking(false);
 
     if (error) {
@@ -194,6 +235,19 @@ export function PatientDetail() {
           </Button>
         )}
 
+        {/* Suspender agendamentos — só se ativo e tem schedules */}
+        {!isArchived && patientSchedules.length > 0 && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSuspendOpen(true)}
+            disabled={working}
+          >
+            <PauseCircle size={14} />
+            Suspender agendamentos
+          </Button>
+        )}
+
         {/* Excluir — discreto, à direita */}
         <div className="flex-1" />
         <Button
@@ -247,6 +301,30 @@ export function PatientDetail() {
         </div>
       </Card>
 
+      {/* Horários recorrentes */}
+      {patientSchedules.length > 0 && (
+        <Card className="p-6">
+          <h2 className="mb-3 text-sm font-medium text-gray-900">
+            Horários das sessões
+          </h2>
+          <ul className="space-y-2">
+            {patientSchedules.map((s, i) => (
+              <li
+                key={i}
+                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
+              >
+                <span className="font-medium text-gray-900">
+  {WEEKDAY_LONG[isoWeekday(s.weekday)]}
+</span>
+                <span className="text-gray-500">
+                  {s.startTime} · {s.durationMin} min
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       {/* Notas */}
       {patient.notes && (
         <Card className="p-6">
@@ -289,9 +367,9 @@ export function PatientDetail() {
         title="Arquivar paciente?"
         description={
           <>
-            O paciente <strong>{patient.full_name}</strong> não aparecerá mais
-            na lista principal, mas continua no sistema. Você pode reativá-lo
-            quando quiser.
+            O paciente <strong>{patient.full_name}</strong> será arquivado e
+            todos os agendamentos futuros serão cancelados. Você pode
+            reativá-lo quando quiser.
           </>
         }
         confirmLabel="Arquivar"
@@ -307,7 +385,7 @@ export function PatientDetail() {
         description={
           <>
             O paciente <strong>{patient.full_name}</strong> voltará para a
-            lista principal como ativo.
+            lista principal e seus agendamentos recorrentes serão recriados.
           </>
         }
         confirmLabel="Reativar"
@@ -336,6 +414,20 @@ export function PatientDetail() {
         confirmLabel="Excluir permanentemente"
         tone="danger"
       />
+
+      {/* Modal: suspender agendamentos */}
+      {suspendOpen && (
+        <CancelSeriesModal
+          open
+          patientId={patient.id}
+          patientName={patient.full_name}
+          onClose={() => setSuspendOpen(false)}
+          onDone={() => {
+            setSuspendOpen(false);
+            reload();
+          }}
+        />
+      )}
     </div>
   );
 }

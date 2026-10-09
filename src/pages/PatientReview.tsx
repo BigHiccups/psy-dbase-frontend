@@ -3,12 +3,13 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, UserCheck, AlertCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
+import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { usePatient } from "../hooks/usePatient";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidPhoneBR } from "../lib/masks";
 import { displayName } from "../lib/patient-display";
+import type { ScheduleInput } from "../types";
 
-// Similar ao PatientForm, mas com banner de revisão e botão "Ativar"
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -24,9 +25,12 @@ export function PatientReview() {
     emergency_contact_phone: "",
     notes: "",
   });
+  const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Carrega dados do patient
   useEffect(() => {
     if (patient) {
       setForm({
@@ -42,6 +46,47 @@ export function PatientReview() {
     }
   }, [patient]);
 
+  // Carrega horários do convite original (via invite)
+  useEffect(() => {
+    if (!patient) return;
+
+    async function loadInviteSchedules() {
+      // O patient foi criado a partir de uma submissão; encontramos o invite
+      // via google_recurring_event_id OU via tabela de submissions
+      // Estratégia: buscar a submission aprovada com o mesmo nome
+
+      // Busca submissions aprovadas com nome similar
+      const { data: submissions } = await supabase
+        .from("patient_form_submissions")
+        .select("invite_id, full_name")
+        .eq("status", "approved")
+        .ilike("full_name", patient!.full_name)
+        .limit(1);
+
+      if (!submissions || submissions.length === 0) return;
+
+      const inviteId = submissions[0].invite_id;
+
+      const { data: inviteSchedules } = await supabase
+        .from("patient_invite_schedules")
+        .select("weekday, start_time, duration_min")
+        .eq("invite_id", inviteId)
+        .order("weekday", { ascending: true });
+
+      if (inviteSchedules && inviteSchedules.length > 0) {
+        setSchedules(
+          inviteSchedules.map((row) => ({
+            weekday: row.weekday,
+            startTime: (row.start_time as string).slice(0, 5),
+            durationMin: row.duration_min,
+          }))
+        );
+      }
+    }
+
+    loadInviteSchedules();
+  }, [patient]);
+
   function update<K extends keyof typeof form>(
     key: K,
     value: (typeof form)[K]
@@ -51,15 +96,21 @@ export function PatientReview() {
 
   async function handleConfirm() {
     setSaveError(null);
+    setScheduleError(null);
 
     if (form.phone && !isValidPhoneBR(form.phone)) {
       setSaveError("Telefone inválido.");
       return;
     }
 
+    if (schedules.length === 0) {
+      setScheduleError("Informe pelo menos um horário de sessão.");
+      return;
+    }
+
     setSaving(true);
 
-    // 1. Salva os dados
+    // 1. Atualiza dados cadastrais
     const { error: updateError } = await supabase
       .from("patients")
       .update({
@@ -82,10 +133,13 @@ export function PatientReview() {
       return;
     }
 
-    // 2. Promove a ativo
+    // 2. Promove para ativo + cria schedules + appointments
     const { error: promoteError } = await supabase.rpc(
       "promote_prospect_to_active",
-      { p_patient_id: id }
+      {
+        p_patient_id: id,
+        p_schedules: schedules,
+      }
     );
 
     if (promoteError) {
@@ -211,6 +265,15 @@ export function PatientReview() {
             }
           />
         </div>
+      </Card>
+
+      <Card className="space-y-4 p-6">
+        <ScheduleEditor
+          value={schedules}
+          onChange={setSchedules}
+          error={scheduleError}
+          hint="Estes horários gerarão agendamentos recorrentes semanais pelos próximos 90 dias."
+        />
       </Card>
 
       <Card className="space-y-4 p-6">
