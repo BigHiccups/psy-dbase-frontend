@@ -3,10 +3,12 @@ import { Plus, AlertCircle, User, Ban, UserCircle } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { Button, Modal, Input, Badge } from "../ui";
 import { usePatients } from "../../hooks/usePatients";
-import { formatLongDate, 
-// timeToMinutes,
+import {
+  formatLongDate,
+  // timeToMinutes,
 } from "../../lib/agenda-date";
 import type { AppointmentType } from "../../types";
+import { parseDateString } from "../../lib/agenda-date";
 
 type Props = {
   open: boolean;
@@ -41,8 +43,8 @@ export function CreateAppointmentModal({
   // Filtra pacientes pela busca
   const filteredPatients = patientQuery
     ? patients.filter((p) =>
-        p.full_name.toLowerCase().includes(patientQuery.toLowerCase())
-      )
+      p.full_name.toLowerCase().includes(patientQuery.toLowerCase())
+    )
     : patients.slice(0, 5);
 
   async function handleSubmit() {
@@ -69,7 +71,7 @@ export function CreateAppointmentModal({
       user_id: user.id,
       patient_id: option === "session" ? patientId : null,
       type: (option === "session" ? "session" : "blocked") as AppointmentType,
-      weekday: new Date(date + "T00:00:00").getDay(),
+      weekday: parseDateString(date).getDay(),
       start_time: startTime + ":00",
       duration_min: duration,
       starts_on: date,
@@ -111,11 +113,10 @@ export function CreateAppointmentModal({
             <button
               type="button"
               onClick={() => setOption("session")}
-              className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${
-                option === "session"
+              className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${option === "session"
                   ? "border-brand-300 bg-brand-50/50"
                   : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
+                }`}
             >
               <UserCircle
                 size={18}
@@ -132,11 +133,10 @@ export function CreateAppointmentModal({
             <button
               type="button"
               onClick={() => setOption("blocked")}
-              className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${
-                option === "blocked"
+              className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${option === "blocked"
                   ? "border-brand-300 bg-brand-50/50"
                   : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
+                }`}
             >
               <Ban
                 size={18}
@@ -177,9 +177,8 @@ export function CreateAppointmentModal({
                     setPatientId(p.id);
                     setPatientQuery(p.full_name);
                   }}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-gray-50 ${
-                    patientId === p.id ? "bg-brand-50 text-brand-900" : ""
-                  }`}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-gray-50 ${patientId === p.id ? "bg-brand-50 text-brand-900" : ""
+                    }`}
                 >
                   <User size={14} className="text-gray-400" />
                   <span className="flex-1">{p.full_name}</span>
