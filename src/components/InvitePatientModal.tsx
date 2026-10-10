@@ -8,7 +8,6 @@ import { toTitleCase } from "../lib/text";
 import { weekdayLong } from "../lib/weekdays";
 import { Button, Input, Modal } from "./ui";
 import type { InviteResponse, ScheduleInput } from "../types";
-const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
 
 type Props = {
   onClose: () => void;
@@ -23,6 +22,7 @@ const INITIAL_SCHEDULE: ScheduleInput = {
 
 export function InvitePatientModal({ onClose, onSuccess }: Props) {
   const [patientNameHint, setPatientNameHint] = useState("");
+  const { slots: occupiedSlots } = useOccupiedSlots();
   const [phone, setPhone] = useState("");
   const [schedules, setSchedules] = useState<ScheduleInput[]>([
     { ...INITIAL_SCHEDULE },
@@ -31,9 +31,7 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<InviteResponse | null>(null);
   const [copied, setCopied] = useState(false);
-
-  // Slots ocupados (bloqueio rígido)
-  const { slots: occupiedSlots } = useOccupiedSlots();
+  const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,7 +47,6 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
       return;
     }
 
-    // Verifica conflito com slots ocupados
     const conflict = schedules.find((s) =>
       occupiedSlots.some(
         (o) => o.weekday === s.weekday && o.startTime === s.startTime

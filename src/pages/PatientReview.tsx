@@ -10,7 +10,6 @@ import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidPhoneBR } from "../lib/masks";
 import { displayName } from "../lib/patient-display";
 import type { ScheduleInput } from "../types";
-const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
 
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +31,7 @@ export function PatientReview() {
   });
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 

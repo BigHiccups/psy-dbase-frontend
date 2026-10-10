@@ -10,7 +10,6 @@ import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidCPF, isValidPhoneBR } from "../lib/masks";
 import type { ScheduleInput } from "../types";
-const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
 
 type FormState = {
   full_name: string;
@@ -50,6 +49,7 @@ export function PatientForm() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
