@@ -10,6 +10,7 @@ import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidCPF, isValidPhoneBR } from "../lib/masks";
 import type { ScheduleInput } from "../types";
+const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
 
 type FormState = {
   full_name: string;
@@ -119,6 +120,33 @@ export function PatientForm() {
           "Há horário em conflito com outro agendamento. Remova ou troque antes de salvar."
         );
         return;
+      }
+    }
+
+    if (schedules.length > 0) {
+      const conflict = schedules.find((s) =>
+        occupiedSlots.some(
+          (o) =>
+            o.weekday === s.weekday &&
+            o.startTime.slice(0, 5) === s.startTime.slice(0, 5)
+        )
+      );
+      if (conflict) {
+        setScheduleError(
+          "Há horário em conflito com outro agendamento. Remova ou troque antes de salvar."
+        );
+        return;
+      }
+
+      // Conflito interno (duas linhas iguais)
+      const seen = new Set<string>();
+      for (const s of schedules) {
+        const key = `${s.weekday}-${s.startTime.slice(0, 5)}`;
+        if (seen.has(key)) {
+          setScheduleError("Há horários duplicados entre si. Remova um deles.");
+          return;
+        }
+        seen.add(key);
       }
     }
 
@@ -309,9 +337,10 @@ export function PatientForm() {
           <ScheduleEditor
             value={schedules}
             onChange={setSchedules}
-            // disabledSlots={occupiedSlots}
+            disabledSlots={occupiedSlots}
             error={scheduleError}
-            hint="Estes horários gerarão agendamentos recorrentes semanais. Horários já ocupados aparecem em cinza."
+            hint="Horários já ocupados por outros pacientes aparecem em âmbar."
+            onConflictChange={setHasScheduleConflict}
           />
         </Card>
 
@@ -349,13 +378,23 @@ export function PatientForm() {
               Cancelar
             </Button>
           </Link>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            disabled={saving || hasScheduleConflict}
+            title={
+              hasScheduleConflict
+                ? "Resolva os horários em conflito antes de salvar"
+                : undefined
+            }
+          >
             <Save size={16} />
             {saving
               ? "Salvando..."
-              : isEdit
-                ? "Salvar alterações"
-                : "Criar paciente"}
+              : hasScheduleConflict
+                ? "Resolva os conflitos"
+                : isEdit
+                  ? "Salvar alterações"
+                  : "Criar paciente"}
           </Button>
         </div>
       </form>

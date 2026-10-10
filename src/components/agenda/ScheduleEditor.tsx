@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from "react";
 import { Plus, Trash2, CalendarClock, AlertCircle } from "lucide-react";
 import { Button, Badge } from "../ui";
 import { WEEKDAYS } from "../../lib/weekdays";
@@ -12,6 +13,8 @@ type Props = {
   error?: string | null;
   hint?: string;
   title?: string;
+  // Callback chamado sempre que o estado de conflito mudar
+  onConflictChange?: (hasConflict: boolean) => void;
 };
 
 const INITIAL_SCHEDULE: ScheduleInput = {
@@ -29,6 +32,7 @@ export function ScheduleEditor({
   error,
   hint,
   title = "Horários das sessões",
+  onConflictChange,
 }: Props) {
   function update(index: number, patch: Partial<ScheduleInput>) {
     onChange(value.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -44,16 +48,45 @@ export function ScheduleEditor({
     onChange(value.filter((_, i) => i !== index));
   }
 
-  // Normaliza "HH:MM:SS" para "HH:MM" antes de comparar
+  // Normaliza "HH:MM:SS" para "HH:MM"
+  function normalize(t: string): string {
+    return t.slice(0, 5);
+  }
+
   function isSlotDisabled(weekday: number, startTime: string): boolean {
-    const normalized = startTime.slice(0, 5);
+    const normalized = normalize(startTime);
     return disabledSlots.some(
-      (s) => s.weekday === weekday && s.startTime.slice(0, 5) === normalized
+      (s) => s.weekday === weekday && normalize(s.startTime) === normalized
     );
   }
 
-  // Verifica se algum slot selecionado está ocupado
-  const hasConflict = value.some((s) => isSlotDisabled(s.weekday, s.startTime));
+  // Conflito interno: duas linhas do próprio editor no mesmo slot
+  function hasInternalConflict(index: number): boolean {
+    const self = value[index];
+    return value.some(
+      (s, i) =>
+        i !== index &&
+        s.weekday === self.weekday &&
+        normalize(s.startTime) === normalize(self.startTime)
+    );
+  }
+
+  function isRowLocked(index: number): boolean {
+    const s = value[index];
+    return isSlotDisabled(s.weekday, s.startTime) || hasInternalConflict(index);
+  }
+
+  // Memoiza o cálculo de conflito
+  const hasConflict = useMemo(
+    () => value.some((_, i) => isRowLocked(i)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [value, disabledSlots]
+  );
+
+  // Notifica o parent sempre que o conflito mudar
+  useEffect(() => {
+    onConflictChange?.(hasConflict);
+  }, [hasConflict, onConflictChange]);
 
   return (
     <div>
@@ -100,9 +133,7 @@ export function ScheduleEditor({
 
       <div className="space-y-2">
         {value.map((s, index) => {
-          const occupied = isSlotDisabled(s.weekday, s.startTime);
-          // O slot está travado: cinza + inputs desabilitados
-          const locked = occupied;
+          const locked = isRowLocked(index);
           return (
             <div
               key={index}
@@ -140,9 +171,7 @@ export function ScheduleEditor({
               <input
                 type="time"
                 value={s.startTime}
-                onChange={(e) =>
-                  update(index, { startTime: e.target.value })
-                }
+                onChange={(e) => update(index, { startTime: e.target.value })}
                 disabled={disabled || readOnly || locked}
                 className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
               />
@@ -172,7 +201,7 @@ export function ScheduleEditor({
                   title={
                     value.length === 1
                       ? "Pelo menos um horário é obrigatório"
-                      : "Remover horário"
+                      : "Remover esta linha"
                   }
                 >
                   <Trash2 size={14} />
@@ -183,16 +212,12 @@ export function ScheduleEditor({
         })}
       </div>
 
-      {/* Aviso de conflito */}
       {hasConflict && (
         <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-          <AlertCircle
-            size={14}
-            className="mt-0.5 shrink-0 text-amber-700"
-          />
+          <AlertCircle size={14} className="mt-0.5 shrink-0 text-amber-700" />
           <p className="text-xs text-amber-800">
-            Alguns horários selecionados já estão ocupados. Remova ou troque
-            antes de continuar.
+            Alguns horários estão em conflito (com outros agendamentos ou entre
+            si). Remova-os ou troque antes de continuar.
           </p>
         </div>
       )}

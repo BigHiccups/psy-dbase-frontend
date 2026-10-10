@@ -10,6 +10,7 @@ import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidPhoneBR } from "../lib/masks";
 import { displayName } from "../lib/patient-display";
 import type { ScheduleInput } from "../types";
+const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
 
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
@@ -120,6 +121,29 @@ export function PatientReview() {
       return;
     }
 
+    if (schedules.length > 0) {
+      const conflict = schedules.find((s) =>
+        occupiedSlots.some(
+          (o) =>
+            o.weekday === s.weekday &&
+            o.startTime.slice(0, 5) === s.startTime.slice(0, 5)
+        )
+      );
+      if (conflict) {
+        setScheduleError("Há horário em conflito. Remova ou troque antes.");
+        return;
+      }
+
+      const seen = new Set<string>();
+      for (const s of schedules) {
+        const key = `${s.weekday}-${s.startTime.slice(0, 5)}`;
+        if (seen.has(key)) {
+          setScheduleError("Há horários duplicados entre si.");
+          return;
+        }
+        seen.add(key);
+      }
+    }
     setSaving(true);
 
     const { error: updateError } = await supabase
@@ -280,9 +304,10 @@ export function PatientReview() {
         <ScheduleEditor
           value={schedules}
           onChange={setSchedules}
-          // disabledSlots={occupiedSlots}
+          disabledSlots={occupiedSlots}
           error={scheduleError}
-          hint="Estes horários gerarão agendamentos recorrentes semanais. Horários já ocupados aparecem em cinza."
+          hint="Horários já ocupados aparecem em âmbar."
+          onConflictChange={setHasScheduleConflict}
         />
       </Card>
 
@@ -311,9 +336,21 @@ export function PatientReview() {
             Cancelar
           </Button>
         </Link>
-        <Button onClick={handleConfirm} disabled={saving}>
+        <Button
+          onClick={handleConfirm}
+          disabled={saving || hasScheduleConflict}
+          title={
+            hasScheduleConflict
+              ? "Resolva os horários em conflito antes de salvar"
+              : undefined
+          }
+        >
           <UserCheck size={16} />
-          {saving ? "Salvando..." : "Confirmar e ativar"}
+          {saving
+            ? "Salvando..."
+            : hasScheduleConflict
+              ? "Resolva os conflitos"
+              : "Confirmar e ativar"}
         </Button>
       </div>
     </div>

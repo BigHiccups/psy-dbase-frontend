@@ -8,6 +8,7 @@ import { toTitleCase } from "../lib/text";
 import { weekdayLong } from "../lib/weekdays";
 import { Button, Input, Modal } from "./ui";
 import type { InviteResponse, ScheduleInput } from "../types";
+const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
 
 type Props = {
   onClose: () => void;
@@ -204,7 +205,8 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
             onChange={setSchedules}
             disabledSlots={occupiedSlots}
             error={null}
-            hint="Horários já ocupados por outros pacientes aparecem em cinza."
+            hint="Horários já ocupados aparecem em âmbar."
+            onConflictChange={setHasScheduleConflict}
           />
         </div>
 
@@ -219,8 +221,12 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={loading}>
-            {loading ? "Gerando..." : "Gerar convite e enviar"}
+          <Button type="submit" disabled={loading || hasScheduleConflict}>
+            {loading
+              ? "Gerando..."
+              : hasScheduleConflict
+                ? "Resolva os conflitos"
+                : "Gerar convite e enviar"}
           </Button>
         </div>
       </form>
