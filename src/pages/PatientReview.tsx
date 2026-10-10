@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
 import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { usePatient } from "../hooks/usePatient";
+import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidPhoneBR } from "../lib/masks";
 import { displayName } from "../lib/patient-display";
@@ -14,6 +15,9 @@ export function PatientReview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { patient, loading, error } = usePatient(id);
+
+  // Slots ocupados por outros pacientes
+  const { slots: occupiedSlots } = useOccupiedSlots();
 
   const [form, setForm] = useState({
     full_name: "",
@@ -30,7 +34,6 @@ export function PatientReview() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Carrega dados do patient
   useEffect(() => {
     if (patient) {
       setForm({
@@ -46,16 +49,10 @@ export function PatientReview() {
     }
   }, [patient]);
 
-  // Carrega horários do convite original (via invite)
   useEffect(() => {
     if (!patient) return;
 
     async function loadInviteSchedules() {
-      // O patient foi criado a partir de uma submissão; encontramos o invite
-      // via google_recurring_event_id OU via tabela de submissions
-      // Estratégia: buscar a submission aprovada com o mesmo nome
-
-      // Busca submissions aprovadas com nome similar
       const { data: submissions } = await supabase
         .from("patient_form_submissions")
         .select("invite_id, full_name")
@@ -108,9 +105,23 @@ export function PatientReview() {
       return;
     }
 
+    // Validação de conflito
+    const conflict = schedules.find((s) =>
+      occupiedSlots.some(
+        (o) =>
+          o.weekday === s.weekday &&
+          o.startTime.slice(0, 5) === s.startTime.slice(0, 5)
+      )
+    );
+    if (conflict) {
+      setScheduleError(
+        "Há horário em conflito com outro agendamento. Remova ou troque antes de continuar."
+      );
+      return;
+    }
+
     setSaving(true);
 
-    // 1. Atualiza dados cadastrais
     const { error: updateError } = await supabase
       .from("patients")
       .update({
@@ -133,7 +144,6 @@ export function PatientReview() {
       return;
     }
 
-    // 2. Promove para ativo + cria schedules + appointments
     const { error: promoteError } = await supabase.rpc(
       "promote_prospect_to_active",
       {
@@ -182,7 +192,6 @@ export function PatientReview() {
           Voltar para pacientes
         </Link>
 
-        {/* Banner de revisão */}
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
           <div>
@@ -271,8 +280,9 @@ export function PatientReview() {
         <ScheduleEditor
           value={schedules}
           onChange={setSchedules}
+          // disabledSlots={occupiedSlots}
           error={scheduleError}
-          hint="Estes horários gerarão agendamentos recorrentes semanais pelos próximos 90 dias."
+          hint="Estes horários gerarão agendamentos recorrentes semanais. Horários já ocupados aparecem em cinza."
         />
       </Card>
 

@@ -1,18 +1,12 @@
 import { useState } from "react";
-import {
-  Plus,
-  Trash2,
-  CalendarClock,
-  Copy,
-  Check,
-  MessageCircle,
-  AlertCircle,
-} from "lucide-react";
+import { Copy, Check, MessageCircle, AlertCircle } from "lucide-react";
 import { apiFetch } from "../lib/api";
-import { WEEKDAYS, weekdayLong } from "../lib/weekdays";
+import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
+import { ScheduleEditor } from "./agenda/ScheduleEditor";
 import { maskPhone, isValidPhoneBR } from "../lib/masks";
 import { toTitleCase } from "../lib/text";
-import { Button, Input, Modal, Badge } from "./ui";
+import { weekdayLong } from "../lib/weekdays";
+import { Button, Input, Modal } from "./ui";
 import type { InviteResponse, ScheduleInput } from "../types";
 
 type Props = {
@@ -37,24 +31,8 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
   const [result, setResult] = useState<InviteResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
-  function updateSchedule(index: number, patch: Partial<ScheduleInput>) {
-    setSchedules((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, ...patch } : s))
-    );
-  }
-
-  function addSchedule() {
-    const last = schedules[schedules.length - 1];
-    const nextWeekday = last ? (last.weekday + 1) % 7 : 1;
-    setSchedules((prev) => [
-      ...prev,
-      { ...INITIAL_SCHEDULE, weekday: nextWeekday },
-    ]);
-  }
-
-  function removeSchedule(index: number) {
-    setSchedules((prev) => prev.filter((_, i) => i !== index));
-  }
+  // Slots ocupados (bloqueio rígido)
+  const { slots: occupiedSlots } = useOccupiedSlots();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,12 +48,24 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
       return;
     }
 
+    // Verifica conflito com slots ocupados
+    const conflict = schedules.find((s) =>
+      occupiedSlots.some(
+        (o) => o.weekday === s.weekday && o.startTime === s.startTime
+      )
+    );
+    if (conflict) {
+      setError(
+        `O horário de ${weekdayLong(conflict.weekday)} às ${conflict.startTime} já está ocupado.`
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await apiFetch<InviteResponse>("/invites", {
         method: "POST",
         body: JSON.stringify({
-          // Nome normalizado silenciosamente ao enviar
           patientNameHint: patientNameHint
             ? toTitleCase(patientNameHint)
             : "",
@@ -106,7 +96,6 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
     return (
       <Modal open onClose={onClose} title="Convite gerado" size="md">
         <div className="space-y-5">
-          {/* Sucesso */}
           <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
               <MessageCircle size={16} />
@@ -121,14 +110,10 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          {/* Sessões combinadas */}
           <div>
-            <div className="mb-2 flex items-center gap-2">
-              <CalendarClock size={14} className="text-brand-600" />
-              <p className="text-xs font-medium text-gray-500">
-                Sessões combinadas
-              </p>
-            </div>
+            <p className="mb-2 text-xs font-medium text-gray-500">
+              Sessões combinadas
+            </p>
             <div className="space-y-2">
               {result.schedules.map((s, i) => (
                 <div
@@ -146,7 +131,6 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          {/* Link */}
           <div>
             <p className="mb-2 text-xs font-medium text-gray-500">
               Link do formulário
@@ -176,7 +160,6 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          {/* Ações */}
           <div className="flex justify-end gap-2 border-t border-gray-100 pt-5">
             <Button variant="secondary" onClick={onClose}>
               Fechar
@@ -194,7 +177,6 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
   return (
     <Modal open onClose={onClose} title="Convidar paciente" size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Dados básicos */}
         <div className="space-y-4">
           <Input
             label="Nome do paciente"
@@ -216,101 +198,16 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
           />
         </div>
 
-        {/* Horários */}
         <div className="border-t border-gray-100 pt-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CalendarClock size={16} className="text-brand-600" />
-              <label className="text-sm font-medium text-gray-900">
-                Horários das sessões
-                <span className="ml-1 text-red-500">*</span>
-              </label>
-              <Badge variant="brand">{schedules.length}</Badge>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={addSchedule}
-            >
-              <Plus size={14} />
-              Adicionar
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            {schedules.map((s, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 p-2"
-              >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-medium text-brand-700">
-                  {index + 1}
-                </div>
-
-                <select
-                  value={s.weekday}
-                  onChange={(e) =>
-                    updateSchedule(index, { weekday: Number(e.target.value) })
-                  }
-                  className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                >
-                  {WEEKDAYS.map((w) => (
-                    <option key={w.value} value={w.value}>
-                      {w.long}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  type="time"
-                  value={s.startTime}
-                  onChange={(e) =>
-                    updateSchedule(index, { startTime: e.target.value })
-                  }
-                  className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                />
-
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={15}
-                    max={240}
-                    step={5}
-                    value={s.durationMin}
-                    onChange={(e) =>
-                      updateSchedule(index, {
-                        durationMin: Number(e.target.value),
-                      })
-                    }
-                    className="w-16 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                  />
-                  <span className="text-xs text-gray-500">min</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => removeSchedule(index)}
-                  disabled={schedules.length === 1}
-                  className="rounded-md p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400"
-                  title={
-                    schedules.length === 1
-                      ? "Pelo menos um horário é obrigatório"
-                      : "Remover horário"
-                  }
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-3 text-xs text-gray-500">
-            Este é o combinado que aparecerá para o paciente no formulário.
-          </p>
+          <ScheduleEditor
+            value={schedules}
+            onChange={setSchedules}
+            disabledSlots={occupiedSlots}
+            error={null}
+            hint="Horários já ocupados por outros pacientes aparecem em cinza."
+          />
         </div>
 
-        {/* Erro */}
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
             <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
@@ -318,7 +215,6 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
           </div>
         )}
 
-        {/* Ações */}
         <div className="flex justify-end gap-2 border-t border-gray-100 pt-5">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar

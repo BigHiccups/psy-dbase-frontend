@@ -19,3 +19,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,   // lê tokens devolvidos na URL após OAuth
   },
 });
+
+// Expõe em dev para debug via console do navegador
+if (import.meta.env.DEV) {
+  (window as unknown as { supabase: typeof supabase }).supabase = supabase;
+}
