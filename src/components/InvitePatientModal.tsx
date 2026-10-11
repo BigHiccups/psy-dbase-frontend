@@ -87,41 +87,38 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // =========================================================
-  // Tela de resultado
-  // =========================================================
   if (result) {
     return (
       <Modal open onClose={onClose} title="Convite gerado" size="md">
         <div className="space-y-5">
-          <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
+          <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-900/50 dark:bg-green-950/30">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-900/60 dark:text-green-300">
               <MessageCircle size={16} />
             </div>
             <div>
-              <p className="text-sm font-medium text-green-900">
+              <p className="text-sm font-medium text-green-900 dark:text-green-200">
                 WhatsApp aberto em nova aba
               </p>
-              <p className="mt-0.5 text-xs text-green-700">
+              <p className="mt-0.5 text-xs text-green-700 dark:text-green-300/80">
                 Confira a mensagem e envie para o paciente.
               </p>
             </div>
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-medium text-gray-500">
+            <p className="mb-2 text-xs font-medium text-gray-500 dark:text-slate-400">
               Sessões combinadas
             </p>
             <div className="space-y-2">
               {result.schedules.map((s, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-900"
                 >
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-gray-900 dark:text-slate-100">
                     {weekdayLong(s.weekday)}
                   </span>
-                  <span className="text-gray-500">
+                  <span className="text-gray-500 dark:text-slate-400">
                     {s.startTime} · {s.durationMin} min
                   </span>
                 </div>
@@ -130,11 +127,11 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-medium text-gray-500">
+            <p className="mb-2 text-xs font-medium text-gray-500 dark:text-slate-400">
               Link do formulário
             </p>
             <div className="flex items-center gap-2">
-              <div className="flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              <div className="flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
                 {result.shortUrl}
               </div>
               <Button
@@ -158,7 +155,7 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-gray-100 pt-5">
+          <div className="flex justify-end gap-2 border-t border-gray-100 pt-5 dark:border-slate-800">
             <Button variant="secondary" onClick={onClose}>
               Fechar
             </Button>
@@ -169,9 +166,6 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
     );
   }
 
-  // =========================================================
-  // Formulário
-  // =========================================================
   return (
     <Modal open onClose={onClose} title="Convidar paciente" size="lg">
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -196,7 +190,7 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
           />
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
+        <div className="border-t border-gray-100 pt-5 dark:border-slate-800">
           <ScheduleEditor
             value={schedules}
             onChange={setSchedules}
@@ -208,13 +202,16 @@ export function InvitePatientModal({ onClose, onSuccess }: Props) {
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+            <AlertCircle
+              size={16}
+              className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+            />
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 pt-5">
+        <div className="flex justify-end gap-2 border-t border-gray-100 pt-5 dark:border-slate-800">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>

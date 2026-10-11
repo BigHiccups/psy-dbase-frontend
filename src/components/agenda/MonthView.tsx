@@ -5,7 +5,7 @@ import type { AppointmentWithRelations } from "../../types";
 
 type Props = {
   monthStr: string;
-  appointments: AppointmentWithRelations[]; // todos (para separar internamente)
+  appointments: AppointmentWithRelations[];
   onDayClick: (date: string) => void;
   onCancelledClick: (date: string) => void;
   onAppointmentClick: (appointment: AppointmentWithRelations) => void;
@@ -20,7 +20,6 @@ export function MonthView({
 }: Props) {
   const gridDates = useMemo(() => monthGridDates(monthStr), [monthStr]);
 
-  // Agrupa ativos e cancelados por data (ignora due, que tem seu próprio slot)
   const { activeByDate, cancelledCountByDate } = useMemo(() => {
     const active: Record<string, AppointmentWithRelations[]> = {};
     const cancelled: Record<string, number> = {};
@@ -40,20 +39,18 @@ export function MonthView({
   const rows = Math.ceil(gridDates.length / 7);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      {/* Cabeçalho */}
-      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/60">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-900/60">
         {WEEKDAY_SHORT.map((d) => (
           <div
             key={d}
-            className="px-2 py-2 text-center text-xs font-medium uppercase text-gray-500"
+            className="px-2 py-2 text-center text-xs font-medium uppercase text-gray-500 dark:text-slate-400"
           >
             {d}
           </div>
         ))}
       </div>
 
-      {/* Grade */}
       <div
         className="grid grid-cols-7"
         style={{ gridTemplateRows: `repeat(${rows}, minmax(100px, 1fr))` }}

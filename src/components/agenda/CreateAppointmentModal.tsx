@@ -3,17 +3,13 @@ import { Plus, AlertCircle, User, Ban, UserCircle } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { Button, Modal, Input, Badge } from "../ui";
 import { usePatients } from "../../hooks/usePatients";
-import {
-  formatLongDate,
-  // timeToMinutes,
-} from "../../lib/agenda-date";
+import { formatLongDate, parseDateString } from "../../lib/agenda-date";
 import type { AppointmentType } from "../../types";
-import { parseDateString } from "../../lib/agenda-date";
 
 type Props = {
   open: boolean;
   date: string;         // YYYY-MM-DD
-  initialHour: number;  // hora do slot clicado
+  initialHour: number;
   onClose: () => void;
   onCreated: () => void;
 };
@@ -40,11 +36,10 @@ export function CreateAppointmentModal({
 
   const { patients } = usePatients("active");
 
-  // Filtra pacientes pela busca
   const filteredPatients = patientQuery
     ? patients.filter((p) =>
-      p.full_name.toLowerCase().includes(patientQuery.toLowerCase())
-    )
+        p.full_name.toLowerCase().includes(patientQuery.toLowerCase())
+      )
     : patients.slice(0, 5);
 
   async function handleSubmit() {
@@ -96,57 +91,73 @@ export function CreateAppointmentModal({
   return (
     <Modal open={open} onClose={onClose} title="Novo agendamento" size="lg">
       <div className="space-y-5">
-        {/* Data em destaque */}
-        <div className="rounded-lg bg-gray-50 px-3 py-2">
-          <p className="text-xs text-gray-500">Data</p>
-          <p className="text-sm font-medium text-gray-900">
+        {/* Data */}
+        <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-slate-800/60">
+          <p className="text-xs text-gray-500 dark:text-slate-400">Data</p>
+          <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
             {formatLongDate(date)}
           </p>
         </div>
 
         {/* Tipo */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">
+          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
             Tipo de agendamento
           </label>
           <div className="grid grid-cols-2 gap-2">
+            {/* Sessão */}
             <button
               type="button"
               onClick={() => setOption("session")}
-              className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${option === "session"
-                  ? "border-brand-300 bg-brand-50/50"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
+              className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${
+                option === "session"
+                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+              }`}
             >
               <UserCircle
                 size={18}
                 className={
-                  option === "session" ? "text-brand-600" : "text-gray-400"
+                  option === "session"
+                    ? "text-brand-600 dark:text-brand-400"
+                    : "text-gray-400 dark:text-slate-500"
                 }
               />
               <div>
-                <p className="text-sm font-medium text-gray-900">Sessão</p>
-                <p className="text-xs text-gray-500">Com paciente</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                  Sessão
+                </p>
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Com paciente
+                </p>
               </div>
             </button>
 
+            {/* Bloqueio — CORRIGIDO */}
             <button
               type="button"
               onClick={() => setOption("blocked")}
-              className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${option === "blocked"
-                  ? "border-brand-300 bg-brand-50/50"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
+              className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${
+                option === "blocked"
+                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+              }`}
             >
               <Ban
                 size={18}
                 className={
-                  option === "blocked" ? "text-brand-600" : "text-gray-400"
+                  option === "blocked"
+                    ? "text-brand-600 dark:text-brand-400"
+                    : "text-gray-400 dark:text-slate-500"
                 }
               />
               <div>
-                <p className="text-sm font-medium text-gray-900">Bloqueio</p>
-                <p className="text-xs text-gray-500">Férias, pausa, etc.</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                  Bloqueio
+                </p>
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Férias, pausa, etc.
+                </p>
               </div>
             </button>
           </div>
@@ -155,7 +166,7 @@ export function CreateAppointmentModal({
         {/* Paciente (só se sessão) */}
         {option === "session" && (
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
               Paciente <span className="text-red-500">*</span>
             </label>
             <Input
@@ -163,9 +174,9 @@ export function CreateAppointmentModal({
               value={patientQuery}
               onChange={(e) => setPatientQuery(e.target.value)}
             />
-            <div className="mt-2 space-y-1 rounded-lg border border-gray-200 bg-white">
+            <div className="mt-2 space-y-1 rounded-lg border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
               {filteredPatients.length === 0 && (
-                <p className="px-3 py-2 text-xs text-gray-500">
+                <p className="px-3 py-2 text-xs text-gray-500 dark:text-slate-400">
                   Nenhum paciente encontrado.
                 </p>
               )}
@@ -177,12 +188,20 @@ export function CreateAppointmentModal({
                     setPatientId(p.id);
                     setPatientQuery(p.full_name);
                   }}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-gray-50 ${patientId === p.id ? "bg-brand-50 text-brand-900" : ""
-                    }`}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-gray-50 dark:hover:bg-slate-800 ${
+                    patientId === p.id
+                      ? "bg-brand-50 text-brand-900 dark:bg-brand-950/40 dark:text-brand-200"
+                      : "text-gray-900 dark:text-slate-100"
+                  }`}
                 >
-                  <User size={14} className="text-gray-400" />
+                  <User
+                    size={14}
+                    className="text-gray-400 dark:text-slate-500"
+                  />
                   <span className="flex-1">{p.full_name}</span>
-                  {patientId === p.id && <Badge variant="brand">Selecionado</Badge>}
+                  {patientId === p.id && (
+                    <Badge variant="brand">Selecionado</Badge>
+                  )}
                 </button>
               ))}
             </div>
@@ -199,13 +218,13 @@ export function CreateAppointmentModal({
             required
           />
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
               Duração
             </label>
             <select
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value={30}>30 minutos</option>
               <option value={50}>50 minutos</option>
@@ -218,7 +237,7 @@ export function CreateAppointmentModal({
 
         {/* Notas */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
             Observações
           </label>
           <textarea
@@ -226,19 +245,22 @@ export function CreateAppointmentModal({
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             placeholder="Opcional"
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
           />
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+            <AlertCircle
+              size={16}
+              className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+            />
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 
         {/* Ações */}
-        <div className="flex justify-end gap-2 border-t border-gray-100 pt-5">
+        <div className="flex justify-end gap-2 border-t border-gray-100 pt-5 dark:border-slate-800">
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>

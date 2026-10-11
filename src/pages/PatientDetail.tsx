@@ -14,6 +14,7 @@ import {
   Clock,
   Trash2,
   PauseCircle,
+  CalendarClock,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { usePatient } from "../hooks/usePatient";
@@ -68,9 +69,6 @@ export function PatientDetail() {
   const [conflictDetails, setConflictDetails] = useState<ConflictItem[]>([]);
   const [working, setWorking] = useState(false);
 
-  // ============================================================
-  // Arquivar
-  // ============================================================
   async function handleArchive() {
     if (!patient) return;
     setWorking(true);
@@ -101,9 +99,6 @@ export function PatientDetail() {
     reload();
   }
 
-  // ============================================================
-  // Reativação — verifica conflitos antes de aplicar
-  // ============================================================
   async function findConflicts(): Promise<ConflictItem[]> {
     if (!patient || patientSchedules.length === 0) return [];
 
@@ -111,7 +106,6 @@ export function PatientDetail() {
     const today = new Date().toISOString().slice(0, 10);
 
     for (const s of patientSchedules) {
-      // 1. Verifica se outro paciente ocupa o slot
       const { data } = await supabase
         .from("appointments")
         .select("patient_id, patients (full_name)")
@@ -124,7 +118,6 @@ export function PatientDetail() {
 
       if (data && data.length > 0) {
         const row = data[0] as unknown as {
-          patient_id: string | null;
           patients: { full_name: string } | { full_name: string }[] | null;
         };
         const patientRel = Array.isArray(row.patients)
@@ -137,7 +130,6 @@ export function PatientDetail() {
         continue;
       }
 
-      // 2. Verifica se há bloqueio (personal / blocked)
       const { data: blockData } = await supabase
         .from("appointments")
         .select("type")
@@ -149,27 +141,21 @@ export function PatientDetail() {
         .limit(1);
 
       if (blockData && blockData.length > 0) {
-        conflicts.push({
-          schedule: s,
-          occupiedBy: "bloqueio pessoal",
-        });
+        conflicts.push({ schedule: s, occupiedBy: "bloqueio pessoal" });
       }
     }
 
     return conflicts;
   }
 
-  // Clique em "Reativar" — decide o fluxo
   async function handleReactivateClick() {
     if (!patient) return;
 
-    // Caso 1: sem schedules → modal de decisão
     if (patientSchedules.length === 0) {
       setReactivateModalOpen(true);
       return;
     }
 
-    // Caso 2: tem schedules → verifica conflitos
     setWorking(true);
     const conflicts = await findConflicts();
     setWorking(false);
@@ -183,7 +169,6 @@ export function PatientDetail() {
     setConflictModalOpen(true);
   }
 
-  // Execução real da reativação
   async function handleReactivate(schedulesToCreate: ScheduleInput[]) {
     if (!patient) return;
     setWorking(true);
@@ -216,13 +201,11 @@ export function PatientDetail() {
     reload();
   }
 
-  // Reativar sem agendamentos (veio do ReactivateModal)
   async function handleReactivateWithoutSchedules() {
     setReactivateModalOpen(false);
     await handleReactivate([]);
   }
 
-  // Reativar apenas os horários sem conflito
   async function handleReactivateOnlyValid() {
     if (!patient) return;
 
@@ -231,9 +214,7 @@ export function PatientDetail() {
     );
 
     if (validSchedules.length === 0) {
-      alert(
-        "Nenhum horário livre para reativar. Escolha novos horários."
-      );
+      alert("Nenhum horário livre para reativar. Escolha novos horários.");
       return;
     }
 
@@ -241,9 +222,6 @@ export function PatientDetail() {
     await handleReactivate(validSchedules);
   }
 
-  // ============================================================
-  // Excluir
-  // ============================================================
   async function handleDelete() {
     if (!patient) return;
     setWorking(true);
@@ -262,9 +240,6 @@ export function PatientDetail() {
     navigate("/patients");
   }
 
-  // ============================================================
-  // Loading / error
-  // ============================================================
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -278,13 +253,13 @@ export function PatientDetail() {
       <div className="mx-auto max-w-2xl">
         <Link
           to="/patients"
-          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
         >
           <ArrowLeft size={14} />
           Voltar
         </Link>
         <Card className="p-12 text-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             {error ?? "Paciente não encontrado."}
           </p>
         </Card>
@@ -300,7 +275,7 @@ export function PatientDetail() {
       <div>
         <Link
           to="/patients"
-          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
         >
           <ArrowLeft size={14} />
           Voltar para pacientes
@@ -309,14 +284,14 @@ export function PatientDetail() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-gray-900">
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
                 {patient.full_name}
               </h1>
               <Badge variant={STATUS_VARIANT[patient.status]}>
                 {STATUS_LABEL[patient.status]}
               </Badge>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
               Paciente desde{" "}
               {new Date(patient.created_at).toLocaleDateString("pt-BR")}
             </p>
@@ -373,7 +348,7 @@ export function PatientDetail() {
           size="sm"
           onClick={() => setDeleteOpen(true)}
           disabled={working}
-          className="text-gray-400 hover:bg-red-50 hover:text-red-600"
+          className="text-gray-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400"
         >
           <Trash2 size={14} />
           Excluir
@@ -382,7 +357,7 @@ export function PatientDetail() {
 
       {/* Dados cadastrais */}
       <Card className="p-6">
-        <h2 className="mb-4 text-sm font-medium text-gray-900">
+        <h2 className="mb-4 text-sm font-medium text-gray-900 dark:text-slate-100">
           Dados cadastrais
         </h2>
         <div className="grid gap-5 sm:grid-cols-2">
@@ -412,8 +387,11 @@ export function PatientDetail() {
       {/* Contato de urgência */}
       <Card className="p-6">
         <div className="mb-4 flex items-center gap-2">
-          <AlertTriangle size={14} className="text-amber-600" />
-          <h2 className="text-sm font-medium text-gray-900">
+          <AlertTriangle
+            size={14}
+            className="text-amber-600 dark:text-amber-400"
+          />
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
             Contato de urgência
           </h2>
         </div>
@@ -429,19 +407,25 @@ export function PatientDetail() {
       {/* Horários recorrentes */}
       {patientSchedules.length > 0 && (
         <Card className="p-6">
-          <h2 className="mb-3 text-sm font-medium text-gray-900">
-            Horários das sessões
-          </h2>
+          <div className="mb-3 flex items-center gap-2">
+            <CalendarClock
+              size={14}
+              className="text-brand-600 dark:text-brand-400"
+            />
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+              Horários das sessões
+            </h2>
+          </div>
           <ul className="space-y-2">
             {patientSchedules.map((s, i) => (
               <li
                 key={i}
-                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
               >
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-gray-900 dark:text-slate-100">
                   {WEEKDAY_LONG[isoWeekday(s.weekday)]}
                 </span>
-                <span className="text-gray-500">
+                <span className="text-gray-500 dark:text-slate-400">
                   {s.startTime} · {s.durationMin} min
                 </span>
               </li>
@@ -453,10 +437,10 @@ export function PatientDetail() {
       {/* Notas */}
       {patient.notes && (
         <Card className="p-6">
-          <h2 className="mb-3 text-sm font-medium text-gray-900">
+          <h2 className="mb-3 text-sm font-medium text-gray-900 dark:text-slate-100">
             Observações internas
           </h2>
-          <p className="whitespace-pre-wrap text-sm text-gray-600">
+          <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-slate-300">
             {patient.notes}
           </p>
         </Card>
@@ -465,19 +449,19 @@ export function PatientDetail() {
       {/* Placeholder do prontuário */}
       <Card className="p-6">
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400">
             <FileText size={16} />
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-medium text-gray-900">
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Prontuário e evoluções
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
               O registro clínico (anamnese, evolução SOAP, áudio) estará
               disponível em uma próxima versão.
             </p>
           </div>
-          <div className="flex items-center gap-1 text-xs text-gray-400">
+          <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500">
             <Clock size={12} />
             Em breve
           </div>
@@ -501,7 +485,7 @@ export function PatientDetail() {
         tone="warning"
       />
 
-      {/* Modal: reativar com schedules vazios */}
+      {/* Modal: reativar sem schedules */}
       <ReactivateModal
         open={reactivateModalOpen}
         subjectType="patient"
@@ -514,6 +498,7 @@ export function PatientDetail() {
         onReactivateWithout={handleReactivateWithoutSchedules}
       />
 
+      {/* Modal: reativar com conflito */}
       <ConflictOnReactivateModal
         open={conflictModalOpen}
         subjectType="patient"
@@ -526,7 +511,7 @@ export function PatientDetail() {
         onReactivateValidOnes={handleReactivateOnlyValid}
       />
 
-      {/* Modal: excluir permanentemente */}
+      {/* Modal: excluir */}
       <ConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
@@ -567,7 +552,6 @@ export function PatientDetail() {
   );
 }
 
-// Item de informação com ícone opcional
 function InfoItem({
   icon,
   label,
@@ -579,11 +563,13 @@ function InfoItem({
 }) {
   return (
     <div>
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-slate-400">
         {icon}
         {label}
       </div>
-      <p className="text-sm text-gray-900">{value || "—"}</p>
+      <p className="text-sm text-gray-900 dark:text-slate-100">
+        {value || "—"}
+      </p>
     </div>
   );
 }

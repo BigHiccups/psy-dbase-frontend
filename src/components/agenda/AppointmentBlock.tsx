@@ -8,13 +8,10 @@ type Props = {
   appointment: AppointmentWithRelations;
   onClick: (appointment: AppointmentWithRelations) => void;
   expanded?: boolean;
-  // Posicionamento vertical (calculado pelo parent)
   top?: number;
   height?: number;
-  // Posicionamento horizontal (%)
   leftPercent?: number;
   widthPercent?: number;
-  // Camada
   zIndex?: number;
 };
 
@@ -30,7 +27,6 @@ export function AppointmentBlock({
 }: Props) {
   const style = TYPE_STYLES[appointment.type];
 
-  // Se top/height não foram passados, calcula localmente
   const startMin = timeToMinutes(appointment.start_time);
   const startOffset = startMin - START_HOUR * 60;
   const computedTop = top ?? (startOffset / 60) * HOUR_HEIGHT;
@@ -52,7 +48,7 @@ export function AppointmentBlock({
       className={`
         absolute overflow-hidden rounded-md border-l-2 px-2 py-1
         text-left text-xs transition hover:brightness-95 focus:outline-none
-        focus:ring-2 focus:ring-brand-500 focus:ring-offset-1
+        focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 dark:focus:ring-offset-slate-950
         ${style.bg} ${style.border} ${style.text}
         ${isCancelled ? "line-through opacity-50" : ""}
         ${isCompleted ? "opacity-70" : ""}

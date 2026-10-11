@@ -131,7 +131,7 @@ export function AppointmentDetailModal({
           {subjectLink && (
             <Link
               to={subjectLink}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 transition hover:border-gray-300 hover:bg-gray-100"
+              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 transition hover:border-gray-300 hover:bg-gray-100 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
               <User size={14} className="text-gray-400" />
               <span className="flex-1">
@@ -143,28 +143,25 @@ export function AppointmentDetailModal({
 
           {/* Notas */}
           {appointment.notes && (
-            <div className="rounded-lg bg-gray-50 p-3">
-              <p className="mb-1 text-xs font-medium text-gray-500">
+            <div className="rounded-lg bg-gray-50 p-3 dark:bg-slate-800/60">
+              <p className="mb-1 text-xs font-medium text-gray-500 dark:text-slate-400">
                 Observações
               </p>
-              <p className="whitespace-pre-wrap text-sm text-gray-700">
+              <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-slate-300">
                 {appointment.notes}
               </p>
             </div>
           )}
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-              <AlertCircle
-                size={16}
-                className="mt-0.5 shrink-0 text-red-600"
-              />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+              <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             </div>
           )}
 
           {/* Ações */}
-          <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-5">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-5 dark:border-slate-800">
             <Button variant="secondary" onClick={onClose}>
               Fechar
             </Button>
@@ -241,10 +238,10 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="mt-0.5 text-gray-400">{icon}</span>
+      <span className="mt-0.5 text-gray-400 dark:text-slate-500">{icon}</span>
       <div className="flex-1">
-        <p className="text-xs font-medium text-gray-500">{label}</p>
-        <p className="text-sm text-gray-900">{value}</p>
+        <p className="text-xs font-medium text-gray-500 dark:text-slate-400">{label}</p>
+        <p className="text-sm text-gray-900 dark:text-slate-100">{value}</p>
       </div>
     </div>
   );

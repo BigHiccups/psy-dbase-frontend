@@ -16,7 +16,6 @@ const SIZES = {
 };
 
 export function Modal({ open, onClose, title, children, size = "md" }: Props) {
-  // Fecha ao apertar Esc
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -29,17 +28,19 @@ export function Modal({ open, onClose, title, children, size = "md" }: Props) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4 backdrop-blur-sm dark:bg-black/60">
       <div
-        className={`w-full ${SIZES[size]} rounded-2xl bg-white shadow-xl`}
+        className={`w-full ${SIZES[size]} rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-            <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-slate-800">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">
+              {title}
+            </h2>
             <button
               onClick={onClose}
-              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               <X size={18} />
             </button>

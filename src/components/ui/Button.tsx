@@ -11,12 +11,13 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 disabled:bg-brand-300",
+    "bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 disabled:bg-brand-300 dark:disabled:bg-brand-900",
   secondary:
-    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-brand-500",
-  ghost: "text-gray-600 hover:bg-gray-100 focus:ring-gray-300",
+    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-brand-500 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700",
+  ghost:
+    "text-gray-600 hover:bg-gray-100 focus:ring-gray-300 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100",
   danger:
-    "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 disabled:bg-red-300",
+    "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 disabled:bg-red-300 dark:disabled:bg-red-900",
 };
 
 const SIZES: Record<Size, string> = {
@@ -38,6 +39,7 @@ export function Button({
       className={`
         inline-flex items-center justify-center gap-2 rounded-lg font-medium
         transition focus:outline-none focus:ring-2 focus:ring-offset-2
+        dark:focus:ring-offset-slate-900
         disabled:cursor-not-allowed disabled:opacity-70
         ${VARIANTS[variant]} ${SIZES[size]} ${className}
       `}

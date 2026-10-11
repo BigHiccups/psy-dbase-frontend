@@ -23,7 +23,6 @@ type Summary = {
   pendingSubmissions: number;
 };
 
-// Saudação conforme o horário local
 function greeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return "Bom dia";
@@ -43,7 +42,6 @@ export function Dashboard() {
     async function load() {
       setLoading(true);
 
-      // Busca o perfil e os contadores em paralelo
       const [profileRes, patientsRes, submissionsRes] = await Promise.all([
         supabase
           .from("profiles")
@@ -78,25 +76,26 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Saudação */}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
           {greeting()}, {firstName}
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
           Aqui está o resumo do seu consultório.
         </p>
       </div>
 
-      {/* Aviso de perfil incompleto */}
       {!loading && profileIncomplete && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+          <AlertCircle
+            size={18}
+            className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
+          />
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-900">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
               Complete seu perfil
             </p>
-            <p className="mt-0.5 text-xs text-amber-700">
+            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300/80">
               {!profile?.crp && !profile?.phone
                 ? "Adicione seu CRP e telefone para que os recibos e lembretes funcionem corretamente."
                 : !profile?.crp
@@ -106,14 +105,13 @@ export function Dashboard() {
           </div>
           <Link
             to="/settings"
-            className="shrink-0 text-xs font-medium text-amber-900 underline hover:no-underline"
+            className="shrink-0 text-xs font-medium text-amber-900 underline hover:no-underline dark:text-amber-200"
           >
             Configurar
           </Link>
         </div>
       )}
 
-      {/* Cards de resumo */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           icon={<Users size={18} />}
@@ -140,9 +138,10 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Ações rápidas */}
       <Card className="p-6">
-        <h2 className="text-sm font-medium text-gray-900">Ações rápidas</h2>
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+          Ações rápidas
+        </h2>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button onClick={() => (window.location.href = "/patients")}>
             <UserPlus size={16} />
@@ -157,19 +156,18 @@ export function Dashboard() {
         </div>
       </Card>
 
-      {/* Estado vazio inicial */}
       {!loading &&
         summary &&
         summary.activePatients === 0 &&
         summary.pendingSubmissions === 0 && (
           <Card className="p-12 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
               <Users size={20} />
             </div>
-            <h3 className="text-sm font-medium text-gray-900">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Bem-vindo ao psy-dbase
             </h3>
-            <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500">
+            <p className="mx-auto mt-1 max-w-sm text-sm text-gray-500 dark:text-slate-400">
               Comece convidando seu primeiro paciente. Ele receberá um link
               para preencher o cadastro.
             </p>
@@ -187,7 +185,6 @@ export function Dashboard() {
   );
 }
 
-// Card de resumo com número + label
 function SummaryCard({
   icon,
   label,
@@ -212,13 +209,15 @@ function SummaryCard({
       className={`p-5 transition ${
         disabled
           ? "opacity-60"
-          : "hover:border-brand-200 hover:shadow-md cursor-pointer"
+          : "hover:border-brand-200 hover:shadow-md cursor-pointer dark:hover:border-brand-800"
       }`}
     >
       <div className="flex items-start justify-between">
         <div
           className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-            highlight ? "bg-amber-50 text-amber-600" : "bg-brand-50 text-brand-600"
+            highlight
+              ? "bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
+              : "bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400"
           }`}
         >
           {icon}
@@ -226,15 +225,17 @@ function SummaryCard({
         {highlight && <Badge variant="warning">Atenção</Badge>}
       </div>
 
-      <p className="mt-4 text-2xl font-semibold text-gray-900">
+      <p className="mt-4 text-2xl font-semibold text-gray-900 dark:text-slate-100">
         {loading ? (
-          <span className="inline-block h-7 w-10 animate-pulse rounded bg-gray-200" />
+          <span className="inline-block h-7 w-10 animate-pulse rounded bg-gray-200 dark:bg-slate-700" />
         ) : (
           (value ?? 0)
         )}
       </p>
-      <p className="text-sm text-gray-500">{label}</p>
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      <p className="text-sm text-gray-500 dark:text-slate-400">{label}</p>
+      {hint && (
+        <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">{hint}</p>
+      )}
     </Card>
   );
 

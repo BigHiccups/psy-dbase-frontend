@@ -44,30 +44,35 @@ export function SubmissionCard({ submission, onApproved, onRejected }: Props) {
     if (error) {
       setError(error.message);
       setWorking(null);
-      throw error; // relança para o ConfirmDialog saber que falhou
+      throw error;
     }
 
     onRejected();
   }
 
-  const createdAt = new Date(submission.created_at).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const createdAt = new Date(submission.created_at).toLocaleDateString(
+    "pt-BR",
+    {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
 
   return (
     <>
-      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
               <User size={16} />
             </div>
             <div>
-              <p className="font-medium text-gray-900">{submission.full_name}</p>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+              <p className="font-medium text-gray-900 dark:text-slate-100">
+                {submission.full_name}
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-slate-400">
                 {submission.phone && (
                   <span className="inline-flex items-center gap-1">
                     <Phone size={12} />
@@ -85,7 +90,9 @@ export function SubmissionCard({ submission, onApproved, onRejected }: Props) {
           <Badge variant="warning">Pendente</Badge>
         </div>
 
-        {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
+        {error && (
+          <p className="mb-3 text-xs text-red-600 dark:text-red-400">{error}</p>
+        )}
 
         <div className="flex justify-end gap-2">
           <Button

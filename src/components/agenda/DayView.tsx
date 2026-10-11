@@ -32,7 +32,6 @@ export function DayView({
     appointments: AppointmentWithRelations[];
   } | null>(null);
 
-  // Separa
   const active: AppointmentWithRelations[] = [];
   const due: AppointmentWithRelations[] = [];
   const cancelledBySlot: Record<string, AppointmentWithRelations[]> = {};
@@ -62,21 +61,20 @@ export function DayView({
   return (
     <>
       <div className="space-y-4">
-        {/* Cabeçalho */}
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <DayHeader date={date} large />
           <div className="px-4 py-3">
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
               {formatLongDate(date)}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-slate-400">
               {active.length} {active.length === 1 ? "sessão" : "sessões"}
               {due.length > 0 && ` · ${due.length} vencimento(s)`}
             </p>
           </div>
           {due.length > 0 && (
-            <div className="border-t border-amber-100 bg-amber-50 px-4 py-2">
-              <p className="mb-1 text-xs font-medium text-amber-900">
+            <div className="border-t border-amber-100 bg-amber-50 px-4 py-2 dark:border-amber-900/50 dark:bg-amber-950/40">
+              <p className="mb-1 text-xs font-medium text-amber-900 dark:text-amber-200">
                 Vencimentos
               </p>
               <div className="space-y-1">
@@ -84,7 +82,7 @@ export function DayView({
                   <button
                     key={d.id}
                     onClick={() => onAppointmentClick(d)}
-                    className="block w-full text-left text-xs text-amber-900 hover:underline"
+                    className="block w-full text-left text-xs text-amber-900 hover:underline dark:text-amber-200"
                   >
                     {d.provider?.display_name ?? "(sem nome)"}
                   </button>
@@ -94,10 +92,11 @@ export function DayView({
           )}
         </div>
 
-        {/* Grade */}
         <div
-          className={`overflow-hidden rounded-xl border border-gray-200 bg-white ${
-            isToday(date) ? "ring-1 ring-brand-200" : ""
+          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${
+            isToday(date)
+              ? "ring-1 ring-brand-200 dark:ring-brand-800"
+              : ""
           }`}
         >
           <div className="flex">
@@ -111,7 +110,7 @@ export function DayView({
                   <div
                     key={h}
                     onClick={() => onSlotClick(date, h)}
-                    className="relative cursor-pointer border-b border-gray-100 transition hover:bg-gray-50/60"
+                    className="relative cursor-pointer border-b border-gray-100 transition hover:bg-gray-50/60 dark:border-slate-800 dark:hover:bg-slate-800/40"
                     style={{ height: HOUR_HEIGHT }}
                   >
                     {cancelledHere && cancelledHere.length > 0 && (
@@ -123,7 +122,7 @@ export function DayView({
                             appointments: cancelledHere,
                           });
                         }}
-                        className="absolute right-2 top-1 z-10 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+                        className="absolute right-2 top-1 z-10 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
                         title={`${cancelledHere.length} cancelado(s) neste horário`}
                       >
                         {cancelledHere.length} ✕
@@ -162,7 +161,7 @@ export function DayView({
                     onClick={() =>
                       setStackModal(hidden.map((l) => l.appointment))
                     }
-                    className="absolute rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition hover:bg-gray-50"
+                    className="absolute rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                     style={{
                       top: anchor.top + 4,
                       right: 8,

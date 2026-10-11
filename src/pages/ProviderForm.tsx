@@ -38,7 +38,6 @@ const INITIAL_FORM: FormState = {
   notes: "",
 };
 
-// Compara arrays de schedules de forma independente de ordem
 function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
   if (a.length !== b.length) return false;
   const key = (s: ScheduleInput) =>
@@ -71,7 +70,6 @@ export function ProviderForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Carrega dados do provider
   useEffect(() => {
     if (provider) {
       setForm({
@@ -86,7 +84,6 @@ export function ProviderForm() {
     }
   }, [provider]);
 
-  // Popula editor na primeira carga
   useEffect(() => {
     if (!loadingSchedules) {
       setSchedules(sourcedSchedules);
@@ -99,7 +96,6 @@ export function ProviderForm() {
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
-      // Ao trocar o tipo, limpa o documento (máscara diferente)
       if (key === "kind" && value !== prev.kind) {
         next.document = "";
       }
@@ -121,7 +117,11 @@ export function ProviderForm() {
       setError("CPF inválido.");
       return;
     }
-    if (form.kind === "company" && form.document && !isValidCNPJ(form.document)) {
+    if (
+      form.kind === "company" &&
+      form.document &&
+      !isValidCNPJ(form.document)
+    ) {
       setError("CNPJ inválido.");
       return;
     }
@@ -147,7 +147,6 @@ export function ProviderForm() {
       notes: form.notes.trim() || null,
     };
 
-    // Só sincroniza schedules se for pessoa física
     const shouldSyncSchedules =
       form.kind === "person" &&
       schedules.length > 0 &&
@@ -232,24 +231,25 @@ export function ProviderForm() {
       <div>
         <Link
           to={isEdit ? `/providers/${id}` : "/providers"}
-          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
         >
           <ArrowLeft size={14} />
           {isEdit ? "Voltar para o prestador" : "Voltar para prestadores"}
         </Link>
-        <h1 className="text-2xl font-semibold text-gray-900">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
           {isEdit ? "Editar prestador" : "Novo prestador"}
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
           Prestadores de serviço (pessoa) ou instituições (empresa) com quem
           você tem relação.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Tipo */}
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900">Tipo</h2>
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+            Tipo
+          </h2>
 
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -257,21 +257,23 @@ export function ProviderForm() {
               onClick={() => update("kind", "person")}
               className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
                 form.kind === "person"
-                  ? "border-brand-300 bg-brand-50/50"
-                  : "border-gray-200 bg-white hover:border-gray-300"
+                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
               }`}
             >
               <User
                 size={20}
                 className={
-                  form.kind === "person" ? "text-brand-600" : "text-gray-400"
+                  form.kind === "person"
+                    ? "text-brand-600 dark:text-brand-400"
+                    : "text-gray-400 dark:text-slate-500"
                 }
               />
               <div>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
                   Pessoa física
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-slate-400">
                   Psicólogo, supervisor, etc.
                 </p>
               </div>
@@ -282,21 +284,23 @@ export function ProviderForm() {
               onClick={() => update("kind", "company")}
               className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
                 form.kind === "company"
-                  ? "border-brand-300 bg-brand-50/50"
-                  : "border-gray-200 bg-white hover:border-gray-300"
+                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
               }`}
             >
               <Building2
                 size={20}
                 className={
                   form.kind === "company"
-                    ? "text-brand-600"
-                    : "text-gray-400"
+                    ? "text-brand-600 dark:text-brand-400"
+                    : "text-gray-400 dark:text-slate-500"
                 }
               />
               <div>
-                <p className="text-sm font-medium text-gray-900">Empresa</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                  Empresa
+                </p>
+                <p className="text-xs text-gray-500 dark:text-slate-400">
                   Curso, plataforma, aluguel, etc.
                 </p>
               </div>
@@ -304,9 +308,8 @@ export function ProviderForm() {
           </div>
         </Card>
 
-        {/* Dados */}
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900">
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
             Dados do prestador
           </h2>
 
@@ -368,7 +371,6 @@ export function ProviderForm() {
           />
         </Card>
 
-        {/* Horários — só para pessoa física */}
         {form.kind === "person" && (
           <Card className="space-y-4 p-6">
             <ScheduleEditor
@@ -387,9 +389,8 @@ export function ProviderForm() {
           </Card>
         )}
 
-        {/* Notas */}
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900">
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
             Observações internas
           </h2>
           <textarea
@@ -397,14 +398,17 @@ export function ProviderForm() {
             onChange={(e) => update("notes", e.target.value)}
             rows={4}
             placeholder="Anotações administrativas sobre este prestador"
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
           />
         </Card>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+            <AlertCircle
+              size={16}
+              className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+            />
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 

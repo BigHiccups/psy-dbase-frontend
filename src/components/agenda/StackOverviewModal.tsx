@@ -6,7 +6,7 @@ import type { AppointmentWithRelations } from "../../types";
 
 type Props = {
   open: boolean;
-  date: string; // YYYY-MM-DD
+  date: string;
   appointments: AppointmentWithRelations[];
   onClose: () => void;
   onAppointmentClick: (appointment: AppointmentWithRelations) => void;
@@ -26,28 +26,25 @@ export function StackOverviewModal({
   return (
     <Modal open={open} onClose={onClose} size="md">
       <div className="space-y-4">
-        {/* Cabeçalho */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
               <Layers size={20} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-gray-900">
+              <h2 className="select-none text-base font-semibold text-gray-900 dark:text-slate-100">
                 Agendamentos no mesmo horário
               </h2>
-              <p className="text-xs text-gray-500">
-                {formatLongDate(date)} ·{" "}
-                {appointments.length}{" "}
+              <p className="text-xs text-gray-500 dark:text-slate-400">
+                {formatLongDate(date)} · {appointments.length}{" "}
                 {appointments.length === 1 ? "agendamento" : "agendamentos"}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Lista */}
         {sorted.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-500">
+          <p className="py-6 text-center text-sm text-gray-500 dark:text-slate-400">
             Nenhum agendamento.
           </p>
         ) : (
@@ -94,7 +91,7 @@ export function StackOverviewModal({
           </div>
         )}
 
-        <div className="flex justify-end border-t border-gray-100 pt-4">
+        <div className="flex justify-end border-t border-gray-100 pt-4 dark:border-slate-800">
           <Button variant="secondary" onClick={onClose}>
             <X size={16} />
             Fechar

@@ -118,8 +118,10 @@ export function Agenda() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-700">Erro: {error}</p>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+          <p className="text-sm text-red-700 dark:text-red-300">
+            Erro: {error}
+          </p>
         </div>
       )}
 

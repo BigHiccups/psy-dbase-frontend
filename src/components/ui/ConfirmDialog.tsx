@@ -27,26 +27,26 @@ const TONES: Record<
 > = {
   default: {
     icon: Info,
-    iconBg: "bg-brand-50",
-    iconColor: "text-brand-600",
+    iconBg: "bg-brand-50 dark:bg-brand-950/50",
+    iconColor: "text-brand-600 dark:text-brand-400",
     confirmVariant: "primary",
   },
   danger: {
     icon: XCircle,
-    iconBg: "bg-red-50",
-    iconColor: "text-red-600",
+    iconBg: "bg-red-50 dark:bg-red-950/50",
+    iconColor: "text-red-600 dark:text-red-400",
     confirmVariant: "danger",
   },
   warning: {
     icon: AlertTriangle,
-    iconBg: "bg-amber-50",
-    iconColor: "text-amber-600",
+    iconBg: "bg-amber-50 dark:bg-amber-950/50",
+    iconColor: "text-amber-600 dark:text-amber-400",
     confirmVariant: "primary",
   },
   success: {
     icon: CheckCircle2,
-    iconBg: "bg-green-50",
-    iconColor: "text-green-600",
+    iconBg: "bg-green-50 dark:bg-green-950/50",
+    iconColor: "text-green-600 dark:text-green-400",
     confirmVariant: "primary",
   },
 };
@@ -65,7 +65,6 @@ export function ConfirmDialog({
   const config = TONES[tone];
   const Icon = config.icon;
 
-  // Reseta o estado ao fechar
   useEffect(() => {
     if (!open) setWorking(false);
   }, [open]);
@@ -89,10 +88,14 @@ export function ConfirmDialog({
           <Icon size={24} />
         </div>
 
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">
+          {title}
+        </h2>
 
         {description && (
-          <div className="mt-2 text-sm text-gray-500">{description}</div>
+          <div className="mt-2 text-sm text-gray-500 dark:text-slate-400">
+            {description}
+          </div>
         )}
 
         <div className="mt-6 flex w-full gap-2">

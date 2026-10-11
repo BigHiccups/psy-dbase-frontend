@@ -8,11 +8,16 @@ type Props = {
 };
 
 const VARIANTS: Record<Variant, string> = {
-  success: "bg-green-50 text-green-700 ring-green-200",
-  warning: "bg-amber-50 text-amber-700 ring-amber-200",
-  danger: "bg-red-50 text-red-700 ring-red-200",
-  neutral: "bg-gray-100 text-gray-700 ring-gray-200",
-  brand: "bg-brand-50 text-brand-700 ring-brand-200",
+  success:
+    "bg-green-50 text-green-700 ring-green-200 dark:bg-green-950/40 dark:text-green-300 dark:ring-green-900",
+  warning:
+    "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900",
+  danger:
+    "bg-red-50 text-red-700 ring-red-200 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900",
+  neutral:
+    "bg-gray-100 text-gray-700 ring-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700",
+  brand:
+    "bg-brand-50 text-brand-700 ring-brand-200 dark:bg-brand-950/40 dark:text-brand-300 dark:ring-brand-900",
 };
 
 export function Badge({ variant = "neutral", children }: Props) {

@@ -5,22 +5,19 @@ import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
 import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { usePatient } from "../hooks/usePatient";
+import { usePatientScheduleSource } from "../hooks/usePatientScheduleSource";
 import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidPhoneBR } from "../lib/masks";
 import { displayName } from "../lib/patient-display";
 import type { ScheduleInput } from "../types";
-import { usePatientScheduleSource } from "../hooks/usePatientScheduleSource";
 
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { patient, loading, error } = usePatient(id);
-  const { slots: occupiedSlots } = useOccupiedSlots({
-    excludePatientId: id,
-  });
+  const { slots: occupiedSlots } = useOccupiedSlots();
 
-  // Busca horários em 3 camadas: manual > invite > google
   const {
     schedules: sourcedSchedules,
     source,
@@ -43,7 +40,6 @@ export function PatientReview() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Preenche dados do paciente
   useEffect(() => {
     if (patient) {
       setForm({
@@ -59,7 +55,6 @@ export function PatientReview() {
     }
   }, [patient]);
 
-  // Popula o editor quando o hook termina de carregar
   useEffect(() => {
     if (!loadingSchedules && sourcedSchedules.length > 0) {
       setSchedules(sourcedSchedules);
@@ -92,7 +87,6 @@ export function PatientReview() {
       return;
     }
 
-    // Validação de conflito extra (defensiva)
     const conflict = schedules.find((s) =>
       occupiedSlots.some(
         (o) =>
@@ -119,7 +113,6 @@ export function PatientReview() {
 
     setSaving(true);
 
-    // Atualiza dados cadastrais
     const { error: updateError } = await supabase
       .from("patients")
       .update({
@@ -142,7 +135,6 @@ export function PatientReview() {
       return;
     }
 
-    // Promove para ativo + cria schedules + appointments
     const { error: promoteError } = await supabase.rpc(
       "promote_prospect_to_active",
       {
@@ -172,7 +164,7 @@ export function PatientReview() {
     return (
       <div className="mx-auto max-w-2xl">
         <Card className="p-12 text-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             {error ?? "Paciente não encontrado."}
           </p>
         </Card>
@@ -185,19 +177,22 @@ export function PatientReview() {
       <div>
         <Link
           to="/patients"
-          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
         >
           <ArrowLeft size={14} />
           Voltar para pacientes
         </Link>
 
-        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+          <AlertCircle
+            size={18}
+            className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
+          />
           <div>
-            <p className="text-sm font-medium text-amber-900">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
               Revisando cadastro importado
             </p>
-            <p className="mt-0.5 text-xs text-amber-700">
+            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300/80">
               Preencha os dados e confirme para ativar como paciente. Nome
               original do Google:{" "}
               <span className="italic">{patient.full_name}</span>
@@ -205,13 +200,15 @@ export function PatientReview() {
           </div>
         </div>
 
-        <h1 className="text-2xl font-semibold text-gray-900">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
           Confirmar como paciente
         </h1>
       </div>
 
       <Card className="space-y-4 p-6">
-        <h2 className="text-sm font-medium text-gray-900">Dados pessoais</h2>
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+          Dados pessoais
+        </h2>
 
         <Input
           label="Nome completo"
@@ -252,7 +249,7 @@ export function PatientReview() {
       </Card>
 
       <Card className="space-y-4 p-6">
-        <h2 className="text-sm font-medium text-gray-900">
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
           Contato de urgência
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -277,7 +274,7 @@ export function PatientReview() {
 
       <Card className="space-y-4 p-6">
         {loadingSchedules ? (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
             <Spinner size={16} />
             Carregando horários...
           </div>
@@ -300,21 +297,24 @@ export function PatientReview() {
       </Card>
 
       <Card className="space-y-4 p-6">
-        <h2 className="text-sm font-medium text-gray-900">
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
           Observações internas
         </h2>
         <textarea
           value={form.notes}
           onChange={(e) => update("notes", e.target.value)}
           rows={3}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
       </Card>
 
       {saveError && (
-        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-          <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
-          <p className="text-sm text-red-700">{saveError}</p>
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+          <AlertCircle
+            size={16}
+            className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+          />
+          <p className="text-sm text-red-700 dark:text-red-300">{saveError}</p>
         </div>
       )}
 

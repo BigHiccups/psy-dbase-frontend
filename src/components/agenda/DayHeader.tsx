@@ -19,13 +19,15 @@ export function DayHeader({ date, compact, large }: Props) {
 
   return (
     <div
-      className={`flex flex-col items-center justify-center border-b border-gray-200 px-2 py-3 ${
-        today ? "bg-brand-50/60" : ""
+      className={`flex flex-col items-center justify-center border-b border-gray-200 px-2 py-3 dark:border-slate-800 ${
+        today ? "bg-brand-50/60 dark:bg-brand-950/40" : ""
       }`}
     >
       <span
         className={`text-xs font-medium uppercase ${
-          today ? "text-brand-700" : "text-gray-500"
+          today
+            ? "text-brand-700 dark:text-brand-300"
+            : "text-gray-500 dark:text-slate-400"
         } ${large ? "text-sm" : ""}`}
       >
         {WEEKDAY_SHORT[iso]}
@@ -33,12 +35,16 @@ export function DayHeader({ date, compact, large }: Props) {
       <span
         className={`mt-0.5 font-semibold ${
           large ? "text-2xl" : "text-lg"
-        } ${today ? "text-brand-700" : "text-gray-900"}`}
+        } ${
+          today
+            ? "text-brand-700 dark:text-brand-300"
+            : "text-gray-900 dark:text-slate-100"
+        }`}
       >
         {d.getDate()}
       </span>
       {!compact && (
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-gray-400 dark:text-slate-500">
           {MONTH_SHORT[d.getMonth()]}
         </span>
       )}

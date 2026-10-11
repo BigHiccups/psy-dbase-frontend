@@ -7,8 +7,8 @@ const MAX_VISIBLE = 2;
 type Props = {
   date: string;
   monthStr: string;
-  appointments: AppointmentWithRelations[]; // só ativos + due
-  cancelledCount: number;                    // contador de cancelados
+  appointments: AppointmentWithRelations[];
+  cancelledCount: number;
   onDayClick: (date: string) => void;
   onCancelledClick: (date: string) => void;
   onAppointmentClick: (appointment: AppointmentWithRelations) => void;
@@ -27,7 +27,6 @@ export function MonthDayCell({
   const inMonth = isInMonth(date, monthStr);
   const today = isToday(date);
 
-  // Ignora `due` no bloco compacto
   const visible = appointments.filter((a) => a.type !== "due");
   const shown = visible.slice(0, MAX_VISIBLE);
   const remaining = visible.length - shown.length;
@@ -38,10 +37,10 @@ export function MonthDayCell({
       className={`
         group relative flex min-h-[100px] cursor-pointer flex-col border-b border-r
         border-gray-100 p-1.5 transition hover:bg-gray-50
-        ${inMonth ? "bg-white" : "bg-gray-50/60"}
+        dark:border-slate-800 dark:hover:bg-slate-800/40
+        ${inMonth ? "bg-white dark:bg-slate-900" : "bg-gray-50/60 dark:bg-slate-900/40"}
       `}
     >
-      {/* Número do dia */}
       <div className="mb-1 flex items-center justify-between">
         <span
           className={`
@@ -50,22 +49,21 @@ export function MonthDayCell({
               today
                 ? "bg-brand-600 text-white"
                 : inMonth
-                  ? "text-gray-900"
-                  : "text-gray-400"
+                  ? "text-gray-900 dark:text-slate-100"
+                  : "text-gray-400 dark:text-slate-600"
             }
           `}
         >
           {dayNumber}
         </span>
 
-        {/* Badge de cancelados */}
         {cancelledCount > 0 && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onCancelledClick(date);
             }}
-            className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+            className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
             title={`${cancelledCount} cancelado(s)`}
           >
             {cancelledCount} ✕
@@ -73,7 +71,6 @@ export function MonthDayCell({
         )}
       </div>
 
-      {/* Blocos compactos */}
       <div className="flex-1 space-y-0.5">
         {shown.map((appt) => {
           const style = TYPE_STYLES[appt.type];
@@ -106,7 +103,7 @@ export function MonthDayCell({
               e.stopPropagation();
               onDayClick(date);
             }}
-            className="block w-full text-left text-[10px] text-gray-500 hover:text-gray-900 hover:underline"
+            className="block w-full text-left text-[10px] text-gray-500 hover:text-gray-900 hover:underline dark:text-slate-400 dark:hover:text-slate-100"
           >
             +{remaining} mais
           </button>
