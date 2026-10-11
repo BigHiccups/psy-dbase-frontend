@@ -10,12 +10,14 @@
 
 ## 🎯 Próximos 3 passos
 
-1. **Bloqueio rígido no `InvitePatientModal`** — slots ocupados ficam cinza;
-   tooltip mostra o paciente/provider que ocupa
-2. **Bloqueio no `PatientForm` e `PatientReview`** — mesmo tratamento; o
-   `ScheduleEditor` já aceita `disabledSlots`, só falta passar
-3. **Ajustes finos** — 404 customizada, favicon, metadados, `AlertDialog` no
-   lugar dos `alert()` restantes
+1. **Reativação com modal de conflito** — `PatientDetail.handleReactivate` hoje
+   usa `alert()`; criar modal com 3 opções (escolher novo horário / reativar
+   sem agendamentos / cancelar)
+2. **Investigar reativação que não "descancelou" appointments na agenda** —
+   bug reportado em teste; verificar se é cache de dados no cliente ou
+   regressão no `set_patient_schedules`
+3. **Retomar Bloco 8 (testes)** — modos 8.2 (definitivo a partir de hoje) e 8.3
+   (definitivo a partir de uma data) do `CancelSeriesModal`
 
 ---
 
@@ -77,9 +79,9 @@
 - [x] `WeekView` (grade 7 colunas × 15h)
 - [x] `DayView` (grade 1 coluna)
 - [x] `MonthView` + `MonthDayCell`
-- [x] `DayOverviewModal` (lista do dia no mês)
-- [x] `AppointmentDetailModal` (detalhe + cancelar)
-- [x] `CreateAppointmentModal` (sessão avulsa / bloqueio)
+- [x] `DayOverviewModal`
+- [x] `AppointmentDetailModal`
+- [x] `CreateAppointmentModal`
 - [x] `CancelSeriesModal` (3 modos)
 - [x] `ScheduleEditor`
 - [x] Rota `/agenda/:view/:date` com URL canônica
@@ -98,21 +100,60 @@
 - [x] Reativar recria a partir de schedules
 - [x] Excluir via RPC `delete_patient`
 
-### ⏳ Pendente — Bloqueio rígido
+### ✅ Concluído — Bloqueio rígido (frontend)
 
-- [ ] `InvitePatientModal` consulta `appointments` ativos
-- [ ] Slots ocupados ficam cinza/desabilitados
-- [ ] Tooltip mostrando quem ocupa
-- [ ] Aplicar no `PatientForm`
-- [ ] Aplicar no `PatientReview`
-- [ ] Aplicar no `ScheduleEditor` (prop `disabledSlots` já existe)
+- [x] Hook `useOccupiedSlots`
+- [x] Hook `usePatientScheduleSource` (fallback triplo: manual / invite / google)
+- [x] `ScheduleEditor` aceita `disabledSlots` e mostra âmbar
+- [x] Botão de remover **sempre habilitado** no slot âmbar (exceto se único)
+- [x] Conflito **externo** bloqueia o salvar
+- [x] Conflito **interno** (duas linhas do editor) bloqueia o salvar
+- [x] `onConflictChange` para travar botão Salvar em `PatientForm`,
+      `PatientReview` e `InvitePatientModal`
+- [x] `schedulesEqual` para evitar regeneração desnecessária de appointments
 
-### ⏳ Pendente — Vencimentos (`due`)
+### ✅ Concluído — Cancelados na agenda
 
-- [ ] Tela de vencimentos em `/providers/:id`
-- [ ] Criação de N parcelas (mensais/anuais)
-- [ ] Marcar como pago
-- [ ] Renderização de `due` no mês
+- [x] `AppointmentBlock` aplica `line-through` + opacidade
+- [x] `MonthDayCell` aplica `line-through` + opacidade
+- [x] Cancelados aparecem em Dia, Semana e Mês
+
+### ⏳ Pendente — Correções / investigações
+
+- [ ] **Reativação com modal de conflito** — hoje é `alert()`
+  - Modal com 3 opções: escolher novo horário / reativar sem agendamentos /
+    cancelar
+  - Se houver conflito nos `patient_schedules`, o usuário escolhe
+- [ ] **Investigar bug**: após arquivar + reativar, appointments permanecem
+      cancelados na agenda
+  - Verificar se é cache do cliente (`useAppointments`) ou regressão no
+    `set_patient_schedules`
+  - Considerar adicionar reload em `window focus`
+- [ ] **Verificar se `handleReactivate` está deletando `patient_schedules`
+      indevidamente**
+- [ ] **Retomar Bloco 8 dos testes** — modos 8.2 e 8.3 do `CancelSeriesModal`
+- [ ] Trocar `alert()` restantes por `AlertDialog` do design system
+- [ ] Criar `AlertDialog` no design system (aviso sem confirmação)
+
+### ⏳ Pendente — Prestadores com horários e vencimentos
+
+**Prestador `kind='person'` (ex: psicólogo particular, supervisor):**
+- [ ] Tabela `provider_schedules` (análoga a `patient_schedules`)
+- [ ] `ScheduleEditor` no `ProviderForm` (só quando `kind='person'`)
+- [ ] Geração de `appointments` tipo `personal` a partir dos schedules
+- [ ] Arquivar/reativar provider cancela/recria appointments
+- [ ] `useProviderScheduleSource` (análogo ao de paciente)
+
+**Prestador `kind='company'` (ex: curso, plataforma, aluguel):**
+- [ ] Tabela `provider_billings` (separada de `appointments`)
+  - Campos: `provider_id`, `description`, `amount`, `due_day` (1–31),
+    `frequency` (`monthly` / `yearly` / `once`), `starts_on`, `ends_on`,
+    `status`
+- [ ] Tela em `/providers/:id` para cadastrar vencimentos
+- [ ] Marcar vencimento como pago
+- [ ] Integração com financeiro (Fase 5)
+- [ ] `appointments` tipo `due` — decidir se migra para `provider_billings`
+      ou mantém os dois
 
 ### ⏳ Pendente — Melhorias na agenda
 
@@ -152,14 +193,48 @@
 
 ---
 
-## Fase 6 — Notificações + Conformidade
+## Fase 6 — Notificações + Integração Calendar (escrita) + Conformidade
 
-- [ ] Preferências de notificação por paciente
-- [ ] Tela de configurações avançadas
+### Convites — captura de e-mail e preferências
+
+- [ ] Campo **e-mail** obrigatório no formulário público (`PublicForm`)
+- [ ] Checkbox **"Receber alerta de sessões na minha Google Agenda"**
+  - Só aparece se o e-mail for **Gmail**
+  - Ao marcar, abre sub-opções de **quando alertar**: `5min` / `10min` /
+    `30min` / `1h` antes
+  - Alerta é o **mesmo para todas as sessões** (não por sessão)
+- [ ] Checkbox **"Receber alerta de vencimento de faturas por e-mail"**
+  - Ao marcar, abre input **melhor dia de pagamento** (dia do mês)
+- [ ] Persistir essas preferências (nova tabela `patient_preferences` ou
+      colunas em `patients`)
+
+### Integração Google Calendar (escrita) — backend
+
+- [ ] Ao criar `appointments` (via `set_patient_schedules` ou
+      `CreateAppointmentModal`), criar evento no Google Calendar do
+      **psicólogo**
+- [ ] Enviar convite de reunião (Google Meet) para `psicologo + paciente`
+      com dia/hora
+- [ ] Respeitar a preferência de alerta do paciente (5min/10min/30min/1h)
+- [ ] Cron job / evento de conclusão: quando uma sessão termina, enviar a
+      **próxima** para o Google Calendar do paciente
+  - **Não** enviar as 13 ocorrências de uma vez
+  - Envio é **obrigatório** (mesmo se o paciente não aceitar o convite)
+- [ ] Cancelar evento no Google quando appointment for cancelado
+
+### Notificações
+
+- [ ] Lembretes por WhatsApp (provedor a definir)
+- [ ] Lembretes por e-mail (Resend / SES)
+- [ ] Alertas de vencimento de fatura
+- [ ] Central de notificações no app
+
+### Conformidade
+
 - [ ] Política de privacidade e termos de uso
 - [ ] Fluxo de consentimento LGPD no formulário
 - [ ] Direito ao esquecimento (excluir dados do paciente)
-- [ ] Central de notificações
+- [ ] Preferências de notificação por paciente em `/settings`
 
 ---
 
@@ -169,9 +244,7 @@
 - [ ] Favicon customizado
 - [ ] Metadados (`<title>`, `<meta description>`, Open Graph)
 - [ ] Landing page pública (opcional)
-- [ ] Trocar `alert()` do `PatientDetail` e `ProviderDetail` por `AlertDialog`
-- [ ] Criar `AlertDialog` no design system
-- [ ] `postMessage` do OAuth callback para a aba original
+- [ ] `postMessage` do OAuth callback para a aba original (evitar F5)
 - [ ] Editar perfil em `/settings`
 - [ ] Editar preferências do consultório em `/settings`
 - [ ] Melhorar busca em `/patients` e `/providers`
@@ -183,7 +256,8 @@
 
 - [ ] Testes unitários (Vitest)
 - [ ] Testes de componentes (React Testing Library)
-- [ ] **Testes E2E com Playwright** (fluxos críticos: login, criar paciente, agendar, cancelar)
+- [ ] **Testes E2E com Playwright** (fluxos críticos: login, criar paciente,
+      agendar, cancelar, arquivar, reativar)
 - [ ] CI no GitHub Actions (lint + build)
 - [ ] Sentry
 - [ ] Acessibilidade (foco, contraste, ARIA)
@@ -194,17 +268,25 @@
 ## Decisões pendentes
 
 - [ ] Como mesclar paciente provisório com existente (nome + telefone? e-mail?)
-- [ ] Se o Google Calendar aparece visualmente na agenda ou se é só leitura
-- [ ] Se a `/agenda` mostra vencimentos (`due`) no rodapé ou no cabeçalho
-- [ ] Se o bloqueio rígido impede ou apenas avisa
+- [ ] Se `appointments` tipo `due` migra para `provider_billings` ou coexiste
+- [ ] Provedor de WhatsApp (Fase 6)
+- [ ] Provedor de e-mail (Fase 6)
+- [ ] Se a página `/agenda` mostra vencimentos (`due`) no rodapé ou no cabeçalho
+- [ ] Como o paciente aceita/recusa o convite do Google Calendar (afeta o cron
+      de envio da "próxima sessão")
 
 ---
 
 ## Concluído (registro histórico)
 
 - **Fase 1 completa:** auth Google, deploy Vercel, SPA routing
-- **Fase 2 completa:** convite, formulário público, submissões, CRUD de pacientes, máscaras, design system
-- **Fase 3 completa:** integração Google Calendar, revisão de provisórios, CRUD de prestadores, **agenda em 3 modos**, horários recorrentes, cancelamento de série
-- **Design system:** Button, Input, Card, Badge, Modal, ConfirmDialog, EmptyState, Spinner + Sidebar, Header, AppLayout
+- **Fase 2 completa:** convite, formulário público, submissões, CRUD de
+  pacientes, máscaras, design system
+- **Fase 3 completa (frontend):** integração Google Calendar (leitura),
+  revisão de provisórios, CRUD de prestadores, agenda em 3 modos, horários
+  recorrentes, cancelamento de série, bloqueio rígido de conflito, cancelled
+  visual em todas as views
+- **Design system:** Button, Input, Card, Badge, Modal, ConfirmDialog,
+  EmptyState, Spinner + Sidebar, Header, AppLayout
 - **Migração Tailwind v3 → v4**
 - **Correção de timezone** em WEEKDAY_SHORT/LONG
