@@ -51,11 +51,10 @@ export function AgendaToolbar({
       <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <button
           onClick={() => onViewChange("day")}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-            view === "day"
-              ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${view === "day"
+              ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
               : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           Dia
         </button>
@@ -63,11 +62,10 @@ export function AgendaToolbar({
         {!hideWeekOnMobile && (
           <button
             onClick={() => onViewChange("week")}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-              view === "week"
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${view === "week"
                 ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                 : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
-            }`}
+              }`}
           >
             Semana
           </button>
@@ -75,11 +73,10 @@ export function AgendaToolbar({
 
         <button
           onClick={() => onViewChange("month")}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-            view === "month"
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${view === "month"
               ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
               : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           Mês
         </button>

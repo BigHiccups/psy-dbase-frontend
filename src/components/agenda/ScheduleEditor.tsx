@@ -204,18 +204,16 @@ export function ScheduleEditor({
           return (
             <div
               key={index}
-              className={`flex items-center gap-2 rounded-xl border p-2 transition ${
-                locked
+              className={`flex items-center gap-2 rounded-xl border p-2 transition ${locked
                   ? "border-amber-300 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/20"
                   : "border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-800/40"
-              }`}
+                }`}
             >
               <div
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-                  locked
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${locked
                     ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
-                    : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
-                }`}
+                    : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+                  }`}
               >
                 {index + 1}
               </div>
