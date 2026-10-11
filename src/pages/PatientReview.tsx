@@ -5,15 +5,27 @@ import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
 import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { usePatient } from "../hooks/usePatient";
+import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidPhoneBR } from "../lib/masks";
 import { displayName } from "../lib/patient-display";
 import type { ScheduleInput } from "../types";
+import { usePatientScheduleSource } from "../hooks/usePatientScheduleSource";
 
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { patient, loading, error } = usePatient(id);
+  const { slots: occupiedSlots } = useOccupiedSlots({
+    excludePatientId: id,
+  });
+
+  // Busca horários em 3 camadas: manual > invite > google
+  const {
+    schedules: sourcedSchedules,
+    source,
+    loading: loadingSchedules,
+  } = usePatientScheduleSource(id);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -27,10 +39,11 @@ export function PatientReview() {
   });
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Carrega dados do patient
+  // Preenche dados do paciente
   useEffect(() => {
     if (patient) {
       setForm({
@@ -46,46 +59,12 @@ export function PatientReview() {
     }
   }, [patient]);
 
-  // Carrega horários do convite original (via invite)
+  // Popula o editor quando o hook termina de carregar
   useEffect(() => {
-    if (!patient) return;
-
-    async function loadInviteSchedules() {
-      // O patient foi criado a partir de uma submissão; encontramos o invite
-      // via google_recurring_event_id OU via tabela de submissions
-      // Estratégia: buscar a submission aprovada com o mesmo nome
-
-      // Busca submissions aprovadas com nome similar
-      const { data: submissions } = await supabase
-        .from("patient_form_submissions")
-        .select("invite_id, full_name")
-        .eq("status", "approved")
-        .ilike("full_name", patient!.full_name)
-        .limit(1);
-
-      if (!submissions || submissions.length === 0) return;
-
-      const inviteId = submissions[0].invite_id;
-
-      const { data: inviteSchedules } = await supabase
-        .from("patient_invite_schedules")
-        .select("weekday, start_time, duration_min")
-        .eq("invite_id", inviteId)
-        .order("weekday", { ascending: true });
-
-      if (inviteSchedules && inviteSchedules.length > 0) {
-        setSchedules(
-          inviteSchedules.map((row) => ({
-            weekday: row.weekday,
-            startTime: (row.start_time as string).slice(0, 5),
-            durationMin: row.duration_min,
-          }))
-        );
-      }
+    if (!loadingSchedules && sourcedSchedules.length > 0) {
+      setSchedules(sourcedSchedules);
     }
-
-    loadInviteSchedules();
-  }, [patient]);
+  }, [loadingSchedules, sourcedSchedules]);
 
   function update<K extends keyof typeof form>(
     key: K,
@@ -108,9 +87,39 @@ export function PatientReview() {
       return;
     }
 
+    if (hasScheduleConflict) {
+      setScheduleError("Resolva os horários em conflito antes de continuar.");
+      return;
+    }
+
+    // Validação de conflito extra (defensiva)
+    const conflict = schedules.find((s) =>
+      occupiedSlots.some(
+        (o) =>
+          o.weekday === s.weekday &&
+          o.startTime.slice(0, 5) === s.startTime.slice(0, 5)
+      )
+    );
+    if (conflict) {
+      setScheduleError(
+        "Há horário em conflito com outro agendamento. Remova ou troque antes de continuar."
+      );
+      return;
+    }
+
+    const seen = new Set<string>();
+    for (const s of schedules) {
+      const key = `${s.weekday}-${s.startTime.slice(0, 5)}`;
+      if (seen.has(key)) {
+        setScheduleError("Há horários duplicados entre si. Remova um deles.");
+        return;
+      }
+      seen.add(key);
+    }
+
     setSaving(true);
 
-    // 1. Atualiza dados cadastrais
+    // Atualiza dados cadastrais
     const { error: updateError } = await supabase
       .from("patients")
       .update({
@@ -133,7 +142,7 @@ export function PatientReview() {
       return;
     }
 
-    // 2. Promove para ativo + cria schedules + appointments
+    // Promove para ativo + cria schedules + appointments
     const { error: promoteError } = await supabase.rpc(
       "promote_prospect_to_active",
       {
@@ -182,7 +191,6 @@ export function PatientReview() {
           Voltar para pacientes
         </Link>
 
-        {/* Banner de revisão */}
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
           <div>
@@ -268,12 +276,27 @@ export function PatientReview() {
       </Card>
 
       <Card className="space-y-4 p-6">
-        <ScheduleEditor
-          value={schedules}
-          onChange={setSchedules}
-          error={scheduleError}
-          hint="Estes horários gerarão agendamentos recorrentes semanais pelos próximos 90 dias."
-        />
+        {loadingSchedules ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Spinner size={16} />
+            Carregando horários...
+          </div>
+        ) : (
+          <ScheduleEditor
+            value={schedules}
+            onChange={setSchedules}
+            disabledSlots={occupiedSlots}
+            error={scheduleError}
+            hint={
+              source === "google"
+                ? "Estes horários vieram do Google Calendar. Você pode ajustá-los ou removê-los."
+                : source === "invite"
+                  ? "Estes horários vieram do convite. Você pode ajustá-los."
+                  : "Estes horários gerarão agendamentos recorrentes. Horários já ocupados aparecem em âmbar."
+            }
+            onConflictChange={setHasScheduleConflict}
+          />
+        )}
       </Card>
 
       <Card className="space-y-4 p-6">
@@ -301,9 +324,21 @@ export function PatientReview() {
             Cancelar
           </Button>
         </Link>
-        <Button onClick={handleConfirm} disabled={saving}>
+        <Button
+          onClick={handleConfirm}
+          disabled={saving || hasScheduleConflict}
+          title={
+            hasScheduleConflict
+              ? "Resolva os horários em conflito antes de salvar"
+              : undefined
+          }
+        >
           <UserCheck size={16} />
-          {saving ? "Salvando..." : "Confirmar e ativar"}
+          {saving
+            ? "Salvando..."
+            : hasScheduleConflict
+              ? "Resolva os conflitos"
+              : "Confirmar e ativar"}
         </Button>
       </div>
     </div>

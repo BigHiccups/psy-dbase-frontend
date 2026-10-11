@@ -20,9 +20,10 @@ import { usePatient } from "../hooks/usePatient";
 import { usePatientSchedules } from "../hooks/usePatientSchedules";
 import { Button, Card, Badge, ConfirmDialog, Spinner } from "../components/ui";
 import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
-import type { PatientStatus } from "../types";
+import { ReactivateModal } from "../components/ReactivateModal";
+import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
 import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
-
+import type { PatientStatus, ScheduleInput } from "../types";
 
 const STATUS_LABEL: Record<PatientStatus, string> = {
   prospect: "Em revisão",
@@ -48,6 +49,11 @@ function formatDate(iso: string | null): string {
   return `${d}/${m}/${y}`;
 }
 
+type ConflictItem = {
+  schedule: ScheduleInput;
+  occupiedBy: string;
+};
+
 export function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -55,16 +61,20 @@ export function PatientDetail() {
   const { schedules: patientSchedules } = usePatientSchedules(id);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [reactivateOpen, setReactivateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [suspendOpen, setSuspendOpen] = useState(false);
+  const [reactivateModalOpen, setReactivateModalOpen] = useState(false);
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [conflictDetails, setConflictDetails] = useState<ConflictItem[]>([]);
   const [working, setWorking] = useState(false);
 
+  // ============================================================
+  // Arquivar
+  // ============================================================
   async function handleArchive() {
     if (!patient) return;
     setWorking(true);
 
-    // 1. Cancela appointments futuros
     const { error: cancelErr } = await supabase.rpc(
       "cancel_future_appointments",
       { p_patient_id: patient.id }
@@ -76,7 +86,6 @@ export function PatientDetail() {
       return;
     }
 
-    // 2. Muda status
     const { error } = await supabase
       .from("patients")
       .update({ status: "inactive" })
@@ -92,11 +101,93 @@ export function PatientDetail() {
     reload();
   }
 
-  async function handleReactivate() {
+  // ============================================================
+  // Reativação — verifica conflitos antes de aplicar
+  // ============================================================
+  async function findConflicts(): Promise<ConflictItem[]> {
+    if (!patient || patientSchedules.length === 0) return [];
+
+    const conflicts: ConflictItem[] = [];
+    const today = new Date().toISOString().slice(0, 10);
+
+    for (const s of patientSchedules) {
+      // 1. Verifica se outro paciente ocupa o slot
+      const { data } = await supabase
+        .from("appointments")
+        .select("patient_id, patients (full_name)")
+        .eq("weekday", s.weekday)
+        .eq("start_time", `${s.startTime}:00`)
+        .eq("status", "active")
+        .gte("starts_on", today)
+        .neq("patient_id", patient.id)
+        .limit(1);
+
+      if (data && data.length > 0) {
+        const row = data[0] as unknown as {
+          patient_id: string | null;
+          patients: { full_name: string } | { full_name: string }[] | null;
+        };
+        const patientRel = Array.isArray(row.patients)
+          ? row.patients[0]
+          : row.patients;
+        conflicts.push({
+          schedule: s,
+          occupiedBy: patientRel?.full_name ?? "(outro paciente)",
+        });
+        continue;
+      }
+
+      // 2. Verifica se há bloqueio (personal / blocked)
+      const { data: blockData } = await supabase
+        .from("appointments")
+        .select("type")
+        .eq("weekday", s.weekday)
+        .eq("start_time", `${s.startTime}:00`)
+        .eq("status", "active")
+        .gte("starts_on", today)
+        .is("patient_id", null)
+        .limit(1);
+
+      if (blockData && blockData.length > 0) {
+        conflicts.push({
+          schedule: s,
+          occupiedBy: "bloqueio pessoal",
+        });
+      }
+    }
+
+    return conflicts;
+  }
+
+  // Clique em "Reativar" — decide o fluxo
+  async function handleReactivateClick() {
+    if (!patient) return;
+
+    // Caso 1: sem schedules → modal de decisão
+    if (patientSchedules.length === 0) {
+      setReactivateModalOpen(true);
+      return;
+    }
+
+    // Caso 2: tem schedules → verifica conflitos
+    setWorking(true);
+    const conflicts = await findConflicts();
+    setWorking(false);
+
+    if (conflicts.length === 0) {
+      await handleReactivate(patientSchedules);
+      return;
+    }
+
+    setConflictDetails(conflicts);
+    setConflictModalOpen(true);
+  }
+
+  // Execução real da reativação
+  async function handleReactivate(schedulesToCreate: ScheduleInput[]) {
     if (!patient) return;
     setWorking(true);
 
-    // 1. Muda status
     const { error } = await supabase
       .from("patients")
       .update({ status: "active" })
@@ -108,11 +199,10 @@ export function PatientDetail() {
       return;
     }
 
-    // 2. Recria appointments a partir dos schedules (se houver)
-    if (patientSchedules.length > 0) {
+    if (schedulesToCreate.length > 0) {
       const { error: scheduleErr } = await supabase.rpc(
         "set_patient_schedules",
-        { p_patient_id: patient.id, p_schedules: patientSchedules }
+        { p_patient_id: patient.id, p_schedules: schedulesToCreate }
       );
 
       if (scheduleErr) {
@@ -123,10 +213,37 @@ export function PatientDetail() {
     }
 
     setWorking(false);
-    setReactivateOpen(false);
     reload();
   }
 
+  // Reativar sem agendamentos (veio do ReactivateModal)
+  async function handleReactivateWithoutSchedules() {
+    setReactivateModalOpen(false);
+    await handleReactivate([]);
+  }
+
+  // Reativar apenas os horários sem conflito
+  async function handleReactivateOnlyValid() {
+    if (!patient) return;
+
+    const validSchedules = patientSchedules.filter(
+      (s) => !conflictDetails.some((c) => c.schedule === s)
+    );
+
+    if (validSchedules.length === 0) {
+      alert(
+        "Nenhum horário livre para reativar. Escolha novos horários."
+      );
+      return;
+    }
+
+    setConflictModalOpen(false);
+    await handleReactivate(validSchedules);
+  }
+
+  // ============================================================
+  // Excluir
+  // ============================================================
   async function handleDelete() {
     if (!patient) return;
     setWorking(true);
@@ -145,6 +262,9 @@ export function PatientDetail() {
     navigate("/patients");
   }
 
+  // ============================================================
+  // Loading / error
+  // ============================================================
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -217,7 +337,7 @@ export function PatientDetail() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setReactivateOpen(true)}
+            onClick={handleReactivateClick}
             disabled={working}
           >
             <RotateCcw size={14} />
@@ -235,7 +355,6 @@ export function PatientDetail() {
           </Button>
         )}
 
-        {/* Suspender agendamentos — só se ativo e tem schedules */}
         {!isArchived && patientSchedules.length > 0 && (
           <Button
             variant="secondary"
@@ -248,7 +367,6 @@ export function PatientDetail() {
           </Button>
         )}
 
-        {/* Excluir — discreto, à direita */}
         <div className="flex-1" />
         <Button
           variant="ghost"
@@ -268,7 +386,11 @@ export function PatientDetail() {
           Dados cadastrais
         </h2>
         <div className="grid gap-5 sm:grid-cols-2">
-          <InfoItem icon={<IdCard size={14} />} label="CPF" value={patient.cpf} />
+          <InfoItem
+            icon={<IdCard size={14} />}
+            label="CPF"
+            value={patient.cpf}
+          />
           <InfoItem
             icon={<Cake size={14} />}
             label="Nascimento"
@@ -297,7 +419,10 @@ export function PatientDetail() {
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <InfoItem label="Nome" value={patient.emergency_contact_name} />
-          <InfoItem label="Telefone" value={patient.emergency_contact_phone} />
+          <InfoItem
+            label="Telefone"
+            value={patient.emergency_contact_phone}
+          />
         </div>
       </Card>
 
@@ -314,8 +439,8 @@ export function PatientDetail() {
                 className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
               >
                 <span className="font-medium text-gray-900">
-  {WEEKDAY_LONG[isoWeekday(s.weekday)]}
-</span>
+                  {WEEKDAY_LONG[isoWeekday(s.weekday)]}
+                </span>
                 <span className="text-gray-500">
                   {s.startTime} · {s.durationMin} min
                 </span>
@@ -376,20 +501,29 @@ export function PatientDetail() {
         tone="warning"
       />
 
-      {/* Modal: reativar */}
-      <ConfirmDialog
-        open={reactivateOpen}
-        onClose={() => setReactivateOpen(false)}
-        onConfirm={handleReactivate}
-        title="Reativar paciente?"
-        description={
-          <>
-            O paciente <strong>{patient.full_name}</strong> voltará para a
-            lista principal e seus agendamentos recorrentes serão recriados.
-          </>
-        }
-        confirmLabel="Reativar"
-        tone="success"
+      {/* Modal: reativar com schedules vazios */}
+      <ReactivateModal
+        open={reactivateModalOpen}
+        patientName={patient.full_name}
+        onClose={() => setReactivateModalOpen(false)}
+        onDefineSchedules={() => {
+          setReactivateModalOpen(false);
+          navigate(`/patients/${patient.id}/edit`);
+        }}
+        onReactivateWithout={handleReactivateWithoutSchedules}
+      />
+
+      {/* Modal: reativar com conflito */}
+      <ConflictOnReactivateModal
+        open={conflictModalOpen}
+        patientName={patient.full_name}
+        conflicts={conflictDetails}
+        onClose={() => setConflictModalOpen(false)}
+        onEditSchedules={() => {
+          setConflictModalOpen(false);
+          navigate(`/patients/${patient.id}/edit`);
+        }}
+        onReactivateValidOnes={handleReactivateOnlyValid}
       />
 
       {/* Modal: excluir permanentemente */}

@@ -43,12 +43,11 @@ export function MonthDayCell({
         <span
           className={`
             flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium
-            ${
-              today
-                ? "bg-brand-600 text-white"
-                : inMonth
-                  ? "text-gray-900"
-                  : "text-gray-400"
+            ${today
+              ? "bg-brand-600 text-white"
+              : inMonth
+                ? "text-gray-900"
+                : "text-gray-400"
             }
           `}
         >
@@ -60,6 +59,7 @@ export function MonthDayCell({
       <div className="flex-1 space-y-0.5">
         {shown.map((appt) => {
           const style = TYPE_STYLES[appt.type];
+          const isCancelled = appt.status === "cancelled";
           const name =
             appt.patient?.full_name ??
             appt.provider?.display_name ??
@@ -72,10 +72,11 @@ export function MonthDayCell({
                 onAppointmentClick(appt);
               }}
               className={`
-                block w-full truncate rounded border-l-2 px-1 py-0.5 text-left text-[10px]
-                font-medium transition hover:brightness-95
-                ${style.bg} ${style.border} ${style.text}
-              `}
+        block w-full truncate rounded border-l-2 px-1 py-0.5 text-left text-[10px]
+        font-medium transition hover:brightness-95
+        ${style.bg} ${style.border} ${style.text}
+        ${isCancelled ? "line-through opacity-50" : ""}
+      `}
               title={`${formatTime(appt.start_time)} · ${name}`}
             >
               {formatTime(appt.start_time)} {name}

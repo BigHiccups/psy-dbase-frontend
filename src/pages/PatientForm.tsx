@@ -5,7 +5,8 @@ import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
 import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { usePatient } from "../hooks/usePatient";
-import { usePatientSchedules } from "../hooks/usePatientSchedules";
+import { usePatientScheduleSource } from "../hooks/usePatientScheduleSource";
+import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidCPF, isValidPhoneBR } from "../lib/masks";
 import type { ScheduleInput } from "../types";
@@ -32,21 +33,41 @@ const INITIAL_FORM: FormState = {
   notes: "",
 };
 
+// Compara dois arrays de ScheduleInput de forma independente da ordem
+function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
+  if (a.length !== b.length) return false;
+  const key = (s: ScheduleInput) =>
+    `${s.weekday}-${s.startTime.slice(0, 5)}-${s.durationMin}`;
+  const ka = [...a].map(key).sort().join("|");
+  const kb = [...b].map(key).sort().join("|");
+  return ka === kb;
+}
+
 export function PatientForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = !!id;
 
   const { patient, loading: loadingPatient } = usePatient(id);
-  const { schedules: existingSchedules } = usePatientSchedules(id);
+
+  // Hook novo: 3 camadas (manual > invite > google)
+  const {
+    schedules: sourcedSchedules,
+    source,
+    loading: loadingSchedules,
+  } = usePatientScheduleSource(id);
+
+  const { slots: occupiedSlots } = useOccupiedSlots({ excludePatientId: id });
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
+  const [initialSchedules, setInitialSchedules] = useState<ScheduleInput[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Carrega dados do paciente no modo edição
+  // Carrega dados do paciente
   useEffect(() => {
     if (patient) {
       setForm({
@@ -62,14 +83,17 @@ export function PatientForm() {
     }
   }, [patient]);
 
-  // Carrega schedules existentes (modo edição)
+  // Popula o editor só na primeira carga
   useEffect(() => {
-    if (existingSchedules.length > 0) {
-      setSchedules(existingSchedules);
+    if (!loadingSchedules) {
+      setSchedules(sourcedSchedules);
+      setInitialSchedules((prev) =>
+        prev.length === 0 ? sourcedSchedules : prev
+      );
     }
-  }, [existingSchedules]);
+  }, [loadingSchedules, sourcedSchedules]);
 
-  // Se for um paciente provisório (prospect), redireciona para a página de revisão.
+  // Redireciona prospect para review
   useEffect(() => {
     if (patient && patient.status === "prospect" && isEdit) {
       navigate(`/patients/${patient.id}/review`, { replace: true });
@@ -85,7 +109,7 @@ export function PatientForm() {
     setError(null);
     setScheduleError(null);
 
-    // Validações extras (frontend)
+    // Validações de dados
     if (form.cpf && !isValidCPF(form.cpf)) {
       setError("CPF inválido. Confira os dígitos.");
       return;
@@ -99,6 +123,14 @@ export function PatientForm() {
       !isValidPhoneBR(form.emergency_contact_phone)
     ) {
       setError("Telefone do contato de urgência inválido.");
+      return;
+    }
+
+    // Validação de conflito
+    if (hasScheduleConflict) {
+      setScheduleError(
+        "Resolva os horários em conflito antes de salvar."
+      );
       return;
     }
 
@@ -129,8 +161,10 @@ export function PatientForm() {
         return;
       }
 
-      // Se tem horários, sincroniza
-      if (schedules.length > 0) {
+      // Só chama set_patient_schedules se os horários mudaram
+      const schedulesChanged = !schedulesEqual(schedules, initialSchedules);
+
+      if (schedules.length > 0 && schedulesChanged) {
         const { error: scheduleErr } = await supabase.rpc(
           "set_patient_schedules",
           { p_patient_id: id, p_schedules: schedules }
@@ -167,7 +201,7 @@ export function PatientForm() {
         return;
       }
 
-      // Se tem horários, cria
+      // No create, sempre chama se tem horários
       if (schedules.length > 0) {
         const { error: scheduleErr } = await supabase.rpc(
           "set_patient_schedules",
@@ -185,7 +219,7 @@ export function PatientForm() {
     }
   }
 
-  if (isEdit && loadingPatient) {
+  if (isEdit && (loadingPatient || loadingSchedules)) {
     return (
       <div className="flex items-center justify-center py-20">
         <Spinner size={24} />
@@ -195,7 +229,6 @@ export function PatientForm() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* Cabeçalho */}
       <div>
         <Link
           to={isEdit ? `/patients/${id}` : "/patients"}
@@ -214,7 +247,6 @@ export function PatientForm() {
         </p>
       </div>
 
-      {/* Formulário */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900">Dados pessoais</h2>
@@ -293,8 +325,16 @@ export function PatientForm() {
           <ScheduleEditor
             value={schedules}
             onChange={setSchedules}
+            disabledSlots={occupiedSlots}
             error={scheduleError}
-            hint="Estes horários gerarão agendamentos recorrentes semanais pelos próximos 90 dias."
+            hint={
+              source === "google"
+                ? "Estes horários vieram do Google Calendar. Você pode ajustá-los."
+                : source === "invite"
+                  ? "Estes horários vieram do convite. Você pode ajustá-los."
+                  : "Estes horários gerarão agendamentos recorrentes. Horários já ocupados aparecem em âmbar."
+            }
+            onConflictChange={setHasScheduleConflict}
           />
         </Card>
 
@@ -326,20 +366,29 @@ export function PatientForm() {
           </div>
         )}
 
-        {/* Ações */}
         <div className="flex justify-end gap-2">
           <Link to={isEdit ? `/patients/${id}` : "/patients"}>
             <Button type="button" variant="secondary">
               Cancelar
             </Button>
           </Link>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            disabled={saving || hasScheduleConflict}
+            title={
+              hasScheduleConflict
+                ? "Resolva os horários em conflito antes de salvar"
+                : undefined
+            }
+          >
             <Save size={16} />
             {saving
               ? "Salvando..."
-              : isEdit
-                ? "Salvar alterações"
-                : "Criar paciente"}
+              : hasScheduleConflict
+                ? "Resolva os conflitos"
+                : isEdit
+                  ? "Salvar alterações"
+                  : "Criar paciente"}
           </Button>
         </div>
       </form>
