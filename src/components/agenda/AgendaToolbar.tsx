@@ -8,9 +8,7 @@ type Props = {
   onPrevious: () => void;
   onNext: () => void;
   onToday: () => void;
-  // Título contextual (ex: "14 de outubro de 2026" ou "Outubro de 2026")
   title: string;
-  // Em mobile, esconde "Semana" (força Dia)
   hideWeekOnMobile?: boolean;
 };
 
@@ -25,7 +23,6 @@ export function AgendaToolbar({
 }: Props) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      {/* Título + navegação */}
       <div className="flex items-center gap-2">
         <Button variant="secondary" size="sm" onClick={onToday}>
           Hoje
@@ -51,7 +48,6 @@ export function AgendaToolbar({
         </h2>
       </div>
 
-      {/* Toggle de modo */}
       <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
         <button
           onClick={() => onViewChange("day")}

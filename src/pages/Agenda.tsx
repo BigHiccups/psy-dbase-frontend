@@ -13,11 +13,11 @@ import { MonthView } from "../components/agenda/MonthView";
 import { DayOverviewModal } from "../components/agenda/DayOverviewModal";
 import { AppointmentDetailModal } from "../components/agenda/AppointmentDetailModal";
 import { CreateAppointmentModal } from "../components/agenda/CreateAppointmentModal";
+import { DayCancelledModal } from "../components/agenda/DayCancelledModal";
 import { Spinner } from "../components/ui";
 import {
   formatLongDate,
   formatMonth,
-  // toDateString,
   toMonthString,
 } from "../lib/agenda-date";
 import type { AppointmentWithRelations } from "../types";
@@ -28,7 +28,6 @@ export function Agenda() {
 
   const agenda = useAgendaView();
 
-  // Sincroniza URL ↔ estado
   useEffect(() => {
     const viewFromUrl = params.view as AgendaView | undefined;
     if (viewFromUrl && ["day", "week", "month"].includes(viewFromUrl)) {
@@ -37,7 +36,6 @@ export function Agenda() {
 
     const dateFromUrl = params.date;
     if (dateFromUrl && dateFromUrl !== agenda.date) {
-      // Se for month, adiciona -01
       const normalized =
         viewFromUrl === "month" && dateFromUrl.length === 7
           ? `${dateFromUrl}-01`
@@ -47,7 +45,6 @@ export function Agenda() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.view, params.date]);
 
-  // Redireciona para URL canônica quando a view/date muda
   useEffect(() => {
     const { view, date } = agenda;
     const expectedDate = view === "month" ? toMonthString(date) : date;
@@ -58,14 +55,12 @@ export function Agenda() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agenda.view, agenda.date]);
 
-  // Carrega appointments do range
   const range = getViewRange(agenda.view, agenda.date);
   const { appointments, loading, error, reload } = useAppointments(
     range.from,
     range.to
   );
 
-  // Estado dos modais
   const [selectedAppointment, setSelectedAppointment] =
     useState<AppointmentWithRelations | null>(null);
 
@@ -76,22 +71,30 @@ export function Agenda() {
     hour: number;
   } | null>(null);
 
-  // Ao clicar num slot vazio da grade
+  const [monthCancelledModal, setMonthCancelledModal] = useState<{
+    date: string;
+    appointments: AppointmentWithRelations[];
+  } | null>(null);
+
   function handleSlotClick(date: string, hour: number) {
     setCreateSlot({ date, hour });
   }
 
-  // Ao clicar num appointment
   function handleAppointmentClick(appointment: AppointmentWithRelations) {
     setSelectedAppointment(appointment);
   }
 
-  // Ao clicar num dia do mês
   function handleDayClick(date: string) {
     setDayOverviewDate(date);
   }
 
-  // Título contextual
+  function handleMonthCancelledClick(date: string) {
+    const cancelled = appointments.filter(
+      (a) => a.starts_on === date && a.status === "cancelled"
+    );
+    setMonthCancelledModal({ date, appointments: cancelled });
+  }
+
   const title =
     agenda.view === "month"
       ? formatMonth(toMonthString(agenda.date))
@@ -99,7 +102,6 @@ export function Agenda() {
 
   return (
     <div className="space-y-5">
-      {/* Toolbar */}
       <AgendaToolbar
         view={agenda.view}
         onViewChange={agenda.setView}
@@ -109,7 +111,6 @@ export function Agenda() {
         title={title}
       />
 
-      {/* Conteúdo */}
       {loading && (
         <div className="flex items-center justify-center py-20">
           <Spinner size={24} />
@@ -130,15 +131,19 @@ export function Agenda() {
               appointments={appointments}
               onAppointmentClick={handleAppointmentClick}
               onSlotClick={handleSlotClick}
+              onReload={reload}
             />
           )}
 
           {agenda.view === "day" && (
             <DayView
               date={agenda.date}
-              appointments={appointments}
+              appointments={appointments.filter(
+                (a) => a.starts_on === agenda.date
+              )}
               onAppointmentClick={handleAppointmentClick}
               onSlotClick={handleSlotClick}
+              onReload={reload}
             />
           )}
 
@@ -147,13 +152,13 @@ export function Agenda() {
               monthStr={toMonthString(agenda.date)}
               appointments={appointments}
               onDayClick={handleDayClick}
+              onCancelledClick={handleMonthCancelledClick}
               onAppointmentClick={handleAppointmentClick}
             />
           )}
         </>
       )}
 
-      {/* Modais */}
       <AppointmentDetailModal
         appointment={selectedAppointment}
         onClose={() => setSelectedAppointment(null)}
@@ -185,6 +190,16 @@ export function Agenda() {
             reload();
             setCreateSlot(null);
           }}
+        />
+      )}
+
+      {monthCancelledModal && (
+        <DayCancelledModal
+          open
+          date={monthCancelledModal.date}
+          appointments={monthCancelledModal.appointments}
+          onClose={() => setMonthCancelledModal(null)}
+          onChanged={reload}
         />
       )}
     </div>

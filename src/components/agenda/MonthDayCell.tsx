@@ -1,15 +1,16 @@
-import { isToday, isInMonth } from "../../lib/agenda-date";
+import { isToday, isInMonth, formatTime } from "../../lib/agenda-date";
 import { TYPE_STYLES } from "../../lib/appointment-colors";
-import { formatTime } from "../../lib/agenda-date";
 import type { AppointmentWithRelations } from "../../types";
 
 const MAX_VISIBLE = 2;
 
 type Props = {
-  date: string; // YYYY-MM-DD
-  monthStr: string; // YYYY-MM
-  appointments: AppointmentWithRelations[];
+  date: string;
+  monthStr: string;
+  appointments: AppointmentWithRelations[]; // só ativos + due
+  cancelledCount: number;                    // contador de cancelados
   onDayClick: (date: string) => void;
+  onCancelledClick: (date: string) => void;
   onAppointmentClick: (appointment: AppointmentWithRelations) => void;
 };
 
@@ -17,14 +18,16 @@ export function MonthDayCell({
   date,
   monthStr,
   appointments,
+  cancelledCount,
   onDayClick,
+  onCancelledClick,
   onAppointmentClick,
 }: Props) {
   const dayNumber = Number(date.slice(8, 10));
   const inMonth = isInMonth(date, monthStr);
   const today = isToday(date);
 
-  // Ignora `due` no bloco compacto (só mostra sessões/personal/blocked)
+  // Ignora `due` no bloco compacto
   const visible = appointments.filter((a) => a.type !== "due");
   const shown = visible.slice(0, MAX_VISIBLE);
   const remaining = visible.length - shown.length;
@@ -43,23 +46,37 @@ export function MonthDayCell({
         <span
           className={`
             flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium
-            ${today
-              ? "bg-brand-600 text-white"
-              : inMonth
-                ? "text-gray-900"
-                : "text-gray-400"
+            ${
+              today
+                ? "bg-brand-600 text-white"
+                : inMonth
+                  ? "text-gray-900"
+                  : "text-gray-400"
             }
           `}
         >
           {dayNumber}
         </span>
+
+        {/* Badge de cancelados */}
+        {cancelledCount > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancelledClick(date);
+            }}
+            className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+            title={`${cancelledCount} cancelado(s)`}
+          >
+            {cancelledCount} ✕
+          </button>
+        )}
       </div>
 
       {/* Blocos compactos */}
       <div className="flex-1 space-y-0.5">
         {shown.map((appt) => {
           const style = TYPE_STYLES[appt.type];
-          const isCancelled = appt.status === "cancelled";
           const name =
             appt.patient?.full_name ??
             appt.provider?.display_name ??
@@ -72,11 +89,10 @@ export function MonthDayCell({
                 onAppointmentClick(appt);
               }}
               className={`
-        block w-full truncate rounded border-l-2 px-1 py-0.5 text-left text-[10px]
-        font-medium transition hover:brightness-95
-        ${style.bg} ${style.border} ${style.text}
-        ${isCancelled ? "line-through opacity-50" : ""}
-      `}
+                block w-full truncate rounded border-l-2 px-1 py-0.5 text-left text-[10px]
+                font-medium transition hover:brightness-95
+                ${style.bg} ${style.border} ${style.text}
+              `}
               title={`${formatTime(appt.start_time)} · ${name}`}
             >
               {formatTime(appt.start_time)} {name}
