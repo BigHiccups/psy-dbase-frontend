@@ -10,14 +10,22 @@ import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidPhoneBR } from "../lib/masks";
 import { displayName } from "../lib/patient-display";
 import type { ScheduleInput } from "../types";
+import { usePatientScheduleSource } from "../hooks/usePatientScheduleSource";
 
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { patient, loading, error } = usePatient(id);
+  const { slots: occupiedSlots } = useOccupiedSlots({
+    excludePatientId: id,
+  });
 
-  // Slots ocupados por outros pacientes
-  const { slots: occupiedSlots } = useOccupiedSlots();
+  // Busca horários em 3 camadas: manual > invite > google
+  const {
+    schedules: sourcedSchedules,
+    source,
+    loading: loadingSchedules,
+  } = usePatientScheduleSource(id);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -35,6 +43,7 @@ export function PatientReview() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Preenche dados do paciente
   useEffect(() => {
     if (patient) {
       setForm({
@@ -50,40 +59,12 @@ export function PatientReview() {
     }
   }, [patient]);
 
+  // Popula o editor quando o hook termina de carregar
   useEffect(() => {
-    if (!patient) return;
-
-    async function loadInviteSchedules() {
-      const { data: submissions } = await supabase
-        .from("patient_form_submissions")
-        .select("invite_id, full_name")
-        .eq("status", "approved")
-        .ilike("full_name", patient!.full_name)
-        .limit(1);
-
-      if (!submissions || submissions.length === 0) return;
-
-      const inviteId = submissions[0].invite_id;
-
-      const { data: inviteSchedules } = await supabase
-        .from("patient_invite_schedules")
-        .select("weekday, start_time, duration_min")
-        .eq("invite_id", inviteId)
-        .order("weekday", { ascending: true });
-
-      if (inviteSchedules && inviteSchedules.length > 0) {
-        setSchedules(
-          inviteSchedules.map((row) => ({
-            weekday: row.weekday,
-            startTime: (row.start_time as string).slice(0, 5),
-            durationMin: row.duration_min,
-          }))
-        );
-      }
+    if (!loadingSchedules && sourcedSchedules.length > 0) {
+      setSchedules(sourcedSchedules);
     }
-
-    loadInviteSchedules();
-  }, [patient]);
+  }, [loadingSchedules, sourcedSchedules]);
 
   function update<K extends keyof typeof form>(
     key: K,
@@ -106,7 +87,12 @@ export function PatientReview() {
       return;
     }
 
-    // Validação de conflito
+    if (hasScheduleConflict) {
+      setScheduleError("Resolva os horários em conflito antes de continuar.");
+      return;
+    }
+
+    // Validação de conflito extra (defensiva)
     const conflict = schedules.find((s) =>
       occupiedSlots.some(
         (o) =>
@@ -121,31 +107,19 @@ export function PatientReview() {
       return;
     }
 
-    if (schedules.length > 0) {
-      const conflict = schedules.find((s) =>
-        occupiedSlots.some(
-          (o) =>
-            o.weekday === s.weekday &&
-            o.startTime.slice(0, 5) === s.startTime.slice(0, 5)
-        )
-      );
-      if (conflict) {
-        setScheduleError("Há horário em conflito. Remova ou troque antes.");
+    const seen = new Set<string>();
+    for (const s of schedules) {
+      const key = `${s.weekday}-${s.startTime.slice(0, 5)}`;
+      if (seen.has(key)) {
+        setScheduleError("Há horários duplicados entre si. Remova um deles.");
         return;
       }
-
-      const seen = new Set<string>();
-      for (const s of schedules) {
-        const key = `${s.weekday}-${s.startTime.slice(0, 5)}`;
-        if (seen.has(key)) {
-          setScheduleError("Há horários duplicados entre si.");
-          return;
-        }
-        seen.add(key);
-      }
+      seen.add(key);
     }
+
     setSaving(true);
 
+    // Atualiza dados cadastrais
     const { error: updateError } = await supabase
       .from("patients")
       .update({
@@ -168,6 +142,7 @@ export function PatientReview() {
       return;
     }
 
+    // Promove para ativo + cria schedules + appointments
     const { error: promoteError } = await supabase.rpc(
       "promote_prospect_to_active",
       {
@@ -301,14 +276,27 @@ export function PatientReview() {
       </Card>
 
       <Card className="space-y-4 p-6">
-        <ScheduleEditor
-          value={schedules}
-          onChange={setSchedules}
-          disabledSlots={occupiedSlots}
-          error={scheduleError}
-          hint="Horários já ocupados aparecem em âmbar."
-          onConflictChange={setHasScheduleConflict}
-        />
+        {loadingSchedules ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Spinner size={16} />
+            Carregando horários...
+          </div>
+        ) : (
+          <ScheduleEditor
+            value={schedules}
+            onChange={setSchedules}
+            disabledSlots={occupiedSlots}
+            error={scheduleError}
+            hint={
+              source === "google"
+                ? "Estes horários vieram do Google Calendar. Você pode ajustá-los ou removê-los."
+                : source === "invite"
+                  ? "Estes horários vieram do convite. Você pode ajustá-los."
+                  : "Estes horários gerarão agendamentos recorrentes. Horários já ocupados aparecem em âmbar."
+            }
+            onConflictChange={setHasScheduleConflict}
+          />
+        )}
       </Card>
 
       <Card className="space-y-4 p-6">

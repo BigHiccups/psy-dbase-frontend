@@ -48,6 +48,8 @@ export function WeekView({
     (_, i) => START_HOUR + i
   );
 
+  
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       {/* Container com scroll horizontal (mobile) */}
