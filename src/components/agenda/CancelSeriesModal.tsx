@@ -5,19 +5,22 @@ import { Button, Modal, Input } from "../ui";
 import { toDateString, addDays } from "../../lib/agenda-date";
 
 type Mode = "immediate" | "from_date" | "suspend";
+type SubjectType = "patient" | "provider";
 
 type Props = {
   open: boolean;
-  patientId: string | null;
-  patientName: string;
+  subjectId: string | null;
+  subjectType: SubjectType;
+  subjectName: string;
   onClose: () => void;
   onDone: () => void;
 };
 
 export function CancelSeriesModal({
   open,
-  patientId,
-  patientName,
+  subjectId,
+  subjectType,
+  subjectName,
   onClose,
   onDone,
 }: Props) {
@@ -29,14 +32,22 @@ export function CancelSeriesModal({
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Compatibilidade retroativa: aceita subjectId como patientId para o
+  // caso antigo, se algum caller ainda passar `patientId`/`patientName`.
   async function handleConfirm() {
-    if (!patientId) return;
+    if (!subjectId) return;
 
     setWorking(true);
     setError(null);
 
+    const fnName =
+      subjectType === "patient"
+        ? "cancel_appointment_series"
+        : "cancel_provider_appointment_series";
+
     const params: Record<string, unknown> = {
-      p_patient_id: patientId,
+      [subjectType === "patient" ? "p_patient_id" : "p_provider_id"]:
+        subjectId,
       p_mode: mode,
     };
 
@@ -46,7 +57,7 @@ export function CancelSeriesModal({
       params.p_to_date = suspendTo;
     }
 
-    const { error } = await supabase.rpc("cancel_appointment_series", params);
+    const { error } = await supabase.rpc(fnName, params);
     setWorking(false);
 
     if (error) {
@@ -59,13 +70,17 @@ export function CancelSeriesModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Cancelar série de agendamentos" size="md">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Cancelar série de agendamentos"
+      size="md"
+    >
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          Série de <strong>{patientName}</strong>. Escolha como proceder:
+          Série de <strong>{subjectName}</strong>. Escolha como proceder:
         </p>
 
-        {/* Modo 1: imediato */}
         <ModeOption
           selected={mode === "immediate"}
           onSelect={() => setMode("immediate")}
@@ -74,7 +89,6 @@ export function CancelSeriesModal({
           description="Cancela todos os agendamentos futuros. O combinado será removido."
         />
 
-        {/* Modo 2: from_date */}
         <ModeOption
           selected={mode === "from_date"}
           onSelect={() => setMode("from_date")}
@@ -90,7 +104,6 @@ export function CancelSeriesModal({
           />
         </ModeOption>
 
-        {/* Modo 3: suspend */}
         <ModeOption
           selected={mode === "suspend"}
           onSelect={() => setMode("suspend")}
@@ -100,9 +113,7 @@ export function CancelSeriesModal({
         >
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 block text-xs text-gray-500">
-                De
-              </label>
+              <label className="mb-1 block text-xs text-gray-500">De</label>
               <Input
                 type="date"
                 value={suspendFrom}
@@ -111,9 +122,7 @@ export function CancelSeriesModal({
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-500">
-                Até
-              </label>
+              <label className="mb-1 block text-xs text-gray-500">Até</label>
               <Input
                 type="date"
                 value={suspendTo}
@@ -161,10 +170,11 @@ function ModeOption({
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selected
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+        selected
           ? "border-brand-300 bg-brand-50/40"
           : "border-gray-200 bg-white hover:border-gray-300"
-        }`}
+      }`}
     >
       <input
         type="radio"

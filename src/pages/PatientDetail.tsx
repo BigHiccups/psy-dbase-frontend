@@ -553,8 +553,9 @@ export function PatientDetail() {
       {suspendOpen && (
         <CancelSeriesModal
           open
-          patientId={patient.id}
-          patientName={patient.full_name}
+          subjectId={patient.id}
+          subjectType="patient"
+          subjectName={patient.full_name}
           onClose={() => setSuspendOpen(false)}
           onDone={() => {
             setSuspendOpen(false);

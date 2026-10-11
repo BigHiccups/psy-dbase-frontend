@@ -216,8 +216,9 @@ export function AppointmentDetailModal({
       {cancelSeriesOpen && appointment.patient_id && (
         <CancelSeriesModal
           open
-          patientId={appointment.patient_id}
-          patientName={subjectName}
+          subjectId={appointment.patient_id ?? appointment.provider_id}
+          subjectType={appointment.patient_id ? "patient" : "provider"}
+          subjectName={subjectName}
           onClose={() => setCancelSeriesOpen(false)}
           onDone={() => {
             onChanged();
