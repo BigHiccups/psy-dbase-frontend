@@ -3,14 +3,19 @@ import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { Button, Modal, ConfirmDialog } from "../ui";
 import { TYPE_STYLES } from "../../lib/appointment-colors";
-import { formatTime, formatLongDate, isoWeekday, WEEKDAY_LONG } from "../../lib/agenda-date";
+import {
+  formatTime,
+  formatLongDate,
+  isoWeekday,
+  WEEKDAY_LONG,
+} from "../../lib/agenda-date";
 import type { AppointmentWithRelations } from "../../types";
 
 type Props = {
   open: boolean;
-  date: string; // YYYY-MM-DD
-  startTime: string; // HH:MM
-  appointments: AppointmentWithRelations[]; // só os do slot
+  date: string;
+  startTime: string;
+  appointments: AppointmentWithRelations[];
   onClose: () => void;
   onChanged: () => void;
 };
@@ -27,7 +32,6 @@ export function SlotCancelledModal({
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteOne, setConfirmDeleteOne] = useState<string | null>(null);
 
-  // Dia da semana da data
   const weekday = new Date(date + "T00:00:00").getDay();
   const weekdayLong = WEEKDAY_LONG[isoWeekday(weekday)];
 
@@ -75,16 +79,15 @@ export function SlotCancelledModal({
     <>
       <Modal open={open} onClose={onClose} size="md">
         <div className="space-y-4">
-          {/* Cabeçalho */}
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400">
               <Ban size={20} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-gray-900">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">
                 Cancelados neste horário
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-slate-400">
                 {weekdayLong}, {formatLongDate(date)} · {startTime} ·{" "}
                 {appointments.length}{" "}
                 {appointments.length === 1 ? "cancelado" : "cancelados"}
@@ -92,9 +95,8 @@ export function SlotCancelledModal({
             </div>
           </div>
 
-          {/* Lista */}
           {appointments.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-500">
+            <p className="py-6 text-center text-sm text-gray-500 dark:text-slate-400">
               Nenhum cancelado neste horário.
             </p>
           ) : (
@@ -132,7 +134,7 @@ export function SlotCancelledModal({
                         variant="ghost"
                         onClick={() => setConfirmDeleteOne(appt.id)}
                         disabled={busy}
-                        className="text-gray-500 hover:bg-red-50 hover:text-red-600"
+                        className="text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/50 dark:hover:text-red-400"
                       >
                         <Trash2 size={12} />
                         Remover
@@ -154,16 +156,16 @@ export function SlotCancelledModal({
           )}
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
               <AlertCircle
                 size={16}
-                className="mt-0.5 shrink-0 text-red-600"
+                className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
               />
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             </div>
           )}
 
-          <div className="flex justify-end border-t border-gray-100 pt-4">
+          <div className="flex justify-end border-t border-gray-100 pt-4 dark:border-slate-800">
             <Button variant="secondary" onClick={onClose}>
               <X size={16} />
               Fechar

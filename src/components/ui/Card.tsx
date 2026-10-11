@@ -8,7 +8,7 @@ type Props = {
 export function Card({ children, className = "" }: Props) {
   return (
     <div
-      className={`rounded-2xl border border-gray-200 bg-white shadow-sm ${className}`}
+      className={`rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}
     >
       {children}
     </div>

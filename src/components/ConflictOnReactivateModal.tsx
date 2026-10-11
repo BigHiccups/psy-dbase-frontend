@@ -33,20 +33,18 @@ export function ConflictOnReactivateModal({
   onReactivateValidOnes,
 }: Props) {
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Conflito de horários"
-      size="md"
-    >
+    <Modal open={open} onClose={onClose} title="Conflito de horários" size="md">
       <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+          <AlertTriangle
+            size={18}
+            className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
+          />
           <div>
-            <p className="text-sm font-medium text-amber-900">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
               {LABELS[subjectType]}
             </p>
-            <p className="mt-0.5 text-xs text-amber-700">
+            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300/80">
               Outros agendamentos já usam esses slots. Escolha como proceder.
             </p>
           </div>
@@ -56,15 +54,18 @@ export function ConflictOnReactivateModal({
           {conflicts.map((c, i) => (
             <div
               key={i}
-              className="flex items-center justify-between rounded-lg border border-amber-200 bg-white px-3 py-2"
+              className="flex items-center justify-between rounded-lg border border-amber-200 bg-white px-3 py-2 dark:border-amber-900/50 dark:bg-slate-900"
             >
               <div>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
                   {WEEKDAY_LONG[isoWeekday(c.schedule.weekday)]} às{" "}
                   {c.schedule.startTime}
                 </p>
-                <p className="text-xs text-gray-500">
-                  Ocupado por <strong>{c.occupiedBy}</strong>
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Ocupado por{" "}
+                  <strong className="text-gray-700 dark:text-slate-300">
+                    {c.occupiedBy}
+                  </strong>
                 </p>
               </div>
               <Badge variant="warning">{c.schedule.durationMin} min</Badge>
@@ -85,7 +86,7 @@ export function ConflictOnReactivateModal({
           </Button>
         </div>
 
-        <div className="flex justify-end border-t border-gray-100 pt-4">
+        <div className="flex justify-end border-t border-gray-100 pt-4 dark:border-slate-800">
           <Button variant="ghost" onClick={onClose}>
             <XCircle size={16} />
             Cancelar

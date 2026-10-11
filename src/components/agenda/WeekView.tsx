@@ -27,7 +27,6 @@ export function WeekView({
 }: Props) {
   const dates = weekDates(date);
 
-  // Modais
   const [stackModal, setStackModal] = useState<{
     date: string;
     appointments: AppointmentWithRelations[];
@@ -39,10 +38,8 @@ export function WeekView({
     appointments: AppointmentWithRelations[];
   } | null>(null);
 
-  // Separa por data e status
   const activeByDate: Record<string, AppointmentWithRelations[]> = {};
   const dueByDate: Record<string, AppointmentWithRelations[]> = {};
-  // Cancelados agrupados por "data + horário"
   const cancelledBySlot: Record<string, AppointmentWithRelations[]> = {};
 
   for (const d of dates) activeByDate[d] = [];
@@ -73,20 +70,19 @@ export function WeekView({
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
-            {/* Cabeçalho */}
-            <div className="flex border-b border-gray-200">
+            <div className="flex border-b border-gray-200 dark:border-slate-800">
               <div
-                className="w-16 shrink-0 border-r border-gray-200 bg-gray-50/50"
+                className="w-16 shrink-0 border-r border-gray-200 bg-gray-50 dark:border-slate-800 dark:bg-slate-900"
                 style={{ height: HEADER_HEIGHT }}
               />
               {dates.map((d) => (
                 <div key={d} className="min-w-0 flex-1">
                   <DayHeader date={d} />
                   {dueByDate[d] && dueByDate[d].length > 0 && (
-                    <div className="border-t border-amber-100 bg-amber-50 px-1 py-0.5 text-center text-[10px] text-amber-800">
+                    <div className="border-t border-amber-100 bg-amber-50 px-1 py-0.5 text-center text-[10px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
                       {dueByDate[d].length} venc.
                     </div>
                   )}
@@ -94,12 +90,10 @@ export function WeekView({
               ))}
             </div>
 
-            {/* Corpo */}
             <div className="flex">
               <TimeColumn headerHeight={0} />
               <div className="flex flex-1">
                 {dates.map((d) => {
-                  // Layout só dos ativos
                   const layouts = computeLayout(
                     activeByDate[d],
                     HOUR_HEIGHT,
@@ -110,11 +104,10 @@ export function WeekView({
                   return (
                     <div
                       key={d}
-                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 ${
-                        isToday(d) ? "bg-brand-50/20" : ""
+                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${
+                        isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
                       }`}
                     >
-                      {/* Linhas de hora */}
                       {hours.map((h) => {
                         const startTime = `${String(h).padStart(2, "0")}:00`;
                         const key = `${d}|${startTime}`;
@@ -124,10 +117,9 @@ export function WeekView({
                           <div
                             key={h}
                             onClick={() => onSlotClick(d, h)}
-                            className="relative cursor-pointer border-b border-gray-100 transition hover:bg-gray-50/60"
+                            className="relative cursor-pointer border-b border-gray-100 transition hover:bg-gray-50/60 dark:border-slate-800 dark:hover:bg-slate-800/40"
                             style={{ height: HOUR_HEIGHT }}
                           >
-                            {/* Badge de cancelados do slot */}
                             {cancelledHere && cancelledHere.length > 0 && (
                               <button
                                 onClick={(e) => {
@@ -138,7 +130,7 @@ export function WeekView({
                                     appointments: cancelledHere,
                                   });
                                 }}
-                                className="absolute right-1 top-1 z-10 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+                                className="absolute right-1 top-1 z-10 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
                                 title={`${cancelledHere.length} cancelado(s) neste horário`}
                               >
                                 {cancelledHere.length} ✕
@@ -148,7 +140,6 @@ export function WeekView({
                         );
                       })}
 
-                      {/* Blocos ativos */}
                       {layouts
                         .filter((l) => !l.isHidden)
                         .map((l) => (
@@ -164,7 +155,6 @@ export function WeekView({
                           />
                         ))}
 
-                      {/* +N */}
                       {Object.entries(hiddenByStack).map(
                         ([stackIdStr, count]) => {
                           const stackId = Number(stackIdStr);
@@ -184,7 +174,7 @@ export function WeekView({
                                   ),
                                 })
                               }
-                              className="absolute rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-600 shadow-sm transition hover:bg-gray-50"
+                              className="absolute rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                               style={{
                                 top: anchor.top + 4,
                                 right: 8,

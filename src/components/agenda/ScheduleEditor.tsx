@@ -42,7 +42,6 @@ export function ScheduleEditor({
     onChange(value.filter((_, i) => i !== index));
   }
 
-  // Normaliza a lista de slots ocupados para comparação rápida
   const occupiedSet = useMemo(() => {
     const set = new Set<string>();
     for (const s of disabledSlots) {
@@ -51,12 +50,10 @@ export function ScheduleEditor({
     return set;
   }, [disabledSlots]);
 
-  // Verifica se um slot está ocupado externamente
   function isExternallyOccupied(weekday: number, startTime: string): boolean {
     return occupiedSet.has(`${weekday}-${normalizeTime(startTime)}`);
   }
 
-  // Conflito interno: outra linha do próprio editor com o mesmo slot
   function hasInternalConflict(index: number): boolean {
     const self = value[index];
     return value.some(
@@ -67,7 +64,6 @@ export function ScheduleEditor({
     );
   }
 
-  // Uma linha é "âmbar" se conflita externa OU internamente
   function isRowLocked(index: number): boolean {
     const s = value[index];
     return (
@@ -82,13 +78,10 @@ export function ScheduleEditor({
     [value, disabledSlots]
   );
 
-  // Notifica o parent sempre que o conflito mudar
   useEffect(() => {
     onConflictChange?.(hasConflict);
   }, [hasConflict, onConflictChange]);
 
-  // Verifica se um par (weekday, startTime) é válido para uma nova linha:
-  // não ocupa externo E não colide com nenhuma linha já existente no editor
   function isSlotFree(
     weekday: number,
     startTime: string,
@@ -103,19 +96,13 @@ export function ScheduleEditor({
     );
   }
 
-  // Encontra um slot livre para uma nova linha
-  // Estratégia:
-  //   1) Tenta o próximo dia (partindo do último item) com o mesmo horário
-  //   2) Se conflitar, avança dia a dia (máx 7 tentativas)
-  //   3) Se nada, tenta o mesmo dia com o horário default
-  //   4) Se nada, começa do zero com dia 1 (segunda) e horário default
-  //   5) Se ainda nada, cai no default (pode nascer âmbar, mas é raro)
   function findFreeSlot(): ScheduleInput {
     const last = value[value.length - 1];
     const baseWeekday = last ? (last.weekday + 1) % 7 : 1;
-    const baseStartTime = last ? normalizeTime(last.startTime) : DEFAULT_START_TIME;
+    const baseStartTime = last
+      ? normalizeTime(last.startTime)
+      : DEFAULT_START_TIME;
 
-    // Passo 1: avança dia a dia com o mesmo horário
     for (let i = 0; i < 7; i++) {
       const wd = (baseWeekday + i) % 7;
       if (isSlotFree(wd, baseStartTime)) {
@@ -127,7 +114,6 @@ export function ScheduleEditor({
       }
     }
 
-    // Passo 2: tenta o mesmo dia com horário default
     if (isSlotFree(baseWeekday, DEFAULT_START_TIME)) {
       return {
         weekday: baseWeekday,
@@ -136,7 +122,6 @@ export function ScheduleEditor({
       };
     }
 
-    // Passo 3: começa do zero
     for (let wd = 0; wd < 7; wd++) {
       if (isSlotFree(wd, DEFAULT_START_TIME)) {
         return {
@@ -147,7 +132,6 @@ export function ScheduleEditor({
       }
     }
 
-    // Fallback: cai no default (improvável)
     return {
       weekday: 1,
       startTime: DEFAULT_START_TIME,
@@ -159,12 +143,24 @@ export function ScheduleEditor({
     onChange([...value, findFreeSlot()]);
   }
 
+  // Classes compartilhadas dos inputs
+  const inputClasses = `
+    rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900
+    transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20
+    disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500
+    dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100
+    dark:disabled:bg-slate-800/50 dark:disabled:text-slate-500
+  `;
+
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <CalendarClock size={16} className="text-brand-600" />
-          <label className="text-sm font-medium text-gray-900">
+          <CalendarClock
+            size={16}
+            className="text-brand-600 dark:text-brand-400"
+          />
+          <label className="text-sm font-medium text-gray-900 dark:text-slate-100">
             {title}
             {!readOnly && <span className="ml-1 text-red-500">*</span>}
           </label>
@@ -185,7 +181,7 @@ export function ScheduleEditor({
       </div>
 
       {value.length === 0 && (
-        <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
+        <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500 dark:border-slate-700 dark:text-slate-400">
           Nenhum horário definido.
           {!readOnly && (
             <>
@@ -193,7 +189,7 @@ export function ScheduleEditor({
               <button
                 type="button"
                 onClick={add}
-                className="text-brand-700 hover:underline"
+                className="text-brand-700 hover:underline dark:text-brand-400"
               >
                 Adicionar horário
               </button>
@@ -210,28 +206,27 @@ export function ScheduleEditor({
               key={index}
               className={`flex items-center gap-2 rounded-xl border p-2 transition ${
                 locked
-                  ? "border-amber-300 bg-amber-50/60"
-                  : "border-gray-200 bg-gray-50/60"
+                  ? "border-amber-300 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/20"
+                  : "border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-800/40"
               }`}
             >
               <div
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
                   locked
-                    ? "bg-amber-200 text-amber-800"
-                    : "bg-brand-100 text-brand-700"
+                    ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
+                    : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                 }`}
               >
                 {index + 1}
               </div>
 
-              {/* Inputs ficam SEMPRE habilitados (exceto disabled/readOnly global) */}
               <select
                 value={s.weekday}
                 onChange={(e) =>
                   update(index, { weekday: Number(e.target.value) })
                 }
                 disabled={disabled || readOnly}
-                className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+                className={`min-w-0 flex-1 ${inputClasses}`}
               >
                 {WEEKDAYS.map((w) => (
                   <option key={w.value} value={w.value}>
@@ -247,7 +242,7 @@ export function ScheduleEditor({
                   update(index, { startTime: e.target.value })
                 }
                 disabled={disabled || readOnly}
-                className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+                className={inputClasses}
               />
 
               <div className="flex items-center gap-1">
@@ -261,9 +256,11 @@ export function ScheduleEditor({
                     update(index, { durationMin: Number(e.target.value) })
                   }
                   disabled={disabled || readOnly}
-                  className="w-16 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+                  className={`w-16 ${inputClasses}`}
                 />
-                <span className="text-xs text-gray-500">min</span>
+                <span className="text-xs text-gray-500 dark:text-slate-400">
+                  min
+                </span>
               </div>
 
               {!readOnly && (
@@ -271,7 +268,7 @@ export function ScheduleEditor({
                   type="button"
                   onClick={() => remove(index)}
                   disabled={value.length === 1 || disabled}
-                  className="rounded-md p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                  className="rounded-md p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400 dark:disabled:hover:text-slate-500"
                   title={
                     value.length === 1
                       ? "Pelo menos um horário é obrigatório"
@@ -287,18 +284,25 @@ export function ScheduleEditor({
       </div>
 
       {hasConflict && (
-        <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-          <AlertCircle size={14} className="mt-0.5 shrink-0 text-amber-700" />
-          <p className="text-xs text-amber-800">
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 dark:border-amber-800/60 dark:bg-amber-950/30">
+          <AlertCircle
+            size={14}
+            className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400"
+          />
+          <p className="text-xs text-amber-800 dark:text-amber-200">
             Alguns horários estão em conflito (com outros agendamentos ou entre
             si). Edite-os ou remova antes de continuar.
           </p>
         </div>
       )}
 
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && (
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
+      )}
       {hint && !error && !hasConflict && (
-        <p className="mt-2 text-xs text-gray-500">{hint}</p>
+        <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+          {hint}
+        </p>
       )}
     </div>
   );

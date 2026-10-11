@@ -20,35 +20,32 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-brand-50 via-white to-gray-50">
-      {/* Conteúdo central */}
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-brand-50 via-white to-gray-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm">
-          {/* Logo + nome */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-bold text-white shadow-lg shadow-brand-600/20">
               p
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-slate-100">
               psy-dbase
             </h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
               Gestão de consultório de psicologia
             </p>
           </div>
 
-          {/* Card de login */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-1 text-base font-medium text-gray-900">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="mb-1 text-base font-medium text-gray-900 dark:text-slate-100">
               Entrar na sua conta
             </h2>
-            <p className="mb-5 text-sm text-gray-500">
+            <p className="mb-5 text-sm text-gray-500 dark:text-slate-400">
               Use sua conta Google para acessar.
             </p>
 
             <button
               onClick={handleLogin}
-              className="group flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              className="group flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-brand-700 dark:hover:bg-slate-800/60"
             >
               <svg
                 width="18"
@@ -77,21 +74,19 @@ export function Login() {
               Entrar com Google
             </button>
 
-            {/* Aviso de segurança */}
-            <div className="mt-5 flex items-start gap-2 rounded-lg bg-gray-50 p-3">
+            <div className="mt-5 flex items-start gap-2 rounded-lg bg-gray-50 p-3 dark:bg-slate-800/50">
               <ShieldCheck
                 size={14}
-                className="mt-0.5 shrink-0 text-brand-600"
+                className="mt-0.5 shrink-0 text-brand-600 dark:text-brand-400"
               />
-              <p className="text-xs leading-relaxed text-gray-500">
+              <p className="text-xs leading-relaxed text-gray-500 dark:text-slate-400">
                 Acesso restrito ao psicólogo responsável. Seus dados e dos
                 pacientes são protegidos por sigilo profissional e LGPD.
               </p>
             </div>
           </div>
 
-          {/* Rodapé */}
-          <p className="mt-6 text-center text-xs text-gray-400">
+          <p className="mt-6 text-center text-xs text-gray-400 dark:text-slate-600">
             Ao entrar, você concorda com os termos de uso e a política de
             privacidade.
           </p>

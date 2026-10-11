@@ -1,9 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+
+/* Ativa dark mode via classe no <html> (Tailwind v4) */
+@variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
 
+  /* Cor primária (teal) exposta como brand-* */
   --color-brand-50: #f0fdfa;
   --color-brand-100: #ccfbf1;
   --color-brand-200: #99f6e4;
@@ -20,11 +23,15 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
     font-family: var(--font-sans);
-    background-color: #f9fafb;
-    color: #111827;
+    @apply bg-gray-50 text-gray-900 dark:bg-slate-950 dark:text-slate-100;
   }
 }

@@ -51,8 +51,10 @@ export function Patients() {
       {/* Cabeçalho */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Pacientes</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
+            Pacientes
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             Gerencie seus pacientes, convites e cadastros.
           </p>
         </div>
@@ -71,17 +73,20 @@ export function Patients() {
         </div>
       </div>
 
-      {/* Aguardando revisão (provisórios do Google) */}
+      {/* Aguardando revisão */}
       {prospects.prospects.length > 0 && (
         <section>
           <div className="mb-3 flex items-center gap-2">
-            <AlertCircle size={16} className="text-amber-600" />
-            <h2 className="text-sm font-medium text-gray-900">
+            <AlertCircle
+              size={16}
+              className="text-amber-600 dark:text-amber-400"
+            />
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Aguardando revisão
             </h2>
             <Badge variant="warning">{prospects.prospects.length}</Badge>
           </div>
-          <p className="mb-3 text-xs text-gray-500">
+          <p className="mb-3 text-xs text-gray-500 dark:text-slate-400">
             Importados do Google Calendar. Classifique cada um como paciente,
             prestador ou remova.
           </p>
@@ -97,8 +102,8 @@ export function Patients() {
       {(submissions.loading || submissions.submissions.length > 0) && (
         <section>
           <div className="mb-3 flex items-center gap-2">
-            <Inbox size={16} className="text-amber-600" />
-            <h2 className="text-sm font-medium text-gray-900">
+            <Inbox size={16} className="text-amber-600 dark:text-amber-400" />
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Submissões pendentes
             </h2>
             {submissions.submissions.length > 0 && (
@@ -109,7 +114,7 @@ export function Patients() {
           </div>
 
           {submissions.loading ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
               <Spinner size={16} />
               Carregando submissões...
             </div>
@@ -131,15 +136,15 @@ export function Patients() {
       {/* Lista de pacientes */}
       <section>
         {/* Filtros */}
-        <div className="mb-4 flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+        <div className="mb-4 flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
                 filter === f.value
-                  ? "bg-brand-50 text-brand-700"
-                  : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                  : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
               }`}
             >
               {f.label}
@@ -148,14 +153,16 @@ export function Patients() {
         </div>
 
         {patients.loading && (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
             <Spinner size={16} />
             Carregando pacientes...
           </div>
         )}
 
         {patients.error && (
-          <p className="text-sm text-red-600">Erro: {patients.error}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Erro: {patients.error}
+          </p>
         )}
 
         {!patients.loading &&
@@ -181,34 +188,34 @@ export function Patients() {
           )}
 
         {!patients.loading && patients.patients.length > 0 && (
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-slate-800/60 dark:text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Nome</th>
                   <th className="hidden px-4 py-3 sm:table-cell">Telefone</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                 {patients.patients.map((p) => {
                   const isArchived = p.status !== "active";
                   return (
                     <tr
                       key={p.id}
-                      className={`transition hover:bg-gray-50 ${
+                      className={`transition hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
                         isArchived ? "opacity-60" : ""
                       }`}
                     >
                       <td className="px-4 py-3">
                         <Link
                           to={`/patients/${p.id}`}
-                          className="font-medium text-gray-900 hover:text-brand-700 hover:underline"
+                          className="font-medium text-gray-900 hover:text-brand-700 hover:underline dark:text-slate-100 dark:hover:text-brand-400"
                         >
                           {p.full_name}
                         </Link>
                       </td>
-                      <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">
+                      <td className="hidden px-4 py-3 text-gray-600 sm:table-cell dark:text-slate-400">
                         {p.phone ?? "—"}
                       </td>
                       <td className="px-4 py-3">

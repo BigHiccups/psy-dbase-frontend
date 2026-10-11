@@ -54,9 +54,6 @@ export function ProviderDetail() {
   const [conflictDetails, setConflictDetails] = useState<ConflictItem[]>([]);
   const [working, setWorking] = useState(false);
 
-  // ============================================================
-  // Arquivar
-  // ============================================================
   async function handleArchive() {
     if (!provider) return;
     setWorking(true);
@@ -87,9 +84,6 @@ export function ProviderDetail() {
     reload();
   }
 
-  // ============================================================
-  // Reativação — mesma lógica do PatientDetail
-  // ============================================================
   async function findConflicts(): Promise<ConflictItem[]> {
     if (!provider || providerSchedules.length === 0) return [];
 
@@ -97,7 +91,6 @@ export function ProviderDetail() {
     const today = new Date().toISOString().slice(0, 10);
 
     for (const s of providerSchedules) {
-      // 1. Verifica se outro sujeito ocupa o slot
       const { data } = await supabase
         .from("appointments")
         .select(
@@ -121,7 +114,6 @@ export function ProviderDetail() {
             | null;
         };
 
-        // Ignora se o appointment é deste próprio provider
         if (row.provider_id === provider.id && !row.patient_id) continue;
 
         const patientRel = Array.isArray(row.patients)
@@ -140,7 +132,6 @@ export function ProviderDetail() {
         continue;
       }
 
-      // 2. Bloqueios puros (blocked)
       const { data: blockData } = await supabase
         .from("appointments")
         .select("id")
@@ -234,9 +225,6 @@ export function ProviderDetail() {
     await handleReactivate(validSchedules);
   }
 
-  // ============================================================
-  // Excluir
-  // ============================================================
   async function handleDelete() {
     if (!provider) return;
     setWorking(true);
@@ -255,9 +243,6 @@ export function ProviderDetail() {
     navigate("/providers");
   }
 
-  // ============================================================
-  // Loading / error
-  // ============================================================
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -271,13 +256,13 @@ export function ProviderDetail() {
       <div className="mx-auto max-w-3xl">
         <Link
           to="/providers"
-          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
         >
           <ArrowLeft size={14} />
           Voltar
         </Link>
         <Card className="p-12 text-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             {error ?? "Prestador não encontrado."}
           </p>
         </Card>
@@ -291,23 +276,22 @@ export function ProviderDetail() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      {/* Cabeçalho */}
       <div>
         <Link
           to="/providers"
-          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
         >
           <ArrowLeft size={14} />
           Voltar para prestadores
         </Link>
 
         <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
             <KindIcon size={22} />
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold text-gray-900">
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
                 {provider.display_name}
               </h1>
               {isArchived ? (
@@ -316,7 +300,7 @@ export function ProviderDetail() {
                 <Badge variant="success">Ativo</Badge>
               )}
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
               {KIND_LABEL[provider.kind]} · Prestador desde{" "}
               {new Date(provider.created_at).toLocaleDateString("pt-BR")}
             </p>
@@ -324,7 +308,6 @@ export function ProviderDetail() {
         </div>
       </div>
 
-      {/* Ações */}
       <div className="flex flex-wrap gap-2">
         <Link to={`/providers/${provider.id}/edit`}>
           <Button variant="secondary" size="sm" disabled={working}>
@@ -355,19 +338,17 @@ export function ProviderDetail() {
           </Button>
         )}
 
-        {!isArchived &&
-          !isCompany &&
-          providerSchedules.length > 0 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setSuspendOpen(true)}
-              disabled={working}
-            >
-              <PauseCircle size={14} />
-              Suspender agendamentos
-            </Button>
-          )}
+        {!isArchived && !isCompany && providerSchedules.length > 0 && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSuspendOpen(true)}
+            disabled={working}
+          >
+            <PauseCircle size={14} />
+            Suspender agendamentos
+          </Button>
+        )}
 
         <div className="flex-1" />
         <Button
@@ -375,16 +356,15 @@ export function ProviderDetail() {
           size="sm"
           onClick={() => setDeleteOpen(true)}
           disabled={working}
-          className="text-gray-400 hover:bg-red-50 hover:text-red-600"
+          className="text-gray-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400"
         >
           <Trash2 size={14} />
           Excluir
         </Button>
       </div>
 
-      {/* Dados */}
       <Card className="p-6">
-        <h2 className="mb-4 text-sm font-medium text-gray-900">
+        <h2 className="mb-4 text-sm font-medium text-gray-900 dark:text-slate-100">
           Dados do prestador
         </h2>
         <div className="grid gap-5 sm:grid-cols-2">
@@ -413,12 +393,14 @@ export function ProviderDetail() {
         </div>
       </Card>
 
-      {/* Horários — só para pessoa física */}
       {!isCompany && providerSchedules.length > 0 && (
         <Card className="p-6">
           <div className="mb-3 flex items-center gap-2">
-            <CalendarClock size={14} className="text-brand-600" />
-            <h2 className="text-sm font-medium text-gray-900">
+            <CalendarClock
+              size={14}
+              className="text-brand-600 dark:text-brand-400"
+            />
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Horários recorrentes
             </h2>
           </div>
@@ -426,12 +408,12 @@ export function ProviderDetail() {
             {providerSchedules.map((s, i) => (
               <li
                 key={i}
-                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
               >
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-gray-900 dark:text-slate-100">
                   {WEEKDAY_LONG[isoWeekday(s.weekday)]}
                 </span>
-                <span className="text-gray-500">
+                <span className="text-gray-500 dark:text-slate-400">
                   {s.startTime} · {s.durationMin} min
                 </span>
               </li>
@@ -440,42 +422,39 @@ export function ProviderDetail() {
         </Card>
       )}
 
-      {/* Notas */}
       {provider.notes && (
         <Card className="p-6">
-          <h2 className="mb-3 text-sm font-medium text-gray-900">
+          <h2 className="mb-3 text-sm font-medium text-gray-900 dark:text-slate-100">
             Observações internas
           </h2>
-          <p className="whitespace-pre-wrap text-sm text-gray-600">
+          <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-slate-300">
             {provider.notes}
           </p>
         </Card>
       )}
 
-      {/* Placeholder financeiro */}
       <Card className="p-6">
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400">
             <FileText size={16} />
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-medium text-gray-900">
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Vencimentos e financeiro
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
               {isCompany
                 ? "Vencimentos mensais deste prestador estarão disponíveis em uma próxima versão."
                 : "Despesas vinculadas a este prestador estarão disponíveis em uma próxima versão."}
             </p>
           </div>
-          <div className="flex items-center gap-1 text-xs text-gray-400">
+          <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500">
             <Clock size={12} />
             Em breve
           </div>
         </div>
       </Card>
 
-      {/* Modal: arquivar */}
       <ConfirmDialog
         open={archiveOpen}
         onClose={() => setArchiveOpen(false)}
@@ -492,7 +471,6 @@ export function ProviderDetail() {
         tone="warning"
       />
 
-      {/* Modal: reativar sem schedules */}
       <ReactivateModal
         open={reactivateModalOpen}
         subjectType="provider"
@@ -505,7 +483,6 @@ export function ProviderDetail() {
         onReactivateWithout={handleReactivateWithoutSchedules}
       />
 
-      {/* Modal: reativar com conflito */}
       <ConflictOnReactivateModal
         open={conflictModalOpen}
         subjectType="provider"
@@ -518,7 +495,6 @@ export function ProviderDetail() {
         onReactivateValidOnes={handleReactivateOnlyValid}
       />
 
-      {/* Modal: excluir */}
       <ConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
@@ -540,7 +516,6 @@ export function ProviderDetail() {
         tone="danger"
       />
 
-      {/* Modal: suspender agendamentos */}
       {suspendOpen && (
         <CancelSeriesModal
           open
@@ -558,7 +533,6 @@ export function ProviderDetail() {
   );
 }
 
-// Item de informação com ícone opcional
 function InfoItem({
   icon,
   label,
@@ -570,11 +544,13 @@ function InfoItem({
 }) {
   return (
     <div>
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-slate-400">
         {icon}
         {label}
       </div>
-      <p className="text-sm text-gray-900">{value || "—"}</p>
+      <p className="text-sm text-gray-900 dark:text-slate-100">
+        {value || "—"}
+      </p>
     </div>
   );
 }

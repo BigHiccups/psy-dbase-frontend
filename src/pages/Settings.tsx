@@ -45,7 +45,6 @@ export function Settings() {
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
 
-  // Lê o parâmetro ?google= vindo do callback OAuth do backend
   useEffect(() => {
     const google = searchParams.get("google");
     if (!google) return;
@@ -73,12 +72,10 @@ export function Settings() {
       });
     }
 
-    // Limpa o parâmetro da URL após exibir o feedback
     const next = new URLSearchParams(searchParams);
     next.delete("google");
     setSearchParams(next, { replace: true });
 
-    // Recarrega o status para refletir a mudança
     loadStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -180,33 +177,39 @@ export function Settings() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
           Configurações
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
           Conecte serviços e ajuste preferências do consultório.
         </p>
       </div>
 
-      {/* Feedback */}
       {feedback && (
         <div
           className={`flex items-start gap-2 rounded-lg border p-3 ${
             feedback.type === "success"
-              ? "border-green-200 bg-green-50"
-              : "border-red-200 bg-red-50"
+              ? "border-green-200 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30"
+              : "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30"
           }`}
         >
           {feedback.type === "success" ? (
-            <Check size={16} className="mt-0.5 shrink-0 text-green-600" />
+            <Check
+              size={16}
+              className="mt-0.5 shrink-0 text-green-600 dark:text-green-400"
+            />
           ) : (
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
+            <AlertCircle
+              size={16}
+              className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+            />
           )}
           <p
             className={`text-sm ${
-              feedback.type === "success" ? "text-green-800" : "text-red-700"
+              feedback.type === "success"
+                ? "text-green-800 dark:text-green-200"
+                : "text-red-700 dark:text-red-300"
             }`}
           >
             {feedback.message}
@@ -217,42 +220,43 @@ export function Settings() {
       {/* Google Calendar */}
       <Card className="p-6">
         <div className="mb-4 flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
             <Calendar size={20} />
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-medium text-gray-900">
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Google Calendar
             </h2>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
               Sincronize sua agenda e impeça conflitos de horário.
             </p>
           </div>
         </div>
 
         {loadingStatus ? (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
             <Spinner size={16} />
             Verificando conexão...
           </div>
         ) : status?.connected ? (
           <div className="space-y-4">
-            {/* Status conectado */}
-            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
-              <Check size={16} className="text-green-600" />
+            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 dark:border-green-900/50 dark:bg-green-950/30">
+              <Check
+                size={16}
+                className="text-green-600 dark:text-green-400"
+              />
               <div className="flex-1">
-                <p className="text-sm font-medium text-green-900">
+                <p className="text-sm font-medium text-green-900 dark:text-green-200">
                   Conectado
                 </p>
                 {connectedAtFormatted && (
-                  <p className="text-xs text-green-700">
+                  <p className="text-xs text-green-700 dark:text-green-300/80">
                     Desde {connectedAtFormatted}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Ações */}
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={handleImport}
@@ -270,7 +274,7 @@ export function Settings() {
                 Desconectar
               </Button>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-slate-400">
               A importação cria pacientes provisórios a partir dos eventos
               recorrentes dos próximos 90 dias. Eventos já importados são
               ignorados.
@@ -278,15 +282,20 @@ export function Settings() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-              <AlertCircle size={16} className="text-gray-500" />
-              <p className="text-sm text-gray-700">Não conectado</p>
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
+              <AlertCircle
+                size={16}
+                className="text-gray-500 dark:text-slate-400"
+              />
+              <p className="text-sm text-gray-700 dark:text-slate-300">
+                Não conectado
+              </p>
             </div>
             <Button onClick={handleConnect} disabled={connecting}>
               <Link2 size={16} />
               {connecting ? "Abrindo..." : "Conectar Google Calendar"}
             </Button>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-slate-400">
               Você será redirecionado para autorizar o acesso à sua agenda.
               Recomendamos usar uma conta dedicada ao consultório.
             </p>
@@ -297,13 +306,17 @@ export function Settings() {
       {/* Perfil */}
       <Card className="p-6">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400">
             <User size={20} />
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-medium text-gray-900">Perfil</h2>
-            <p className="mt-0.5 text-xs text-gray-500">{user?.email}</p>
-            <div className="mt-3 flex items-center gap-1 text-xs text-gray-400">
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+              Perfil
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
+              {user?.email}
+            </p>
+            <div className="mt-3 flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500">
               <Clock size={12} />
               Edição disponível em breve
             </div>
@@ -311,21 +324,21 @@ export function Settings() {
         </div>
       </Card>
 
-      {/* Preferências do consultório */}
+      {/* Preferências */}
       <Card className="p-6">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400">
             <SettingsIcon size={20} />
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-medium text-gray-900">
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Preferências do consultório
             </h2>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
               Duração padrão da sessão, política de remarcação e multa por
               falta.
             </p>
-            <div className="mt-3 flex items-center gap-1 text-xs text-gray-400">
+            <div className="mt-3 flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500">
               <Clock size={12} />
               Edição disponível em breve
             </div>
@@ -333,7 +346,6 @@ export function Settings() {
         </div>
       </Card>
 
-      {/* Modal de confirmação de desconexão */}
       <ConfirmDialog
         open={confirmDisconnect}
         onClose={() => setConfirmDisconnect(false)}

@@ -32,8 +32,6 @@ export function CancelSeriesModal({
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Compatibilidade retroativa: aceita subjectId como patientId para o
-  // caso antigo, se algum caller ainda passar `patientId`/`patientName`.
   async function handleConfirm() {
     if (!subjectId) return;
 
@@ -77,8 +75,8 @@ export function CancelSeriesModal({
       size="md"
     >
       <div className="space-y-4">
-        <p className="text-sm text-gray-600">
-          Série de <strong>{subjectName}</strong>. Escolha como proceder:
+        <p className="text-sm text-gray-600 dark:text-slate-300">
+          Série de <strong className="text-gray-900 dark:text-slate-100">{subjectName}</strong>. Escolha como proceder:
         </p>
 
         <ModeOption
@@ -113,7 +111,9 @@ export function CancelSeriesModal({
         >
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 block text-xs text-gray-500">De</label>
+              <label className="mb-1 block text-xs text-gray-500 dark:text-slate-400">
+                De
+              </label>
               <Input
                 type="date"
                 value={suspendFrom}
@@ -122,7 +122,9 @@ export function CancelSeriesModal({
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-500">Até</label>
+              <label className="mb-1 block text-xs text-gray-500 dark:text-slate-400">
+                Até
+              </label>
               <Input
                 type="date"
                 value={suspendTo}
@@ -134,13 +136,16 @@ export function CancelSeriesModal({
         </ModeOption>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+            <AlertCircle
+              size={16}
+              className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+            />
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 pt-5">
+        <div className="flex justify-end gap-2 border-t border-gray-100 pt-5 dark:border-slate-800">
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
@@ -172,8 +177,8 @@ function ModeOption({
     <label
       className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
         selected
-          ? "border-brand-300 bg-brand-50/40"
-          : "border-gray-200 bg-white hover:border-gray-300"
+          ? "border-brand-300 bg-brand-50/40 dark:border-brand-700 dark:bg-brand-950/30"
+          : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
       }`}
     >
       <input
@@ -184,12 +189,22 @@ function ModeOption({
       />
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className={selected ? "text-brand-600" : "text-gray-400"}>
+          <span
+            className={
+              selected
+                ? "text-brand-600 dark:text-brand-400"
+                : "text-gray-400 dark:text-slate-500"
+            }
+          >
             {icon}
           </span>
-          <span className="text-sm font-medium text-gray-900">{title}</span>
+          <span className="text-sm font-medium text-gray-900 dark:text-slate-100">
+            {title}
+          </span>
         </div>
-        <p className="mt-1 text-xs text-gray-500">{description}</p>
+        <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+          {description}
+        </p>
         {children && <div className="mt-3">{children}</div>}
       </div>
     </label>

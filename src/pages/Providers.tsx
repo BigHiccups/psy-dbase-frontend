@@ -23,13 +23,12 @@ export function Providers() {
 
   return (
     <div className="space-y-8">
-      {/* Cabeçalho */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
             Prestadores
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             Prestadores de serviço e instituições com quem você tem relação
             financeira.
           </p>
@@ -43,16 +42,15 @@ export function Providers() {
         </Link>
       </div>
 
-      {/* Filtros */}
-      <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+      <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         {FILTERS.map((f) => (
           <button
             key={f.value}
             onClick={() => setFilter(f.value)}
             className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
               filter === f.value
-                ? "bg-brand-50 text-brand-700"
-                : "text-gray-600 hover:bg-gray-50"
+                ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
             }`}
           >
             {f.label}
@@ -60,15 +58,16 @@ export function Providers() {
         ))}
       </div>
 
-      {/* Lista */}
       {loading && (
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
           <Spinner size={16} />
           Carregando prestadores...
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600">Erro: {error}</p>}
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400">Erro: {error}</p>
+      )}
 
       {!loading && !error && providers.length === 0 && (
         <EmptyState
@@ -87,9 +86,9 @@ export function Providers() {
       )}
 
       {!loading && providers.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-slate-800/60 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3">Nome</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Tipo</th>
@@ -97,25 +96,19 @@ export function Providers() {
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
               {providers.map((p) => {
                 const isArchived = p.status === "archived";
                 return (
                   <tr
                     key={p.id}
-                    className={`transition hover:bg-gray-50 ${
+                    className={`transition hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
                       isArchived ? "opacity-60" : ""
                     }`}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span
-                          className={
-                            p.kind === "company"
-                              ? "text-gray-400"
-                              : "text-gray-400"
-                          }
-                        >
+                        <span className="text-gray-400 dark:text-slate-500">
                           {p.kind === "company" ? (
                             <Building2 size={14} />
                           ) : (
@@ -124,16 +117,16 @@ export function Providers() {
                         </span>
                         <Link
                           to={`/providers/${p.id}`}
-                          className="font-medium text-gray-900 hover:text-brand-700 hover:underline"
+                          className="font-medium text-gray-900 hover:text-brand-700 hover:underline dark:text-slate-100 dark:hover:text-brand-400"
                         >
                           {p.display_name}
                         </Link>
                       </div>
                     </td>
-                    <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">
+                    <td className="hidden px-4 py-3 text-gray-600 sm:table-cell dark:text-slate-400">
                       {KIND_LABEL[p.kind]}
                     </td>
-                    <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">
+                    <td className="hidden px-4 py-3 text-gray-600 sm:table-cell dark:text-slate-400">
                       {p.phone ?? "—"}
                     </td>
                     <td className="px-4 py-3">

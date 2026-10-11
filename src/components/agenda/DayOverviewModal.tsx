@@ -1,13 +1,6 @@
 import { Link } from "react-router-dom";
-import { 
-    // X, 
-    // ExternalLink, 
-    CalendarDays } from "lucide-react";
-import { 
-    Button, 
-    Modal, 
-    // Badge 
-} from "../ui";
+import { CalendarDays } from "lucide-react";
+import { Button, Modal } from "../ui";
 import { TYPE_STYLES } from "../../lib/appointment-colors";
 import { formatTime, formatLongDate } from "../../lib/agenda-date";
 import type { AppointmentWithRelations } from "../../types";
@@ -35,26 +28,24 @@ export function DayOverviewModal({
     <Modal open={open} onClose={onClose} size="md">
       <div className="space-y-4">
         {/* Cabeçalho */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-              <CalendarDays size={20} />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">
-                {formatLongDate(date)}
-              </h2>
-              <p className="text-xs text-gray-500">
-                {appointments.length}{" "}
-                {appointments.length === 1 ? "agendamento" : "agendamentos"}
-              </p>
-            </div>
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
+            <CalendarDays size={20} />
+          </div>
+          <div>
+            <h2 className="select-none text-base font-semibold text-gray-900 dark:text-slate-100">
+              {formatLongDate(date)}
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-slate-400">
+              {appointments.length}{" "}
+              {appointments.length === 1 ? "agendamento" : "agendamentos"}
+            </p>
           </div>
         </div>
 
         {/* Lista */}
         {sorted.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-500">
+          <p className="py-6 text-center text-sm text-gray-500 dark:text-slate-400">
             Nenhum agendamento neste dia.
           </p>
         ) : (
@@ -83,7 +74,7 @@ export function DayOverviewModal({
                       {appt.duration_min}min
                     </p>
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p
                       className={`truncate text-sm font-medium ${style.text} ${
                         isCancelled ? "line-through opacity-50" : ""
@@ -101,11 +92,11 @@ export function DayOverviewModal({
           </div>
         )}
 
-        {/* Ação: abrir como dia */}
-        <div className="flex justify-between border-t border-gray-100 pt-4">
+        {/* Ações */}
+        <div className="flex justify-between border-t border-gray-100 pt-4 dark:border-slate-800">
           <Link
             to={`/agenda/day/${date}`}
-            className="text-sm text-brand-700 hover:underline"
+            className="text-sm text-brand-700 hover:underline dark:text-brand-400"
             onClick={onClose}
           >
             Abrir como Dia

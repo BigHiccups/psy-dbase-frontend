@@ -33,7 +33,6 @@ const INITIAL_FORM: FormState = {
   notes: "",
 };
 
-// Compara dois arrays de ScheduleInput de forma independente da ordem
 function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
   if (a.length !== b.length) return false;
   const key = (s: ScheduleInput) =>
@@ -49,8 +48,6 @@ export function PatientForm() {
   const isEdit = !!id;
 
   const { patient, loading: loadingPatient } = usePatient(id);
-
-  // Hook novo: 3 camadas (manual > invite > google)
   const {
     schedules: sourcedSchedules,
     source,
@@ -67,7 +64,6 @@ export function PatientForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Carrega dados do paciente
   useEffect(() => {
     if (patient) {
       setForm({
@@ -83,7 +79,6 @@ export function PatientForm() {
     }
   }, [patient]);
 
-  // Popula o editor só na primeira carga
   useEffect(() => {
     if (!loadingSchedules) {
       setSchedules(sourcedSchedules);
@@ -93,7 +88,6 @@ export function PatientForm() {
     }
   }, [loadingSchedules, sourcedSchedules]);
 
-  // Redireciona prospect para review
   useEffect(() => {
     if (patient && patient.status === "prospect" && isEdit) {
       navigate(`/patients/${patient.id}/review`, { replace: true });
@@ -109,7 +103,6 @@ export function PatientForm() {
     setError(null);
     setScheduleError(null);
 
-    // Validações de dados
     if (form.cpf && !isValidCPF(form.cpf)) {
       setError("CPF inválido. Confira os dígitos.");
       return;
@@ -126,11 +119,8 @@ export function PatientForm() {
       return;
     }
 
-    // Validação de conflito
     if (hasScheduleConflict) {
-      setScheduleError(
-        "Resolva os horários em conflito antes de salvar."
-      );
+      setScheduleError("Resolva os horários em conflito antes de salvar.");
       return;
     }
 
@@ -161,7 +151,6 @@ export function PatientForm() {
         return;
       }
 
-      // Só chama set_patient_schedules se os horários mudaram
       const schedulesChanged = !schedulesEqual(schedules, initialSchedules);
 
       if (schedules.length > 0 && schedulesChanged) {
@@ -201,7 +190,6 @@ export function PatientForm() {
         return;
       }
 
-      // No create, sempre chama se tem horários
       if (schedules.length > 0) {
         const { error: scheduleErr } = await supabase.rpc(
           "set_patient_schedules",
@@ -232,15 +220,15 @@ export function PatientForm() {
       <div>
         <Link
           to={isEdit ? `/patients/${id}` : "/patients"}
-          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
         >
           <ArrowLeft size={14} />
           {isEdit ? "Voltar para o paciente" : "Voltar para pacientes"}
         </Link>
-        <h1 className="text-2xl font-semibold text-gray-900">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
           {isEdit ? "Editar paciente" : "Novo paciente"}
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
           {isEdit
             ? "Atualize os dados cadastrais do paciente."
             : "Cadastre um paciente manualmente, sem enviar convite."}
@@ -249,7 +237,9 @@ export function PatientForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900">Dados pessoais</h2>
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+            Dados pessoais
+          </h2>
 
           <Input
             label="Nome completo"
@@ -295,7 +285,7 @@ export function PatientForm() {
         </Card>
 
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900">
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
             Contato de urgência
           </h2>
 
@@ -339,11 +329,11 @@ export function PatientForm() {
         </Card>
 
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900">
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
             Observações internas
           </h2>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
               Notas
             </label>
             <textarea
@@ -351,18 +341,21 @@ export function PatientForm() {
               onChange={(e) => update("notes", e.target.value)}
               rows={4}
               placeholder="Anotações administrativas (não vão para o prontuário)"
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
               Campo opcional. Visível apenas para você.
             </p>
           </div>
         </Card>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+            <AlertCircle
+              size={16}
+              className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+            />
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 
