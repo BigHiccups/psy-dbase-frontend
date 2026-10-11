@@ -83,10 +83,9 @@ export function Sidebar({ open, onClose }: Props) {
                 to={item.to}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${isActive
+                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                   }`
                 }
               >

@@ -141,11 +141,10 @@ export function Patients() {
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
-              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                filter === f.value
-                  ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${filter === f.value
+                  ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
                   : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
-              }`}
+                }`}
             >
               {f.label}
             </button>
@@ -203,9 +202,8 @@ export function Patients() {
                   return (
                     <tr
                       key={p.id}
-                      className={`transition hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
-                        isArchived ? "opacity-60" : ""
-                      }`}
+                      className={`transition hover:bg-gray-50 dark:hover:bg-slate-800/50 ${isArchived ? "opacity-60" : ""
+                        }`}
                     >
                       <td className="px-4 py-3">
                         <Link
