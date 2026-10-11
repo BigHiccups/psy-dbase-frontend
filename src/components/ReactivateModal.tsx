@@ -1,40 +1,64 @@
 import { RotateCcw, CalendarPlus, XCircle } from "lucide-react";
 import { Button, Modal } from "./ui";
 
+type SubjectType = "patient" | "provider";
+
 type Props = {
   open: boolean;
-  patientName: string;
+  subjectType: SubjectType;
+  subjectName: string;
   onClose: () => void;
-  onDefineSchedules: () => void; // navega para /patients/:id/edit
-  onReactivateWithout: () => void; // só muda status
+  onDefineSchedules: () => void;
+  onReactivateWithout: () => void;
+};
+
+const LABELS: Record<
+  SubjectType,
+  { title: string; noSchedules: string; defineBtn: string; withoutBtn: string }
+> = {
+  patient: {
+    title: "Reativar paciente",
+    noSchedules: "não tem horários recorrentes cadastrados",
+    defineBtn: "Definir horários agora",
+    withoutBtn: "Reativar sem agendamentos",
+  },
+  provider: {
+    title: "Reativar prestador",
+    noSchedules: "não tem horários recorrentes cadastrados",
+    defineBtn: "Definir horários agora",
+    withoutBtn: "Reativar sem agendamentos",
+  },
 };
 
 export function ReactivateModal({
   open,
-  patientName,
+  subjectType,
+  subjectName,
   onClose,
   onDefineSchedules,
   onReactivateWithout,
 }: Props) {
+  const labels = LABELS[subjectType];
+
   return (
-    <Modal open={open} onClose={onClose} title="Reativar paciente">
+    <Modal open={open} onClose={onClose} title={labels.title}>
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          <strong>{patientName}</strong> não tem horários recorrentes
-          cadastrados. Como deseja prosseguir?
+          <strong>{subjectName}</strong> {labels.noSchedules}. Como deseja
+          prosseguir?
         </p>
 
         <div className="space-y-2">
           <OptionButton
             icon={<CalendarPlus size={18} />}
-            title="Definir horários agora"
+            title={labels.defineBtn}
             description="Abre o cadastro para você escolher os horários antes de reativar."
             onClick={onDefineSchedules}
           />
           <OptionButton
             icon={<RotateCcw size={18} />}
-            title="Reativar sem agendamentos"
-            description="Reativa o paciente, mas sem criar agendamentos. Você pode definir horários depois."
+            title={labels.withoutBtn}
+            description="Reativa o cadastro, mas sem criar agendamentos. Você pode definir horários depois."
             onClick={onReactivateWithout}
           />
         </div>

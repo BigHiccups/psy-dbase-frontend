@@ -504,7 +504,8 @@ export function PatientDetail() {
       {/* Modal: reativar com schedules vazios */}
       <ReactivateModal
         open={reactivateModalOpen}
-        patientName={patient.full_name}
+        subjectType="patient"
+        subjectName={patient.full_name}
         onClose={() => setReactivateModalOpen(false)}
         onDefineSchedules={() => {
           setReactivateModalOpen(false);
@@ -513,10 +514,9 @@ export function PatientDetail() {
         onReactivateWithout={handleReactivateWithoutSchedules}
       />
 
-      {/* Modal: reativar com conflito */}
       <ConflictOnReactivateModal
         open={conflictModalOpen}
-        patientName={patient.full_name}
+        subjectType="patient"
         conflicts={conflictDetails}
         onClose={() => setConflictModalOpen(false)}
         onEditSchedules={() => {
