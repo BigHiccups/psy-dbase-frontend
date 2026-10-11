@@ -7,18 +7,36 @@ import type { AppointmentWithRelations } from "../../types";
 type Props = {
   appointment: AppointmentWithRelations;
   onClick: (appointment: AppointmentWithRelations) => void;
-  // Se true, mostra mais detalhes (usado no DayView)
   expanded?: boolean;
+  // Posicionamento vertical (calculado pelo parent)
+  top?: number;
+  height?: number;
+  // Posicionamento horizontal (%)
+  leftPercent?: number;
+  widthPercent?: number;
+  // Camada
+  zIndex?: number;
 };
 
-export function AppointmentBlock({ appointment, onClick, expanded }: Props) {
+export function AppointmentBlock({
+  appointment,
+  onClick,
+  expanded,
+  top,
+  height,
+  leftPercent = 0,
+  widthPercent = 100,
+  zIndex = 0,
+}: Props) {
   const style = TYPE_STYLES[appointment.type];
+
+  // Se top/height não foram passados, calcula localmente
   const startMin = timeToMinutes(appointment.start_time);
   const startOffset = startMin - START_HOUR * 60;
-  const top = (startOffset / 60) * HOUR_HEIGHT;
-  const height = (appointment.duration_min / 60) * HOUR_HEIGHT;
+  const computedTop = top ?? (startOffset / 60) * HOUR_HEIGHT;
+  const computedHeight =
+    height ?? (appointment.duration_min / 60) * HOUR_HEIGHT;
 
-  // Nome do paciente ou provider
   const subjectName =
     appointment.patient?.full_name ??
     appointment.provider?.display_name ??
@@ -32,14 +50,20 @@ export function AppointmentBlock({ appointment, onClick, expanded }: Props) {
       type="button"
       onClick={() => onClick(appointment)}
       className={`
-        absolute left-1 right-1 overflow-hidden rounded-md border-l-2 px-2 py-1
+        absolute overflow-hidden rounded-md border-l-2 px-2 py-1
         text-left text-xs transition hover:brightness-95 focus:outline-none
         focus:ring-2 focus:ring-brand-500 focus:ring-offset-1
         ${style.bg} ${style.border} ${style.text}
         ${isCancelled ? "line-through opacity-50" : ""}
         ${isCompleted ? "opacity-70" : ""}
       `}
-      style={{ top, height: Math.max(height, 20) }}
+      style={{
+        top: computedTop,
+        height: Math.max(computedHeight, 20),
+        left: `calc(${leftPercent}% + 4px)`,
+        width: `calc(${widthPercent}% - 8px)`,
+        zIndex,
+      }}
     >
       <div className="flex items-center gap-1">
         {isCompleted && <Check size={10} className="shrink-0" />}
@@ -49,7 +73,7 @@ export function AppointmentBlock({ appointment, onClick, expanded }: Props) {
           {subjectName}
         </p>
       </div>
-      {height >= 40 && (
+      {computedHeight >= 40 && (
         <p className="mt-0.5 truncate text-[10px] opacity-80">
           {formatTime(appointment.start_time)} · {appointment.duration_min}min
         </p>

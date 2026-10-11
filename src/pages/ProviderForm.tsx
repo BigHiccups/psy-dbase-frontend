@@ -3,7 +3,10 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Save, AlertCircle, User, Building2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
+import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { useProvider } from "../hooks/useProvider";
+import { useProviderScheduleSource } from "../hooks/useProviderScheduleSource";
+import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import {
   maskCPF,
@@ -13,7 +16,7 @@ import {
   isValidCNPJ,
   isValidPhoneBR,
 } from "../lib/masks";
-import type { ProviderKind } from "../types";
+import type { ProviderKind, ScheduleInput } from "../types";
 
 type FormState = {
   kind: ProviderKind;
@@ -35,16 +38,40 @@ const INITIAL_FORM: FormState = {
   notes: "",
 };
 
+// Compara arrays de schedules de forma independente de ordem
+function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
+  if (a.length !== b.length) return false;
+  const key = (s: ScheduleInput) =>
+    `${s.weekday}-${s.startTime.slice(0, 5)}-${s.durationMin}`;
+  const ka = [...a].map(key).sort().join("|");
+  const kb = [...b].map(key).sort().join("|");
+  return ka === kb;
+}
+
 export function ProviderForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = !!id;
 
   const { provider, loading: loadingProvider } = useProvider(id);
+  const {
+    schedules: sourcedSchedules,
+    source,
+    loading: loadingSchedules,
+  } = useProviderScheduleSource(id);
+  const { slots: occupiedSlots } = useOccupiedSlots({
+    excludeProviderId: id,
+  });
+
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
+  const [initialSchedules, setInitialSchedules] = useState<ScheduleInput[]>([]);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Carrega dados do provider
   useEffect(() => {
     if (provider) {
       setForm({
@@ -59,10 +86,20 @@ export function ProviderForm() {
     }
   }, [provider]);
 
+  // Popula editor na primeira carga
+  useEffect(() => {
+    if (!loadingSchedules) {
+      setSchedules(sourcedSchedules);
+      setInitialSchedules((prev) =>
+        prev.length === 0 ? sourcedSchedules : prev
+      );
+    }
+  }, [loadingSchedules, sourcedSchedules]);
+
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
-      // Ao trocar o tipo, limpa o documento (máscara é diferente)
+      // Ao trocar o tipo, limpa o documento (máscara diferente)
       if (key === "kind" && value !== prev.kind) {
         next.document = "";
       }
@@ -73,26 +110,28 @@ export function ProviderForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setScheduleError(null);
 
     if (!form.display_name.trim()) {
       setError("Nome é obrigatório.");
       return;
     }
 
-    if (form.kind === "person" && form.document) {
-      if (!isValidCPF(form.document)) {
-        setError("CPF inválido.");
-        return;
-      }
+    if (form.kind === "person" && form.document && !isValidCPF(form.document)) {
+      setError("CPF inválido.");
+      return;
     }
-    if (form.kind === "company" && form.document) {
-      if (!isValidCNPJ(form.document)) {
-        setError("CNPJ inválido.");
-        return;
-      }
+    if (form.kind === "company" && form.document && !isValidCNPJ(form.document)) {
+      setError("CNPJ inválido.");
+      return;
     }
     if (form.phone && !isValidPhoneBR(form.phone)) {
       setError("Telefone inválido. Use DDD + número.");
+      return;
+    }
+
+    if (hasScheduleConflict) {
+      setScheduleError("Resolva os horários em conflito antes de salvar.");
       return;
     }
 
@@ -108,6 +147,12 @@ export function ProviderForm() {
       notes: form.notes.trim() || null,
     };
 
+    // Só sincroniza schedules se for pessoa física
+    const shouldSyncSchedules =
+      form.kind === "person" &&
+      schedules.length > 0 &&
+      (isEdit ? !schedulesEqual(schedules, initialSchedules) : true);
+
     if (isEdit) {
       const { error } = await supabase
         .from("providers")
@@ -118,6 +163,19 @@ export function ProviderForm() {
         setError(error.message);
         setSaving(false);
         return;
+      }
+
+      if (shouldSyncSchedules) {
+        const { error: scheduleErr } = await supabase.rpc(
+          "set_provider_schedules",
+          { p_provider_id: id, p_schedules: schedules }
+        );
+
+        if (scheduleErr) {
+          setScheduleError(scheduleErr.message);
+          setSaving(false);
+          return;
+        }
       }
 
       navigate(`/providers/${id}`);
@@ -144,11 +202,24 @@ export function ProviderForm() {
         return;
       }
 
+      if (shouldSyncSchedules) {
+        const { error: scheduleErr } = await supabase.rpc(
+          "set_provider_schedules",
+          { p_provider_id: data.id, p_schedules: schedules }
+        );
+
+        if (scheduleErr) {
+          setScheduleError(scheduleErr.message);
+          setSaving(false);
+          return;
+        }
+      }
+
       navigate(`/providers/${data.id}`);
     }
   }
 
-  if (isEdit && loadingProvider) {
+  if (isEdit && (loadingProvider || loadingSchedules)) {
     return (
       <div className="flex items-center justify-center py-20">
         <Spinner size={24} />
@@ -158,7 +229,6 @@ export function ProviderForm() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* Cabeçalho */}
       <div>
         <Link
           to={isEdit ? `/providers/${id}` : "/providers"}
@@ -172,7 +242,7 @@ export function ProviderForm() {
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           Prestadores de serviço (pessoa) ou instituições (empresa) com quem
-          você tem relação financeira.
+          você tem relação.
         </p>
       </div>
 
@@ -298,6 +368,25 @@ export function ProviderForm() {
           />
         </Card>
 
+        {/* Horários — só para pessoa física */}
+        {form.kind === "person" && (
+          <Card className="space-y-4 p-6">
+            <ScheduleEditor
+              value={schedules}
+              onChange={setSchedules}
+              disabledSlots={occupiedSlots}
+              error={scheduleError}
+              hint={
+                source === "google"
+                  ? "Estes horários vieram do Google Calendar. Você pode ajustá-los."
+                  : "Estes horários gerarão agendamentos recorrentes (compromisso pessoal). Horários já ocupados aparecem em âmbar."
+              }
+              onConflictChange={setHasScheduleConflict}
+              title="Horários do prestador"
+            />
+          </Card>
+        )}
+
         {/* Notas */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900">
@@ -319,20 +408,29 @@ export function ProviderForm() {
           </div>
         )}
 
-        {/* Ações */}
         <div className="flex justify-end gap-2">
           <Link to={isEdit ? `/providers/${id}` : "/providers"}>
             <Button type="button" variant="secondary">
               Cancelar
             </Button>
           </Link>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            disabled={saving || hasScheduleConflict}
+            title={
+              hasScheduleConflict
+                ? "Resolva os horários em conflito antes de salvar"
+                : undefined
+            }
+          >
             <Save size={16} />
             {saving
               ? "Salvando..."
-              : isEdit
-                ? "Salvar alterações"
-                : "Criar prestador"}
+              : hasScheduleConflict
+                ? "Resolva os conflitos"
+                : isEdit
+                  ? "Salvar alterações"
+                  : "Criar prestador"}
           </Button>
         </div>
       </form>

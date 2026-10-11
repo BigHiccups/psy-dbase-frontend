@@ -1,16 +1,13 @@
 import { useMemo } from "react";
 import { MonthDayCell } from "./MonthDayCell";
-import {
-  monthGridDates,
-  WEEKDAY_SHORT,
-//   isInMonth,
-} from "../../lib/agenda-date";
+import { monthGridDates, WEEKDAY_SHORT } from "../../lib/agenda-date";
 import type { AppointmentWithRelations } from "../../types";
 
 type Props = {
-  monthStr: string; // YYYY-MM
-  appointments: AppointmentWithRelations[];
+  monthStr: string;
+  appointments: AppointmentWithRelations[]; // todos (para separar internamente)
   onDayClick: (date: string) => void;
+  onCancelledClick: (date: string) => void;
   onAppointmentClick: (appointment: AppointmentWithRelations) => void;
 };
 
@@ -18,26 +15,33 @@ export function MonthView({
   monthStr,
   appointments,
   onDayClick,
+  onCancelledClick,
   onAppointmentClick,
 }: Props) {
   const gridDates = useMemo(() => monthGridDates(monthStr), [monthStr]);
 
-  // Agrupa appointments por data
-  const byDate = useMemo(() => {
-    const map: Record<string, AppointmentWithRelations[]> = {};
+  // Agrupa ativos e cancelados por data (ignora due, que tem seu próprio slot)
+  const { activeByDate, cancelledCountByDate } = useMemo(() => {
+    const active: Record<string, AppointmentWithRelations[]> = {};
+    const cancelled: Record<string, number> = {};
+
     for (const appt of appointments) {
-      if (!map[appt.starts_on]) map[appt.starts_on] = [];
-      map[appt.starts_on].push(appt);
+      if (appt.status === "cancelled") {
+        cancelled[appt.starts_on] = (cancelled[appt.starts_on] ?? 0) + 1;
+      } else {
+        if (!active[appt.starts_on]) active[appt.starts_on] = [];
+        active[appt.starts_on].push(appt);
+      }
     }
-    return map;
+
+    return { activeByDate: active, cancelledCountByDate: cancelled };
   }, [appointments]);
 
-  // Número de linhas (5 ou 6) baseado na quantidade de datas
   const rows = Math.ceil(gridDates.length / 7);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      {/* Cabeçalho de dias da semana */}
+      {/* Cabeçalho */}
       <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/60">
         {WEEKDAY_SHORT.map((d) => (
           <div
@@ -49,7 +53,7 @@ export function MonthView({
         ))}
       </div>
 
-      {/* Grade de dias */}
+      {/* Grade */}
       <div
         className="grid grid-cols-7"
         style={{ gridTemplateRows: `repeat(${rows}, minmax(100px, 1fr))` }}
@@ -59,8 +63,10 @@ export function MonthView({
             key={date}
             date={date}
             monthStr={monthStr}
-            appointments={byDate[date] ?? []}
+            appointments={activeByDate[date] ?? []}
+            cancelledCount={cancelledCountByDate[date] ?? 0}
             onDayClick={onDayClick}
+            onCancelledClick={onCancelledClick}
             onAppointmentClick={onAppointmentClick}
           />
         ))}
