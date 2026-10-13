@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -9,6 +10,8 @@ import {
   Settings,
   X,
 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 
 type Props = {
   open: boolean;
@@ -26,6 +29,26 @@ const NAV_ITEMS = [
 ];
 
 export function Sidebar({ open, onClose }: Props) {
+  const { user } = useAuth();
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
+
+  // Verifica se o perfil está incompleto (sem CRP ou sem telefone)
+  useEffect(() => {
+    if (!user) return;
+
+    async function check() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("crp, phone")
+        .eq("id", user!.id)
+        .maybeSingle();
+
+      setProfileIncomplete(!!data && (!data.crp || !data.phone));
+    }
+
+    check();
+  }, [user]);
+
   return (
     <>
       {open && (
@@ -65,6 +88,9 @@ export function Sidebar({ open, onClose }: Props) {
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
+            const isSettings = item.to === "/settings";
+            const showBadge = isSettings && profileIncomplete;
+
             if (item.disabled) {
               return (
                 <div
@@ -83,14 +109,21 @@ export function Sidebar({ open, onClose }: Props) {
                 to={item.to}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${isActive
-                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    isActive
+                      ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                   }`
                 }
               >
                 <Icon size={18} />
-                <span>{item.label}</span>
+                <span className="flex-1">{item.label}</span>
+                {showBadge && (
+                  <span
+                    className="h-2 w-2 rounded-full bg-amber-500 dark:bg-amber-400"
+                    title="Complete seu perfil"
+                  />
+                )}
               </NavLink>
             );
           })}
