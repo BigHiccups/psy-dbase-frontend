@@ -4,6 +4,7 @@ import { Plus, Building2, User } from "lucide-react";
 import { useProviders, type ProviderFilter } from "../hooks/useProviders";
 import { Button, Badge, EmptyState, Spinner } from "../components/ui";
 import type { ProviderKind } from "../types";
+import { centsToCurrencyBRL } from "../lib/masks";
 
 const KIND_LABEL: Record<ProviderKind, string> = {
   person: "Pessoa física",
@@ -48,8 +49,8 @@ export function Providers() {
             key={f.value}
             onClick={() => setFilter(f.value)}
             className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${filter === f.value
-                ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
-                : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
+              ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+              : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
               }`}
           >
             {f.label}
@@ -91,6 +92,7 @@ export function Providers() {
               <tr>
                 <th className="px-4 py-3">Nome</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Tipo</th>
+                <th className="hidden px-4 py-3 lg:table-cell">Telefone</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Telefone</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
@@ -124,7 +126,12 @@ export function Providers() {
                     <td className="hidden px-4 py-3 text-gray-600 sm:table-cell dark:text-slate-400">
                       {KIND_LABEL[p.kind]}
                     </td>
-                    <td className="hidden px-4 py-3 text-gray-600 sm:table-cell dark:text-slate-400">
+                    <td className="hidden px-4 py-3 text-gray-600 md:table-cell dark:text-slate-400">
+                      {p.session_price_cents !== null
+                        ? `R$ ${centsToCurrencyBRL(p.session_price_cents)}`
+                        : "—"}
+                    </td>
+                    <td className="hidden px-4 py-3 text-gray-600 lg:table-cell dark:text-slate-400">
                       {p.phone ?? "—"}
                     </td>
                     <td className="px-4 py-3">

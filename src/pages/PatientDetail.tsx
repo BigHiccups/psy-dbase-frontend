@@ -16,6 +16,7 @@ import {
   PauseCircle,
   CalendarClock,
   Plus,
+  Wallet,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { usePatient } from "../hooks/usePatient";
@@ -25,6 +26,7 @@ import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
 import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
+import { centsToCurrencyBRL } from "../lib/masks";
 import type { PatientStatus, ScheduleInput } from "../types";
 
 const STATUS_LABEL: Record<PatientStatus, string> = {
@@ -370,6 +372,13 @@ export function PatientDetail() {
             label="Telefone"
             value={patient.phone}
           />
+          {patient.session_price_cents !== null && (
+            <InfoItem
+              icon={<Wallet size={14} />}
+              label="Valor da sessão"
+              value={`R$ ${centsToCurrencyBRL(patient.session_price_cents)}`}
+            />
+          )}
         </div>
       </Card>
 

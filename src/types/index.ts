@@ -12,6 +12,7 @@ export type Patient = {
   emergency_contact_phone: string | null;
   status: PatientStatus;
   notes: string | null;
+  session_price_cents: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -52,6 +53,7 @@ export type Provider = {
   phone: string | null;
   notes: string | null;
   status: ProviderStatus;
+  session_price_cents: number | null; 
   created_at: string;
   updated_at: string;
 };
