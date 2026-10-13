@@ -55,9 +55,16 @@ export function AppointmentDetailModal({
 
   const subjectLabel = appointment.patient ? "Paciente" : "Prestador";
 
-  // Só permite cancelar série se for recorrente E tiver paciente
+  // Determina se é paciente ou provider
+  const subjectType: "patient" | "provider" = appointment.patient_id
+    ? "patient"
+    : "provider";
+
+  const subjectId = appointment.patient_id ?? appointment.provider_id;
+
+  // Só permite cancelar série se for recorrente E tiver sujeito vinculado
   const canCancelSeries =
-    appointment.is_recurring && !!appointment.patient_id;
+    appointment.is_recurring && !!subjectId && appointment.type !== "blocked";
 
   async function handleCancelThis() {
     setWorking(true);
@@ -133,11 +140,15 @@ export function AppointmentDetailModal({
               to={subjectLink}
               className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 transition hover:border-gray-300 hover:bg-gray-100 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
-              <User size={14} className="text-gray-400" />
+              <User size={14} className="text-gray-400 dark:text-slate-500" />
               <span className="flex-1">
-                Ver {subjectLabel.toLowerCase()}: <strong>{subjectName}</strong>
+                Ver {subjectLabel.toLowerCase()}:{" "}
+                <strong>{subjectName}</strong>
               </span>
-              <ExternalLink size={14} className="text-gray-400" />
+              <ExternalLink
+                size={14}
+                className="text-gray-400 dark:text-slate-500"
+              />
             </Link>
           )}
 
@@ -155,7 +166,10 @@ export function AppointmentDetailModal({
 
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
-              <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+              <AlertCircle
+                size={16}
+                className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+              />
               <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             </div>
           )}
@@ -210,11 +224,11 @@ export function AppointmentDetailModal({
       />
 
       {/* Cancelar série (3 modos) */}
-      {cancelSeriesOpen && appointment.patient_id && (
+      {cancelSeriesOpen && subjectId && (
         <CancelSeriesModal
           open
-          subjectId={appointment.patient_id ?? appointment.provider_id}
-          subjectType={appointment.patient_id ? "patient" : "provider"}
+          subjectId={subjectId}
+          subjectType={subjectType}
           subjectName={subjectName}
           onClose={() => setCancelSeriesOpen(false)}
           onDone={() => {
@@ -240,7 +254,9 @@ function InfoRow({
     <div className="flex items-start gap-3">
       <span className="mt-0.5 text-gray-400 dark:text-slate-500">{icon}</span>
       <div className="flex-1">
-        <p className="text-xs font-medium text-gray-500 dark:text-slate-400">{label}</p>
+        <p className="text-xs font-medium text-gray-500 dark:text-slate-400">
+          {label}
+        </p>
         <p className="text-sm text-gray-900 dark:text-slate-100">{value}</p>
       </div>
     </div>
