@@ -1,6 +1,3 @@
-
-
-
 # CONTEXT.md — psy-dbase-front
 
 > **Leia isto antes de tocar no código.**
@@ -15,9 +12,10 @@ Interface web do **psy-dbase**, sistema de gestão para psicólogo autônomo.
 
 Cobre cadastro de pacientes via formulário público, CRUD completo de pacientes,
 CRUD de prestadores (pessoa física e empresa), revisão de provisórios importados
-do Google, agenda em dia/semana/mês com bloqueio de conflito e stacking, e —
-nas próximas fases — prontuário, financeiro, notificações e integração Calendar
-bidirecional.
+do Google, agenda em dia/semana/mês com bloqueio de conflito e stacking,
+dashboard com próximas sessões e aniversariantes, valor de sessão por
+paciente/prestador, e — nas próximas fases — prontuário, financeiro,
+notificações e integração Calendar bidirecional.
 
 **Repositório irmão:** `psy-dbase` (backend Node + integrações).
 **Status:** em produção na Vercel — `https://psy-dbase-frontend.vercel.app`
@@ -53,18 +51,18 @@ src/
 │   │   ├── AppointmentDetailModal.tsx
 │   │   ├── CancelSeriesModal.tsx
 │   │   ├── CreateAppointmentModal.tsx
-│   │   ├── DayCancelledModal.tsx          # cancelados do dia (Mês)
+│   │   ├── DayCancelledModal.tsx
 │   │   ├── DayHeader.tsx
 │   │   ├── DayOverviewModal.tsx
 │   │   ├── DayView.tsx
 │   │   ├── MonthDayCell.tsx
 │   │   ├── MonthView.tsx
 │   │   ├── ScheduleEditor.tsx
-│   │   ├── SlotCancelledModal.tsx         # cancelados de um slot
-│   │   ├── StackOverviewModal.tsx         # +N blocos ocultos
+│   │   ├── SlotCancelledModal.tsx
+│   │   ├── StackOverviewModal.tsx
 │   │   ├── TimeColumn.tsx
 │   │   └── WeekView.tsx
-│   ├── layout/                # Sidebar, Header, AppLayout
+│   ├── layout/                # Sidebar, Header, AppLayout, ThemeToggle
 │   ├── ui/                    # Design system
 │   ├── ConflictOnReactivateModal.tsx
 │   ├── InvitePatientModal.tsx
@@ -76,6 +74,7 @@ src/
 ├── hooks/
 │   ├── useAgendaView.ts
 │   ├── useAppointments.ts
+│   ├── useBirthdays.ts                # NOVO
 │   ├── useOccupiedSlots.ts
 │   ├── usePatient.ts
 │   ├── usePatients.ts
@@ -86,18 +85,23 @@ src/
 │   ├── useProviderSchedules.ts
 │   ├── useProviderScheduleSource.ts
 │   ├── useProspects.ts
-│   └── useSubmissions.ts
+│   ├── useSubmissions.ts
+│   ├── useTheme.ts                    # NOVO (dark mode)
+│   ├── useTodayAppointmentsCount.ts   # NOVO
+│   ├── useUpcomingAppointments.ts     # NOVO
+│   └── useWeekAppointmentsCount.ts    # NOVO
 ├── lib/
-│   ├── agenda-date.ts             # isoWeekday/jsWeekday, helpers
+│   ├── agenda-date.ts
 │   ├── api.ts
 │   ├── appointment-colors.ts
-│   ├── appointment-layout.ts      # computeLayout, countHiddenByStack
-│   ├── appointments-filter.ts     # splitByStatus, countCancelledByDate
-│   ├── masks.ts                   # CPF, CNPJ, telefone + validações
-│   ├── patient-display.ts         # displayName (heurística)
+│   ├── appointment-layout.ts
+│   ├── appointment-overlap.ts         # NOVO (intervalsOverlap, slotOverlapsAppointment)
+│   ├── appointments-filter.ts
+│   ├── masks.ts
+│   ├── patient-display.ts
 │   ├── supabase.ts
-│   ├── text.ts                    # toTitleCase
-│   └── weekdays.ts                # mapeamento JS (0=Dom … 6=Sáb)
+│   ├── text.ts
+│   └── weekdays.ts
 ├── pages/
 │   ├── Agenda.tsx
 │   ├── Dashboard.tsx
@@ -160,6 +164,10 @@ for table`.
 - Cor primária: `brand-*` (teal-600)
 - Fonte Inter via `<link>` no `index.html`
 
+**Importante:** o `@theme` precisa ter **`--color-brand-950`** definido. Sem
+isso, `dark:bg-brand-950` **não funciona** (o Tailwind v4 ignora a classe).
+Já tivemos bug disso.
+
 ### 4.5 Design system próprio em `components/ui/`
 
 - `Button` — `primary` / `secondary` / `ghost` / `danger`
@@ -176,7 +184,9 @@ for table`.
 Rotas protegidas envelopadas por `<AppLayout />`:
 
 - `Sidebar` fixa em desktop (>= `lg`), drawer em mobile
-- `Header` sticky com avatar + logout
+- `Header` sticky com avatar + logout + **`ThemeToggle`**
+- Sidebar tem **badge amarelo** ao lado de "Configurações" quando o perfil
+  está incompleto (sem CRP ou sem telefone)
 
 Ordem da sidebar: Dashboard, Pacientes, Prestadores, Agenda, Prontuário
 (futuro), Financeiro (futuro), Configurações.
@@ -220,6 +230,8 @@ e `ProviderDetail.tsx` (handlers de erro raro do Supabase). Será trocado por
 
 - **Nome:** normaliza **silenciosamente ao enviar** (`toTitleCase`).
 - **Telefone e CPF/CNPJ:** máscara **in-locus** enquanto digita.
+- **Valor monetário:** máscara in-locus, armazenado em **centavos** no banco
+  (`session_price_cents int`).
 
 ### 4.13 CRUD de pacientes
 
@@ -245,15 +257,19 @@ e `ProviderDetail.tsx` (handlers de erro raro do Supabase). Será trocado por
 - **Listagem:** filtros "Todos | Pessoas | Empresas | Arquivados"
 
 **Formulário dinâmico:**
-- `kind='person'` → CPF, esconde Razão social, mostra `ScheduleEditor`
-- `kind='company'` → CNPJ + Razão social, sem `ScheduleEditor`
+- `kind='person'` → CPF, esconde Razão social, mostra `ScheduleEditor` +
+  Financeiro (valor da sessão)
+- `kind='company'` → CNPJ + Razão social, sem `ScheduleEditor`, Financeiro
+  com label "Valor recorrente (referência)"
 
 **Reativação:** mesma lógica do paciente (com modais).
 
-### 4.15 Revisão de provisórios
+### 4.15 Revisão de provisórios (movido para o Dashboard)
 
-Provisórios (`patients.status='prospect'`) aparecem **apenas** no bloco
-"Aguardando revisão" em `/patients`.
+Provisórios (`patients.status='prospect'`) aparecem **no `/dashboard`**, no
+bloco "Aguardando revisão" (colapsável).
+
+**Não aparecem mais em `/patients`.**
 
 Três ações por card (`ProspectCard`):
 
@@ -274,13 +290,17 @@ Três ações por card (`ProspectCard`):
 **Fluxo em nova aba:** a aba original **não sabe** que a conexão foi concluída;
 F5 é necessário. Melhoria futura: `postMessage`.
 
-**Escrita no Google (Fase 6):** ver seção 4.25.
+**IMPORTANTE — URLs de produção:**
+- Backend (Vercel): `GOOGLE_REDIRECT_URI=https://psy-dbase.vercel.app/calendar/callback`
+- Local: `GOOGLE_REDIRECT_URI=http://localhost:3333/calendar/callback`
+- Se o backend de produção estiver com URL local, o amigo do psicólogo cai
+  em `localhost` ao autorizar.
 
 ### 4.17 Agenda — 3 modos e 4 tipos
 
 A agenda lê `appointments` e renderiza em **Dia**, **Semana** e **Mês**.
 
-**Tipos** com cores distintas (`appointment-colors.ts`):
+**Tipos** com cores distintas (`appointment-colors.ts`, com variantes dark):
 
 | Tipo | Cor | Ocupa horário? |
 |---|---|---|
@@ -299,9 +319,9 @@ A agenda lê `appointments` e renderiza em **Dia**, **Semana** e **Mês**.
 
 | View | Badge | Modal |
 |---|---|---|
-| **Mês** | `N ✕` no canto superior direito da célula (total do dia) | `DayCancelledModal` (dia inteiro) |
-| **Semana** | `N ✕` no canto superior direito do **slot de horário** | `SlotCancelledModal` (slot específico) |
-| **Dia** | `N ✕` no canto superior direito do **slot de horário** | `SlotCancelledModal` (slot específico) |
+| **Mês** | `N ✕` no canto superior direito da célula (total do dia) | `DayCancelledModal` |
+| **Semana** | `N ✕` no canto superior direito do **slot de horário** | `SlotCancelledModal` |
+| **Dia** | `N ✕` no canto superior direito do **slot de horário** | `SlotCancelledModal` |
 
 ### 4.18 Dia da semana — atenção ao formato
 
@@ -312,7 +332,7 @@ A agenda lê `appointments` e renderiza em **Dia**, **Semana** e **Mês**.
 - `patient_schedules.weekday`
 - `provider_schedules.weekday`
 - `patient_invite_schedules.weekday`
-- `src/lib/weekdays.ts` (usado em `ScheduleEditor`, `InvitePatientModal`)
+- `src/lib/weekdays.ts`
 - `Date.getDay()`
 
 **Formato ISO** (0=segunda, 6=domingo):
@@ -328,26 +348,24 @@ jsWeekday(isoDay)   // ISO → JS
 
 **Sempre** usar `isoWeekday` antes de indexar `WEEKDAY_SHORT`/`WEEKDAY_LONG`.
 
-**Histórico:** já tivemos bug de blocos na coluna errada por misturar os dois.
+### 4.19 Horários recorrentes (`patient_schedules` / `provider_schedules`)
 
-### 4.19 Horários recorrentes (`patient_schedules`)
+Pacientes e prestadores `person` têm horários recorrentes. A RPC
+`set_patient_schedules` / `set_provider_schedules`:
 
-Pacientes ativos podem ter N horários recorrentes em `patient_schedules`. A RPC
-`set_patient_schedules`:
-
-1. **Valida conflito** com appointments ativos de **outros** sujeitos
+1. **Valida conflito por SOBREPOSIÇÃO DE INTERVALO** (não igualdade de
+   `start_time`)
 2. Se não houver conflito:
-   - **Deleta** appointments futuros ativos deste paciente
-   - Remove os `patient_schedules` antigos
+   - **Deleta** appointments futuros deste sujeito
+   - Remove os schedules antigos
    - Insere os novos
    - Gera appointments para 90 dias
 
 **Reconfiguração vs. cancelamento:** reconfigurar **deleta**; cancelar
 (paciente avisou que não vem) **cancela** (`status='cancelled'`).
 
-**Idempotência do frontend:** o `PatientForm` só chama `set_patient_schedules`
-se o conteúdo do `ScheduleEditor` **mudou** desde o carregamento
-(`schedulesEqual`).
+**Idempotência:** `PatientForm` e `ProviderForm` só chamam a RPC se o conteúdo
+do `ScheduleEditor` **mudou** desde o carregamento (`schedulesEqual`).
 
 ### 4.20 Cancelamento de série — 3 modos
 
@@ -358,110 +376,114 @@ se o conteúdo do `ScheduleEditor` **mudou** desde o carregamento
 - **Suspender por período** — cancela só o intervalo, mantém schedules,
   estende horizonte se necessário
 
-### 4.21 Bloqueio rígido de conflito
+**Onde o botão aparece:**
+- `PatientDetail` — no card "Horários das sessões" (canto superior direito)
+- `ProviderDetail` — no card "Horários recorrentes" (mesmo lugar)
+- `AppointmentDetailModal` — botão "Cancelar série" quando `is_recurring`
+  (funciona para paciente **e** provider)
 
-Quatro hooks/componentes compõem o sistema:
+### 4.21 Bloqueio rígido por SOBREPOSIÇÃO DE INTERVALO
 
-- **`useOccupiedSlots`** — busca appointments ativos futuros, deduplica por
-  `weekday + start_time`, opcionalmente exclui `patient_id` ou `provider_id`
-- **`usePatientScheduleSource`** — horários do paciente em 3 camadas:
-  `patient_schedules` → `patient_invite_schedules` → `appointments` derivados
-- **`useProviderScheduleSource`** — horários do prestador em 2 camadas:
-  `provider_schedules` → `appointments` derivados (tipo `personal`)
-- **`ScheduleEditor`** — aplica `disabledSlots`, mostra âmbar, chama
-  `onConflictChange`
+Regra: `a.start < b.end && b.start < a.end`.
 
-**Regras:**
+Exemplos:
+- `14:30–15:30` vs `15:00` → **bloqueia** (sobreposição)
+- `14:00–14:30` vs `14:30` → **não bloqueia** (fim coincide com início)
+- `15:00–16:00` vs `14:30–15:30` → **bloqueia**
 
+Implementado em `src/lib/appointment-overlap.ts`.
+
+**Hooks:**
+- `useOccupiedSlots` — retorna `{ weekday, startTime, durationMin, occupiedBy, subjectName }`
+- `usePatientScheduleSource` — 3 camadas (`patient_schedules` → `patient_invite_schedules` → `appointments`)
+- `useProviderScheduleSource` — 2 camadas (`provider_schedules` → `appointments` tipo `personal`)
+
+**Regras do `ScheduleEditor`:**
 - Slot âmbar = conflito (externo **ou** interno)
-- **Slot âmbar é editável** — mudar dia/hora/duração recalcula o conflito
-  automaticamente; se o novo valor não conflita, o âmbar some
-- **`+ Adicionar` sugere slot livre** (percorre dias até achar um sem conflito)
-- Botão de remover **sempre habilitado** (exceto se for o único item)
-- Botão "Salvar" **bloqueado** enquanto houver conflito (`onConflictChange`)
-- `PatientForm`: `excludePatientId: id`
-- `PatientReview`: `excludePatientId: id`
+- **Slot âmbar é editável** — mudar recalcula automaticamente
+- **`+ Adicionar` sugere slot livre** (percorre dias até achar)
+- Botão "Salvar" bloqueado enquanto houver conflito
+- `PatientForm`/`PatientReview`: `excludePatientId: id`
 - `ProviderForm`: `excludeProviderId: id`
 - `InvitePatientModal`: sem exclusão
 
-### 4.22 `schedulesEqual` — evitar regeneração
+### 4.22 Valor da sessão (`session_price_cents`)
 
-`PatientForm` e `ProviderForm` guardam `initialSchedules` (o que veio do
-carregamento) e comparam com o estado atual usando uma chave ordenada
-(`weekday-startTime-duration`). Só chamam `set_patient_schedules` /
-`set_provider_schedules` se **mudou**.
+Armazenado em **centavos** (`int`) para evitar float.
 
-Isso evita apagar e recriar appointments sem necessidade (perderia histórico e
-quebraria a ligação com o Google Calendar).
+- **Paciente:** `patients.session_price_cents` — valor que você cobra
+- **Prestador `person`:** `providers.session_price_cents` — valor que você paga por sessão
+- **Prestador `company`:** `providers.session_price_cents` — valor recorrente de referência (Fase B refina com `provider_billings`)
 
-### 4.23 Reativação com modais
+**Máscara in-locus** com `maskCurrencyBRL` / `parseCurrencyToCents` /
+`centsToCurrencyBRL`.
 
-Quando o usuário clica em "Reativar":
+**Exibido em:**
+- `PatientForm`, `ProviderForm`, `PatientReview` (campo editável)
+- `PatientDetail`, `ProviderDetail` (read-only, no card de dados)
+- `Patients`, `Providers` (coluna "Valor" na tabela)
 
-1. **Sem `patient_schedules`** (ou `provider_schedules`) → abre
-   `ReactivateModal`:
-   - **Definir horários agora** (navega para `/.../edit`)
-   - **Reativar sem agendamentos** (só muda o status)
-   - **Cancelar**
-2. **Com schedules mas sem conflito** → reativa direto
-3. **Com schedules e com conflito** → abre `ConflictOnReactivateModal`:
-   - Lista os horários em conflito (com o nome do ocupante)
-   - **Escolher novos horários** (navega para `/.../edit`)
-   - **Reativar apenas os horários livres**
-   - **Cancelar**
+### 4.23 Dark mode
 
-### 4.24 Stacking de ativos na agenda
+- Tailwind v4 com `@variant dark (&:where(.dark, .dark *))`
+- Toggle no Header (`ThemeToggle`) com 3 opções: **Claro / Escuro / Sistema**
+- Estado em `localStorage` (`psy-dbase:theme`)
+- Script inline no `index.html` **antes do React** (evita flash branco)
+- Paleta: **slate** (cinza-azulado) para dark, brand mantém
+- `color-scheme` no `<html>` alternado
 
-Quando múltiplos appointments **ativos** compartilham o mesmo slot
-(sobreposição por intervalo de tempo):
+**Atenção:** o `@theme` precisa ter `--color-brand-950: #042f2e`. Sem isso,
+o dark mode dos botões ativos quebra.
 
-- O que **começa primeiro** (empate: o mais longo) é o **principal** →
-  100% de largura, `z-index` baixo
-- Os demais → **sub-blocos** com até 2 visíveis (50% cada), `z-index` alto
-- Os restantes ficam **ocultos** com botão `+N` no canto superior direito
-- `+N` → `StackOverviewModal` (lista completa da pilha)
+### 4.24 Dashboard
 
-Implementado em `src/lib/appointment-layout.ts`:
-- `computeLayout(appointments, hourHeight, startHour)`
-- `countHiddenByStack(layouts)`
+Ordem dos blocos:
 
-### 4.25 Integração Google Calendar (escrita) — Fase 6
+1. Saudação
+2. Cards de resumo (4): **Pacientes ativos**, **Submissões pendentes**,
+   **Sessões hoje**, **Sessões esta semana**
+3. **Aguardando revisão** (colapsável, scroll se > 3)
+4. **Próximas sessões** (colapsável, hoje + 7 dias)
+5. **Aniversariantes do mês** (só pacientes `active`)
 
-Decisões já tomadas para a Fase 6:
+**"Complete seu perfil"** — **saiu do Dashboard**. Agora é badge na sidebar.
 
-- **Ao criar appointment** (via `set_patient_schedules` ou
-  `CreateAppointmentModal`):
-  - Cria evento no Google Calendar do **psicólogo**
-  - Envia convite de reunião (Google Meet) para `psicologo + paciente`
-- **Alerta do paciente:** o paciente escolhe **uma vez** o intervalo
-  (`5min` / `10min` / `30min` / `1h` antes) — vale para **todas** as sessões
-- **Só envia para a agenda do paciente** se o e-mail for **Gmail**
-- **Envio em cadeia:** as 13 ocorrências **não** são enviadas de uma vez.
-  Apenas a **próxima sessão** é enviada. Após o término, a **seguinte** é
-  enviada (cron job ou evento de conclusão). **Obrigatório** — acontece mesmo
-  se o paciente não aceitar o convite.
-- **Cancelamento:** se o appointment for cancelado, remove o evento do Google
+**"Ações rápidas"** — **removida**.
+
+**Colapsáveis:**
+- Estado em `localStorage`
+- "Aguardando revisão" começa expandido se ≤ 3 provisórios, colapsado se > 3
+- "Próximas sessões" começa colapsado
+- Cada um mostra um **resumo** quando colapsado
+
+**"Próximas sessões":**
+- Filtra appointments de hoje cujo horário **já passou**
+- Recarrega a cada 5 min + ao ganhar foco da janela
+- Clicar num item → `/agenda/day/<data>`
+- "Ver agenda completa" → `/agenda`
+
+### 4.25 Aniversariantes
+
+- Busca `patients` com `status='active'` e `birth_date` no mês atual
+- Mostra nome, dia do mês e idade que completa
+- Clicar → `/patients/:id`
+- Aniversariantes de prestadores: **decisão adiada** (precisa adicionar
+  `birth_date` em `providers` + campo no form)
 
 ### 4.26 Prestadores — modelo estendido
 
-**Prestador `kind='person'`** (ex: psicólogo particular, supervisor):
-- `provider_schedules` (tabela própria, **não** reusa `patient_schedules`)
-- `ScheduleEditor` no `ProviderForm` (só quando `kind='person'`)
-- Gera `appointments` tipo `personal` com `linked_expense=true`
-- Arquivar/reativar cancela/recria appointments
-- `useProviderScheduleSource` (2 camadas)
+**`person`** (ex: psicólogo, supervisor):
+- `provider_schedules` (horários recorrentes)
+- `appointments` tipo `personal`
+- Bloqueia slot na agenda
+- `session_price_cents` = valor pago por sessão
 
-**Prestador `kind='company'`** (ex: curso, plataforma, aluguel):
-- Terá `provider_billings` (tabela própria, **separada** de `appointments`)
-- Campos previstos: `provider_id`, `description`, `amount`, `due_day` (1–31),
-  `frequency` (`monthly` / `quarterly` / `semiannual` / `yearly` / `once`),
-  `installments_total`, `installments_paid`, `starts_on`, `ends_on`, `status`
-- Tela em `/providers/:id` para cadastrar vencimentos
-- Marcar vencimento como pago → gera saída no financeiro (Fase 5)
-- **Badge na agenda:** `$` no canto da célula do dia (não ocupa slot de horário)
-
-**Decisão pendente:** `appointments` tipo `due` migra para `provider_billings`
-ou coexiste? (recomendação: coexistir por enquanto)
+**`company`** (ex: curso, plataforma, aluguel):
+- **Não tem** `provider_schedules`
+- Card vazio "Vencimentos" no `ProviderDetail` (placeholder)
+- Fase B: `provider_billings` (frequência mensal/bimestral/semestral/anual,
+  `due_day`, `amount`)
+- Não aparece na grade; aparece como badge no dia
 
 ### 4.27 Convites — captura de e-mail e preferências (Fase 6)
 
@@ -474,8 +496,6 @@ ou coexiste? (recomendação: coexistir por enquanto)
 - Checkbox **"Receber alerta de vencimento de faturas por e-mail"**
   - Se marcado → input **melhor dia de pagamento** (dia do mês)
 
-Preferências persistem em tabela própria ou colunas em `patients` (a decidir).
-
 ---
 
 ## 5. Fluxos principais
@@ -483,8 +503,11 @@ Preferências persistem em tabela própria ou colunas em `patients` (a decidir).
 ### 5.1 Login
 
 `supabase.auth.signInWithOAuth({ provider: "google", redirectTo: <origin>/dashboard })`.
-Supabase valida `redirectTo` contra **Redirect URLs**. **Site URL** e
-**Redirect URLs** precisam ter produção e `localhost:5173`.
+Supabase valida `redirectTo` contra **Redirect URLs**.
+
+**Site URL** e **Redirect URLs** precisam ter:
+- `https://psy-dbase-frontend.vercel.app` + `/**`
+- `http://localhost:5173` + `/**`
 
 ### 5.2 Convite de paciente
 
@@ -501,8 +524,6 @@ Supabase valida `redirectTo` contra **Redirect URLs**. **Site URL** e
 3. Mostra sessões combinadas + campos + 2 checkboxes (termo + orientação)
 4. Envia via RPC `submit_patient_form`
 
-**Fase 6:** adicionará e-mail obrigatório + 2 checkboxes de preferência.
-
 ### 5.4 Aprovar/Rejeitar submissão
 
 1. `/patients` → seção "Submissões pendentes"
@@ -511,50 +532,28 @@ Supabase valida `redirectTo` contra **Redirect URLs**. **Site URL** e
 
 ### 5.5 Promover provisório a paciente
 
-1. `/patients` → bloco "Aguardando revisão"
+1. `/dashboard` → bloco "Aguardando revisão"
 2. `ProspectCard` → "É paciente" → `/patients/:id/review`
-3. `PatientReview`:
-   - Carrega horários (via `usePatientScheduleSource`)
-   - Usuário completa dados + ajusta horários
-   - Salva: RPC `promote_prospect_to_active` com `p_schedules`
-4. Vira `active` + `appointments` criados
+3. Salva: RPC `promote_prospect_to_active` com `p_schedules`
 
-### 5.6 Criar/editar paciente manual
+### 5.6 Criar/editar paciente/prestador
 
-1. `/patients/new` ou `/patients/:id/edit`
-2. `PatientForm` com `ScheduleEditor` + bloqueio rígido
-3. Ao salvar:
-   - Chama `set_patient_schedules` **se os horários mudaram** (`schedulesEqual`)
-   - No create, chama sempre (se tem horários)
+- `PatientForm` / `ProviderForm` com `ScheduleEditor` + Financeiro
+- Ao salvar: chama RPC de schedules **se os horários mudaram**
 
-### 5.7 Arquivar / Reativar / Excluir paciente
+### 5.7 Arquivar / Reativar / Excluir
 
-- **Arquivar** → RPC `cancel_future_appointments` + status `inactive`
-- **Reativar** → status `active` + (ver seção 4.23)
-- **Excluir** → RPC `delete_patient`
+- **Arquivar** → RPC `cancel_*_future_appointments` + status
+- **Reativar** → status + (ver seção 4.13 para 3 cenários)
+- **Excluir** → RPC `delete_patient` / `delete_provider`
 
 ### 5.8 Agenda
 
-1. `/agenda` → redireciona para `/agenda/week/<hoje>`
-2. Modos: `AgendaToolbar` (Dia/Semana/Mês)
-3. Navegação: setas + "Hoje"
-4. Clicar em bloco → `AppointmentDetailModal`
-5. Clicar em slot vazio → `CreateAppointmentModal`
-6. Clicar em célula do mês → `DayOverviewModal`
-7. Clicar em `N ✕` (cancelados) → `SlotCancelledModal` / `DayCancelledModal`
-8. Clicar em `+N` (stacking) → `StackOverviewModal`
-9. Cancelar série → `CancelSeriesModal`
+Ver seções 4.17 a 4.21.
 
-### 5.9 Prestadores
+### 5.9 Dashboard
 
-- `/providers` — listagem com filtros
-- `/providers/new` — criar (com `ScheduleEditor` se `kind='person'`)
-- `/providers/:id` — detalhe com ações completas (editar, arquivar/reativar,
-  suspender agendamentos, excluir)
-
-### 5.10 Google Calendar — conectar / importar / desconectar
-
-Ver seção 4.16.
+Ver seção 4.24.
 
 ---
 
@@ -565,7 +564,6 @@ Ver seção 4.16.
 - **Componentes:** função nomeada (`export function Foo()`).
 - **Tipos:** usar `type`, não `interface`.
 - **Estados de fetch:** sempre tratar `loading`, `error` e `empty`.
-- **Rotas:** PascalCase para páginas, kebab-case para utilitários.
 - **Nada de `any`:** exceto em integrações com bibliotecas.
 
 **Regra de ouro:** hooks só dentro de `export function`. Nunca fora.
@@ -584,15 +582,13 @@ Ver seção 4.16.
 | Bundle aponta para `localhost` mesmo após config    | `VITE_*` só em novo build                       | Redeploy **sem cache**                                      |
 | `tsc -b` falha com `declared but never used`        | Import não usado                                | Remover o import                                            |
 | Rota `:id` captura `new` ou `review`                | Ordem das rotas                                 | Declarar literais antes de dinâmicas                        |
-| Prospect aparece na tabela normal                   | Filtro não exclui `prospect`                    | `usePatients` filtra por `.neq("status", "prospect")`       |
 | **Bloco aparece na coluna errada da agenda**        | `WEEKDAY_SHORT/LONG` em ordem JS, não ISO       | Usar `isoWeekday()` antes de indexar                        |
 | `appointments_subject_check` violada ao excluir     | FK com `on delete set null` conflita            | Usar RPC `delete_patient` / `delete_provider`               |
-| Horários antigos poluem a agenda após reconfigurar  | `set_patient_schedules` cancelava em vez de deletar | RPC agora deleta appointments futuros                    |
-| **Slot do próprio paciente fica âmbar na edição**   | `useOccupiedSlots` sem `excludePatientId`       | Passar `excludePatientId: id` em `PatientForm`/`Review`     |
-| **`ScheduleEditor` não mostra âmbar**               | `disabledSlots` comentado ou vazio              | Descomentar e passar `occupiedSlots`                        |
+| **Slot do próprio paciente/provider fica âmbar**    | `useOccupiedSlots` sem `excludeId`              | Passar `excludePatientId` / `excludeProviderId`             |
 | **Salvar mesmo com conflito**                       | Sem `onConflictChange` / sem validação no submit | Usar `hasScheduleConflict` + botão desabilitado             |
+| **Dark mode com fundo claro + texto claro**         | Falta `--color-brand-950` no `@theme`           | Adicionar `--color-brand-950: #042f2e`                      |
+| **Amigo cai em localhost ao autorizar Google**      | `GOOGLE_REDIRECT_URI` no backend de produção    | Atualizar para `https://psy-dbase.vercel.app/calendar/callback` |
 | **`<input type="date">` mostra mm/dd/aaaa**         | Locale do navegador                             | Adicionar Português (BR) nas configs do Chrome              |
-| **`+N` sobrepõe bloco no topo do dia**              | `z-index` do `+N` acima do `AppointmentBlock`   | `+N` tem `z-index: 100`; aceito pois é pequeno              |
 
 ---
 
@@ -625,33 +621,36 @@ Ver seção 4.16.
 - ✅ Fase 2: convite, formulário público, submissões, CRUD de pacientes
 - ✅ Design system + layout autenticado
 - ✅ Migração Tailwind v3 → v4
-- ✅ Máscaras (CPF, CNPJ, telefone) + normalização de nome
-- ✅ Página `/settings` com Google Calendar (leitura + importação)
-- ✅ Bloco "Aguardando revisão" + `/patients/:id/review`
+- ✅ Máscaras (CPF, CNPJ, telefone, **moeda**) + normalização de nome
+- ✅ Página `/settings` com Google Calendar
+- ✅ Bloco "Aguardando revisão" no **Dashboard** (colapsável)
+- ✅ Página `/patients/:id/review`
 - ✅ CRUD completo de prestadores (`person` + `company`)
 - ✅ **Agenda em 3 modos** (Dia/Semana/Mês)
 - ✅ **Stacking de ativos** + `StackOverviewModal`
-- ✅ **Cancelados como badges por slot/dia** + `SlotCancelledModal` /
-  `DayCancelledModal`
-- ✅ `ScheduleEditor` com bloqueio rígido (slot âmbar editável, `+ Adicionar`
-  sugere slot livre)
-- ✅ Horários recorrentes para **paciente** (`patient_schedules`) e
-  **prestador person** (`provider_schedules`)
-- ✅ Arquivar/reativar com modais de conflito (paciente + prestador)
-- ✅ `CancelSeriesModal` parametrizado (3 modos, paciente + prestador)
-- ✅ `ReactivateModal` e `ConflictOnReactivateModal` parametrizados
-- ✅ Reativação de appointment individual (`reactivate_appointment`)
-- ✅ Deleção em massa de cancelados (`delete_cancelled_appointments`)
-- ✅ RPCs de prestador (`set_provider_schedules`,
-  `cancel_provider_future_appointments`, `delete_provider`,
-  `cancel_provider_appointment_series`)
-- ✅ Correção de timezone (`isoWeekday`/`jsWeekday`)
+- ✅ **Cancelados como badges por slot/dia** + modais
+- ✅ `ScheduleEditor` com bloqueio rígido **por sobreposição de intervalo**
+- ✅ Horários recorrentes (paciente + provider `person`)
+- ✅ Arquivar/reativar com modais de conflito (paciente + provider)
+- ✅ `CancelSeriesModal` parametrizado (3 modos)
+- ✅ Reativação de appointment individual
+- ✅ Deleção em massa de cancelados
+- ✅ RPCs de prestador (`set_provider_schedules`, `cancel_provider_*`,
+  `delete_provider`)
+- ✅ **Dark mode completo** (todas as telas)
+- ✅ **Dashboard reformulado** (cards funcionais, próximas sessões,
+  aniversariantes, colapsáveis)
+- ✅ **Valor da sessão** (`session_price_cents` em paciente e provider)
+- ✅ **Coluna "Valor"** nas listagens
 
 **Pendente — próximo passo:**
 
-- ⏳ **Ajustes finos** — 404 customizada, favicon, metadados, `AlertDialog` no
-  lugar dos `alert()` restantes
+- ⏳ **Frequência configurável** — avulso / semanal / quinzenal / mensal /
+  a cada 30 dias / custom
 - ⏳ **`provider_billings`** (Fase B) — vencimentos de empresas
+- ⏳ **Ajustes finos** — 404, favicon, metadados, `AlertDialog`, busca,
+  perfil/preferências em `/settings`, `postMessage` do OAuth
+- ⏳ **Re-branding** — nome, logo, favicon, aplicação (pausado)
 
 **Pendente — fases seguintes:**
 
