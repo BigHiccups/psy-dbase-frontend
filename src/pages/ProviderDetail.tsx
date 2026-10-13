@@ -15,6 +15,7 @@ import {
   Clock,
   PauseCircle,
   CalendarClock,
+  Plus,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useProvider } from "../hooks/useProvider";
@@ -273,6 +274,8 @@ export function ProviderDetail() {
   const isArchived = provider.status === "archived";
   const isCompany = provider.kind === "company";
   const KindIcon = isCompany ? Building2 : User;
+  const hasActiveSchedules =
+    !isArchived && !isCompany && providerSchedules.length > 0;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -308,6 +311,7 @@ export function ProviderDetail() {
         </div>
       </div>
 
+      {/* Ações do topo */}
       <div className="flex flex-wrap gap-2">
         <Link to={`/providers/${provider.id}/edit`}>
           <Button variant="secondary" size="sm" disabled={working}>
@@ -338,18 +342,6 @@ export function ProviderDetail() {
           </Button>
         )}
 
-        {!isArchived && !isCompany && providerSchedules.length > 0 && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setSuspendOpen(true)}
-            disabled={working}
-          >
-            <PauseCircle size={14} />
-            Suspender agendamentos
-          </Button>
-        )}
-
         <div className="flex-1" />
         <Button
           variant="ghost"
@@ -363,6 +355,7 @@ export function ProviderDetail() {
         </Button>
       </div>
 
+      {/* Dados do prestador */}
       <Card className="p-6">
         <h2 className="mb-4 text-sm font-medium text-gray-900 dark:text-slate-100">
           Dados do prestador
@@ -393,7 +386,69 @@ export function ProviderDetail() {
         </div>
       </Card>
 
-      {!isCompany && providerSchedules.length > 0 && (
+      {/* Pessoa física: horários recorrentes */}
+      {!isCompany && (
+        <Card className="p-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock
+                size={14}
+                className="text-brand-600 dark:text-brand-400"
+              />
+              <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                Horários recorrentes
+              </h2>
+            </div>
+            {hasActiveSchedules && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSuspendOpen(true)}
+                disabled={working}
+                className="text-gray-600 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                <PauseCircle size={14} />
+                Suspender agendamentos
+              </Button>
+            )}
+          </div>
+
+          {providerSchedules.length > 0 ? (
+            <ul className="space-y-2">
+              {providerSchedules.map((s, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
+                >
+                  <span className="font-medium text-gray-900 dark:text-slate-100">
+                    {WEEKDAY_LONG[isoWeekday(s.weekday)]}
+                  </span>
+                  <span className="text-gray-500 dark:text-slate-400">
+                    {s.startTime} · {s.durationMin} min
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
+              <p className="text-sm text-gray-500 dark:text-slate-400">
+                Nenhum horário definido ainda.
+              </p>
+              {!isArchived && (
+                <Link to={`/providers/${provider.id}/edit`}>
+                  <Button variant="secondary" size="sm" className="mt-3">
+                    <Plus size={14} />
+                    Definir horários
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Empresa: vencimentos (placeholder Fase B) */}
+      {isCompany && (
         <Card className="p-6">
           <div className="mb-3 flex items-center gap-2">
             <CalendarClock
@@ -401,27 +456,23 @@ export function ProviderDetail() {
               className="text-brand-600 dark:text-brand-400"
             />
             <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-              Horários recorrentes
+              Vencimentos
             </h2>
           </div>
-          <ul className="space-y-2">
-            {providerSchedules.map((s, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
-              >
-                <span className="font-medium text-gray-900 dark:text-slate-100">
-                  {WEEKDAY_LONG[isoWeekday(s.weekday)]}
-                </span>
-                <span className="text-gray-500 dark:text-slate-400">
-                  {s.startTime} · {s.durationMin} min
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
+            <p className="text-sm text-gray-500 dark:text-slate-400">
+              Cadastre pagamentos recorrentes (mensal, bimestral, semestral,
+              anual).
+            </p>
+            <div className="mt-3 flex items-center justify-center gap-1 text-xs text-gray-400 dark:text-slate-500">
+              <Clock size={12} />
+              Disponível em breve
+            </div>
+          </div>
         </Card>
       )}
 
+      {/* Notas */}
       {provider.notes && (
         <Card className="p-6">
           <h2 className="mb-3 text-sm font-medium text-gray-900 dark:text-slate-100">
@@ -433,28 +484,7 @@ export function ProviderDetail() {
         </Card>
       )}
 
-      <Card className="p-6">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400">
-            <FileText size={16} />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-              Vencimentos e financeiro
-            </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-              {isCompany
-                ? "Vencimentos mensais deste prestador estarão disponíveis em uma próxima versão."
-                : "Despesas vinculadas a este prestador estarão disponíveis em uma próxima versão."}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500">
-            <Clock size={12} />
-            Em breve
-          </div>
-        </div>
-      </Card>
-
+      {/* Modais */}
       <ConfirmDialog
         open={archiveOpen}
         onClose={() => setArchiveOpen(false)}
