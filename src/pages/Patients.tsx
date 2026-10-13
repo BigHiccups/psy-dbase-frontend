@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { UserPlus, Users, Inbox, Plus, AlertCircle } from "lucide-react";
+import { UserPlus, Users, Inbox, Plus } from "lucide-react";
 import { usePatients, type PatientFilter } from "../hooks/usePatients";
-import { useProspects } from "../hooks/useProspects";
 import { useSubmissions } from "../hooks/useSubmissions";
 import { InvitePatientModal } from "../components/InvitePatientModal";
 import { SubmissionCard } from "../components/SubmissionCard";
-import { ProspectCard } from "../components/ProspectCard";
 import { Button, Badge, EmptyState, Spinner } from "../components/ui";
 import type { PatientStatus } from "../types";
 
@@ -36,12 +34,10 @@ const FILTERS: { value: PatientFilter; label: string }[] = [
 export function Patients() {
   const [filter, setFilter] = useState<PatientFilter>("active");
   const patients = usePatients(filter);
-  const prospects = useProspects();
   const submissions = useSubmissions();
   const [inviteOpen, setInviteOpen] = useState(false);
 
   function handleReloadAll() {
-    prospects.reload();
     patients.reload();
     submissions.reload();
   }
@@ -72,31 +68,6 @@ export function Patients() {
           </Button>
         </div>
       </div>
-
-      {/* Aguardando revisão */}
-      {prospects.prospects.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <AlertCircle
-              size={16}
-              className="text-amber-600 dark:text-amber-400"
-            />
-            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-              Aguardando revisão
-            </h2>
-            <Badge variant="warning">{prospects.prospects.length}</Badge>
-          </div>
-          <p className="mb-3 text-xs text-gray-500 dark:text-slate-400">
-            Importados do Google Calendar. Classifique cada um como paciente,
-            prestador ou remova.
-          </p>
-          <div className="space-y-3">
-            {prospects.prospects.map((p) => (
-              <ProspectCard key={p.id} patient={p} onDone={handleReloadAll} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Submissões pendentes */}
       {(submissions.loading || submissions.submissions.length > 0) && (
@@ -141,10 +112,11 @@ export function Patients() {
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
-              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${filter === f.value
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                filter === f.value
                   ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
                   : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
-                }`}
+              }`}
             >
               {f.label}
             </button>
@@ -202,8 +174,9 @@ export function Patients() {
                   return (
                     <tr
                       key={p.id}
-                      className={`transition hover:bg-gray-50 dark:hover:bg-slate-800/50 ${isArchived ? "opacity-60" : ""
-                        }`}
+                      className={`transition hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
+                        isArchived ? "opacity-60" : ""
+                      }`}
                     >
                       <td className="px-4 py-3">
                         <Link

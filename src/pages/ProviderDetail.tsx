@@ -10,7 +10,6 @@ import {
   User,
   Phone,
   Mail,
-  FileText,
   IdCard,
   Clock,
   PauseCircle,

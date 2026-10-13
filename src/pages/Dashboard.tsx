@@ -7,10 +7,13 @@ import {
   UserPlus,
   ArrowRight,
   AlertCircle,
+  ClipboardList,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useProspects } from "../hooks/useProspects";
 import { Button, Card, Badge } from "../components/ui";
+import { ProspectCard } from "../components/ProspectCard";
 
 type Profile = {
   full_name: string | null;
@@ -36,46 +39,55 @@ export function Dashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const prospects = useProspects();
+
+  async function loadSummary() {
     if (!user) return;
 
-    async function load() {
-      setLoading(true);
+    setLoading(true);
 
-      const [profileRes, patientsRes, submissionsRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("full_name, crp, phone")
-          .eq("id", user!.id)
-          .single(),
-        supabase
-          .from("patients")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "active"),
-        supabase
-          .from("patient_form_submissions")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending"),
-      ]);
+    const [profileRes, patientsRes, submissionsRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, crp, phone")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("patients")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active"),
+      supabase
+        .from("patient_form_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+    ]);
 
-      if (profileRes.data) setProfile(profileRes.data as Profile);
+    if (profileRes.data) setProfile(profileRes.data as Profile);
 
-      setSummary({
-        activePatients: patientsRes.count ?? 0,
-        pendingSubmissions: submissionsRes.count ?? 0,
-      });
+    setSummary({
+      activePatients: patientsRes.count ?? 0,
+      pendingSubmissions: submissionsRes.count ?? 0,
+    });
 
-      setLoading(false);
-    }
+    setLoading(false);
+  }
 
-    load();
+  useEffect(() => {
+    loadSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  function handleProspectDone() {
+    prospects.reload();
+    loadSummary();
+  }
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "psicólogo";
   const profileIncomplete = profile && (!profile.crp || !profile.phone);
 
   return (
     <div className="space-y-8">
+      {/* Saudação */}
       <div>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
           {greeting()}, {firstName}
@@ -85,6 +97,7 @@ export function Dashboard() {
         </p>
       </div>
 
+      {/* Aviso de perfil incompleto */}
       {!loading && profileIncomplete && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
           <AlertCircle
@@ -112,6 +125,44 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* Aguardando revisão (provisórios do Google) */}
+      {prospects.prospects.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <ClipboardList
+              size={16}
+              className="text-amber-600 dark:text-amber-400"
+            />
+            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+              Aguardando revisão
+            </h2>
+            <Badge variant="warning">{prospects.prospects.length}</Badge>
+          </div>
+          <p className="mb-3 text-xs text-gray-500 dark:text-slate-400">
+            Importados do Google Calendar. Classifique cada um como paciente,
+            prestador ou remova.
+          </p>
+
+          {/* Container com scroll quando há muitos */}
+          <div
+            className={`space-y-3 ${
+              prospects.prospects.length > 3
+                ? "max-h-[420px] overflow-y-auto rounded-xl border border-gray-200 bg-gray-50/30 p-3 dark:border-slate-800 dark:bg-slate-900/30"
+                : ""
+            }`}
+          >
+            {prospects.prospects.map((p) => (
+              <ProspectCard
+                key={p.id}
+                patient={p}
+                onDone={handleProspectDone}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Cards de resumo */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           icon={<Users size={18} />}
@@ -138,6 +189,7 @@ export function Dashboard() {
         />
       </div>
 
+      {/* Ações rápidas */}
       <Card className="p-6">
         <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
           Ações rápidas
@@ -156,12 +208,14 @@ export function Dashboard() {
         </div>
       </Card>
 
+      {/* Estado vazio inicial */}
       {!loading &&
         summary &&
         summary.activePatients === 0 &&
-        summary.pendingSubmissions === 0 && (
+        summary.pendingSubmissions === 0 &&
+        prospects.prospects.length === 0 && (
           <Card className="p-12 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
               <Users size={20} />
             </div>
             <h3 className="text-sm font-medium text-gray-900 dark:text-slate-100">
