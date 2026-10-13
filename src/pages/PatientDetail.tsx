@@ -15,6 +15,7 @@ import {
   Trash2,
   PauseCircle,
   CalendarClock,
+  Plus,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { usePatient } from "../hooks/usePatient";
@@ -268,10 +269,10 @@ export function PatientDetail() {
   }
 
   const isArchived = patient.status !== "active";
+  const hasActiveSchedules = !isArchived && patientSchedules.length > 0;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      {/* Cabeçalho */}
       <div>
         <Link
           to="/patients"
@@ -299,7 +300,7 @@ export function PatientDetail() {
         </div>
       </div>
 
-      {/* Ações */}
+      {/* Ações do topo */}
       <div className="flex flex-wrap gap-2">
         <Link to={`/patients/${patient.id}/edit`}>
           <Button variant="secondary" size="sm" disabled={working}>
@@ -327,18 +328,6 @@ export function PatientDetail() {
           >
             <Archive size={14} />
             Arquivar
-          </Button>
-        )}
-
-        {!isArchived && patientSchedules.length > 0 && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setSuspendOpen(true)}
-            disabled={working}
-          >
-            <PauseCircle size={14} />
-            Suspender agendamentos
           </Button>
         )}
 
@@ -404,10 +393,10 @@ export function PatientDetail() {
         </div>
       </Card>
 
-      {/* Horários recorrentes */}
-      {patientSchedules.length > 0 && (
-        <Card className="p-6">
-          <div className="mb-3 flex items-center gap-2">
+      {/* Horários das sessões (com botão de suspender embutido) */}
+      <Card className="p-6">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
             <CalendarClock
               size={14}
               className="text-brand-600 dark:text-brand-400"
@@ -416,6 +405,21 @@ export function PatientDetail() {
               Horários das sessões
             </h2>
           </div>
+          {hasActiveSchedules && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSuspendOpen(true)}
+              disabled={working}
+              className="text-gray-600 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              <PauseCircle size={14} />
+              Suspender agendamentos
+            </Button>
+          )}
+        </div>
+
+        {patientSchedules.length > 0 ? (
           <ul className="space-y-2">
             {patientSchedules.map((s, i) => (
               <li
@@ -431,8 +435,22 @@ export function PatientDetail() {
               </li>
             ))}
           </ul>
-        </Card>
-      )}
+        ) : (
+          <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
+            <p className="text-sm text-gray-500 dark:text-slate-400">
+              Nenhum horário definido ainda.
+            </p>
+            {!isArchived && (
+              <Link to={`/patients/${patient.id}/edit`}>
+                <Button variant="secondary" size="sm" className="mt-3">
+                  <Plus size={14} />
+                  Definir horários
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* Notas */}
       {patient.notes && (
@@ -468,7 +486,7 @@ export function PatientDetail() {
         </div>
       </Card>
 
-      {/* Modal: arquivar */}
+      {/* Modais */}
       <ConfirmDialog
         open={archiveOpen}
         onClose={() => setArchiveOpen(false)}
@@ -485,7 +503,6 @@ export function PatientDetail() {
         tone="warning"
       />
 
-      {/* Modal: reativar sem schedules */}
       <ReactivateModal
         open={reactivateModalOpen}
         subjectType="patient"
@@ -498,7 +515,6 @@ export function PatientDetail() {
         onReactivateWithout={handleReactivateWithoutSchedules}
       />
 
-      {/* Modal: reativar com conflito */}
       <ConflictOnReactivateModal
         open={conflictModalOpen}
         subjectType="patient"
@@ -511,7 +527,6 @@ export function PatientDetail() {
         onReactivateValidOnes={handleReactivateOnlyValid}
       />
 
-      {/* Modal: excluir */}
       <ConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
@@ -534,7 +549,6 @@ export function PatientDetail() {
         tone="danger"
       />
 
-      {/* Modal: suspender agendamentos */}
       {suspendOpen && (
         <CancelSeriesModal
           open
