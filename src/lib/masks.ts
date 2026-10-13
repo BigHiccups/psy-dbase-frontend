@@ -98,3 +98,38 @@ export function isValidCNPJ(cnpj: string): boolean {
   const d2 = calc(base + d1);
   return digits.endsWith(`${d1}${d2}`);
 }
+
+// Máscara de moeda em Real: "1234" → "12,34"
+// Retorna o texto formatado para exibir no input
+export function maskCurrencyBRL(value: string): string {
+  const digits = onlyDigits(value).slice(0, 10); // limite de 10 dígitos
+  if (!digits) return "";
+
+  const cents = Number(digits);
+  const reais = cents / 100;
+
+  return reais.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// Converte "12,34" (formato brasileiro) para centavos (1234)
+export function parseCurrencyToCents(value: string): number | null {
+  const digits = onlyDigits(value);
+  if (!digits) return null;
+
+  const cents = Number(digits);
+  if (!Number.isFinite(cents)) return null;
+  return cents;
+}
+
+// Converte centavos (1234) para string brasileira ("12,34")
+export function centsToCurrencyBRL(cents: number | null): string {
+  if (cents === null || cents === undefined) return "";
+  const reais = cents / 100;
+  return reais.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}

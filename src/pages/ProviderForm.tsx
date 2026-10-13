@@ -12,6 +12,9 @@ import {
   maskCPF,
   maskCNPJ,
   maskPhone,
+  maskCurrencyBRL,
+  parseCurrencyToCents,
+  centsToCurrencyBRL,
   isValidCPF,
   isValidCNPJ,
   isValidPhoneBR,
@@ -26,6 +29,7 @@ type FormState = {
   email: string;
   phone: string;
   notes: string;
+  session_price: string;
 };
 
 const INITIAL_FORM: FormState = {
@@ -36,6 +40,7 @@ const INITIAL_FORM: FormState = {
   email: "",
   phone: "",
   notes: "",
+  session_price: "",
 };
 
 function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
@@ -80,6 +85,7 @@ export function ProviderForm() {
         email: provider.email ?? "",
         phone: provider.phone ?? "",
         notes: provider.notes ?? "",
+        session_price: centsToCurrencyBRL(provider.session_price_cents),
       });
     }
   }, [provider]);
@@ -145,6 +151,7 @@ export function ProviderForm() {
       email: form.email.trim() || null,
       phone: form.phone || null,
       notes: form.notes.trim() || null,
+      session_price_cents: parseCurrencyToCents(form.session_price),
     };
 
     const shouldSyncSchedules =
@@ -226,6 +233,16 @@ export function ProviderForm() {
     );
   }
 
+  const priceLabel =
+    form.kind === "person"
+      ? "Valor da sessão"
+      : "Valor recorrente (referência)";
+
+  const priceHint =
+    form.kind === "person"
+      ? "Valor pago por sessão a este prestador."
+      : "Valor base do serviço. Refinado na Fase B (vencimentos).";
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
@@ -246,6 +263,7 @@ export function ProviderForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Tipo */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
             Tipo
@@ -308,6 +326,7 @@ export function ProviderForm() {
           </div>
         </Card>
 
+        {/* Dados */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
             Dados do prestador
@@ -371,6 +390,38 @@ export function ProviderForm() {
           />
         </Card>
 
+        {/* Financeiro */}
+        <Card className="space-y-4 p-6">
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+            Financeiro
+          </h2>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+              {priceLabel}
+            </label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">
+                R$
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.session_price}
+                onChange={(e) =>
+                  update("session_price", maskCurrencyBRL(e.target.value))
+                }
+                placeholder="0,00"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
+            </div>
+            <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+              {priceHint}
+            </p>
+          </div>
+        </Card>
+
+        {/* Horários (só pessoa física) */}
         {form.kind === "person" && (
           <Card className="space-y-4 p-6">
             <ScheduleEditor
@@ -389,6 +440,7 @@ export function ProviderForm() {
           </Card>
         )}
 
+        {/* Notas */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
             Observações internas

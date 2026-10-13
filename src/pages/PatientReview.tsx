@@ -8,9 +8,17 @@ import { usePatient } from "../hooks/usePatient";
 import { usePatientScheduleSource } from "../hooks/usePatientScheduleSource";
 import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
-import { maskCPF, maskPhone, isValidPhoneBR } from "../lib/masks";
+import {
+  maskCPF,
+  maskPhone,
+  parseCurrencyToCents,
+  centsToCurrencyBRL,
+  isValidPhoneBR,
+  maskCurrencyBRL
+} from "../lib/masks";
 import { displayName } from "../lib/patient-display";
 import type { ScheduleInput } from "../types";
+
 
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +41,7 @@ export function PatientReview() {
     emergency_contact_name: "",
     emergency_contact_phone: "",
     notes: "",
+    session_price: "",
   });
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -51,6 +60,7 @@ export function PatientReview() {
         emergency_contact_name: patient.emergency_contact_name ?? "",
         emergency_contact_phone: patient.emergency_contact_phone ?? "",
         notes: patient.notes ?? "",
+        session_price: centsToCurrencyBRL(patient.session_price_cents),
       });
     }
   }, [patient]);
@@ -126,6 +136,7 @@ export function PatientReview() {
           : null,
         emergency_contact_phone: form.emergency_contact_phone || null,
         notes: form.notes.trim() || null,
+        session_price_cents: parseCurrencyToCents(form.session_price),
       })
       .eq("id", id);
 
@@ -294,6 +305,35 @@ export function PatientReview() {
             onConflictChange={setHasScheduleConflict}
           />
         )}
+      </Card>
+
+      <Card className="space-y-4 p-6">
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+          Financeiro
+        </h2>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+            Valor da sessão
+          </label>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">
+              R$
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.session_price}
+              onChange={(e) =>
+                update("session_price", maskCurrencyBRL(e.target.value))
+              }
+              placeholder="0,00"
+              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+            />
+          </div>
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+            Valor cobrado por sessão. Usado nos relatórios financeiros.
+          </p>
+        </div>
       </Card>
 
       <Card className="space-y-4 p-6">

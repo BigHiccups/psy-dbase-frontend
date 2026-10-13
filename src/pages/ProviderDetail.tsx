@@ -15,6 +15,7 @@ import {
   PauseCircle,
   CalendarClock,
   Plus,
+  Wallet,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useProvider } from "../hooks/useProvider";
@@ -24,6 +25,7 @@ import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
 import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
+import { centsToCurrencyBRL } from "../lib/masks";
 import type { ProviderKind, ScheduleInput } from "../types";
 
 const KIND_LABEL: Record<ProviderKind, string> = {
@@ -109,9 +111,9 @@ export function ProviderDetail() {
           provider_id: string | null;
           patients: { full_name: string } | { full_name: string }[] | null;
           providers:
-            | { display_name: string }
-            | { display_name: string }[]
-            | null;
+          | { display_name: string }
+          | { display_name: string }[]
+          | null;
         };
 
         if (row.provider_id === provider.id && !row.patient_id) continue;
@@ -382,9 +384,17 @@ export function ProviderDetail() {
             label="Telefone"
             value={provider.phone}
           />
+          {provider.session_price_cents !== null && (
+            <InfoItem
+              icon={<Wallet size={14} />}
+              label={
+                isCompany ? "Valor recorrente (referência)" : "Valor da sessão"
+              }
+              value={`R$ ${centsToCurrencyBRL(provider.session_price_cents)}`}
+            />
+          )}
         </div>
       </Card>
-
       {/* Pessoa física: horários recorrentes */}
       {!isCompany && (
         <Card className="p-6">
