@@ -10,6 +10,8 @@ import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { maskCPF, maskPhone, isValidCPF, isValidPhoneBR } from "../lib/masks";
 import type { ScheduleInput } from "../types";
+import { slotOverlapsAppointment } from "../lib/appointment-overlap";
+
 
 type FormState = {
   full_name: string;
@@ -122,6 +124,32 @@ export function PatientForm() {
     if (hasScheduleConflict) {
       setScheduleError("Resolva os horários em conflito antes de salvar.");
       return;
+    }
+
+    // Validação de sobreposição (defensiva)
+    if (schedules.length > 0) {
+      const conflict = schedules.find((s) =>
+        occupiedSlots.some((occ) =>
+          slotOverlapsAppointment(
+            {
+              weekday: s.weekday,
+              startTime: s.startTime,
+              durationMin: s.durationMin,
+            },
+            {
+              weekday: occ.weekday,
+              start_time: occ.startTime,
+              duration_min: occ.durationMin,
+            }
+          )
+        )
+      );
+      if (conflict) {
+        setScheduleError(
+          "Há sobreposição de horário com outro agendamento. Ajuste antes de salvar."
+        );
+        return;
+      }
     }
 
     setSaving(true);

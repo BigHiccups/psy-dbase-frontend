@@ -2,12 +2,19 @@ import { useEffect, useMemo } from "react";
 import { Plus, Trash2, CalendarClock, AlertCircle } from "lucide-react";
 import { Button, Badge } from "../ui";
 import { WEEKDAYS } from "../../lib/weekdays";
+import { slotOverlapsAppointment } from "../../lib/appointment-overlap";
 import type { ScheduleInput } from "../../types";
+
+type DisabledSlot = {
+  weekday: number;
+  startTime: string;
+  durationMin?: number;
+};
 
 type Props = {
   value: ScheduleInput[];
   onChange: (schedules: ScheduleInput[]) => void;
-  disabledSlots?: { weekday: number; startTime: string }[];
+  disabledSlots?: DisabledSlot[];
   disabled?: boolean;
   readOnly?: boolean;
   error?: string | null;
@@ -42,32 +49,55 @@ export function ScheduleEditor({
     onChange(value.filter((_, i) => i !== index));
   }
 
-  const occupiedSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of disabledSlots) {
-      set.add(`${s.weekday}-${normalizeTime(s.startTime)}`);
-    }
-    return set;
+  // Prepara lista de slots ocupados (com duração para sobreposição)
+  const occupiedList = useMemo(() => {
+    return disabledSlots.map((s) => ({
+      weekday: s.weekday,
+      start_time: normalizeTime(s.startTime),
+      duration_min: s.durationMin ?? DEFAULT_DURATION,
+    }));
   }, [disabledSlots]);
 
-  function isExternallyOccupied(weekday: number, startTime: string): boolean {
-    return occupiedSet.has(`${weekday}-${normalizeTime(startTime)}`);
+  // Verifica se um slot externo sobrepõe
+  function isExternallyOverlapping(
+    weekday: number,
+    startTime: string,
+    durationMin: number
+  ): boolean {
+    const found = occupiedList.find((occ) =>
+      slotOverlapsAppointment(
+        { weekday, startTime, durationMin },
+        occ
+      )
+    );
+    return !!found;
   }
 
+  // Conflito interno: outra linha do próprio editor que sobrepõe
   function hasInternalConflict(index: number): boolean {
     const self = value[index];
     return value.some(
       (s, i) =>
         i !== index &&
-        s.weekday === self.weekday &&
-        normalizeTime(s.startTime) === normalizeTime(self.startTime)
+        slotOverlapsAppointment(
+          {
+            weekday: self.weekday,
+            startTime: self.startTime,
+            durationMin: self.durationMin,
+          },
+          {
+            weekday: s.weekday,
+            start_time: s.startTime,
+            duration_min: s.durationMin,
+          }
+        )
     );
   }
 
   function isRowLocked(index: number): boolean {
     const s = value[index];
     return (
-      isExternallyOccupied(s.weekday, s.startTime) ||
+      isExternallyOverlapping(s.weekday, s.startTime, s.durationMin) ||
       hasInternalConflict(index)
     );
   }
@@ -85,14 +115,21 @@ export function ScheduleEditor({
   function isSlotFree(
     weekday: number,
     startTime: string,
+    durationMin: number,
     ignoreIndex: number = -1
   ): boolean {
-    if (isExternallyOccupied(weekday, startTime)) return false;
+    if (isExternallyOverlapping(weekday, startTime, durationMin)) return false;
     return !value.some(
       (s, i) =>
         i !== ignoreIndex &&
-        s.weekday === weekday &&
-        normalizeTime(s.startTime) === normalizeTime(startTime)
+        slotOverlapsAppointment(
+          { weekday, startTime, durationMin },
+          {
+            weekday: s.weekday,
+            start_time: s.startTime,
+            duration_min: s.durationMin,
+          }
+        )
     );
   }
 
@@ -102,28 +139,29 @@ export function ScheduleEditor({
     const baseStartTime = last
       ? normalizeTime(last.startTime)
       : DEFAULT_START_TIME;
+    const baseDuration = last?.durationMin ?? DEFAULT_DURATION;
 
     for (let i = 0; i < 7; i++) {
       const wd = (baseWeekday + i) % 7;
-      if (isSlotFree(wd, baseStartTime)) {
+      if (isSlotFree(wd, baseStartTime, baseDuration)) {
         return {
           weekday: wd,
           startTime: baseStartTime,
-          durationMin: last?.durationMin ?? DEFAULT_DURATION,
+          durationMin: baseDuration,
         };
       }
     }
 
-    if (isSlotFree(baseWeekday, DEFAULT_START_TIME)) {
+    if (isSlotFree(baseWeekday, DEFAULT_START_TIME, baseDuration)) {
       return {
         weekday: baseWeekday,
         startTime: DEFAULT_START_TIME,
-        durationMin: last?.durationMin ?? DEFAULT_DURATION,
+        durationMin: baseDuration,
       };
     }
 
     for (let wd = 0; wd < 7; wd++) {
-      if (isSlotFree(wd, DEFAULT_START_TIME)) {
+      if (isSlotFree(wd, DEFAULT_START_TIME, DEFAULT_DURATION)) {
         return {
           weekday: wd,
           startTime: DEFAULT_START_TIME,
@@ -143,7 +181,6 @@ export function ScheduleEditor({
     onChange([...value, findFreeSlot()]);
   }
 
-  // Classes compartilhadas dos inputs
   const inputClasses = `
     rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900
     transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20
@@ -204,16 +241,18 @@ export function ScheduleEditor({
           return (
             <div
               key={index}
-              className={`flex items-center gap-2 rounded-xl border p-2 transition ${locked
+              className={`flex items-center gap-2 rounded-xl border p-2 transition ${
+                locked
                   ? "border-amber-300 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/20"
                   : "border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-800/40"
-                }`}
+              }`}
             >
               <div
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${locked
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                  locked
                     ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
-                    : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
-                  }`}
+                    : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                }`}
               >
                 {index + 1}
               </div>

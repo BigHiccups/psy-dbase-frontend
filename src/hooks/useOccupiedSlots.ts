@@ -3,7 +3,8 @@ import { supabase } from "../lib/supabase";
 
 export type OccupiedSlot = {
   weekday: number;
-  startTime: string;
+  startTime: string;   // "HH:MM"
+  durationMin: number;
   occupiedBy: "patient" | "provider" | "blocked";
   subjectName: string | null;
 };
@@ -36,6 +37,7 @@ export function useOccupiedSlots(options: Options = {}) {
         `
           weekday,
           start_time,
+          duration_min,
           patient_id,
           provider_id,
           type,
@@ -61,11 +63,10 @@ export function useOccupiedSlots(options: Options = {}) {
       if (excludeProviderId && row.provider_id === excludeProviderId) continue;
 
       const startTime = (row.start_time as string).slice(0, 5);
-      const key = `${row.weekday}-${startTime}`;
+      const key = `${row.weekday}-${startTime}-${row.duration_min}`;
       if (seen.has(key)) continue;
       seen.add(key);
 
-      // Normaliza relações
       const patientRel = Array.isArray(row.patient)
         ? row.patient[0]
         : row.patient;
@@ -87,6 +88,7 @@ export function useOccupiedSlots(options: Options = {}) {
       result.push({
         weekday: row.weekday,
         startTime,
+        durationMin: row.duration_min,
         occupiedBy,
         subjectName,
       });
