@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import type { ScheduleInput } from "../types";
+import type { RecurrenceType, ScheduleInput } from "../types";
 
 export function useProviderSchedules(providerId: string | undefined) {
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
@@ -19,7 +19,7 @@ export function useProviderSchedules(providerId: string | undefined) {
 
     const { data, error } = await supabase
       .from("provider_schedules")
-      .select("weekday, start_time, duration_min")
+      .select("weekday, start_time, duration_min, recurrence_type, recurrence_days")
       .eq("provider_id", providerId)
       .order("weekday", { ascending: true })
       .order("start_time", { ascending: true });
@@ -33,6 +33,8 @@ export function useProviderSchedules(providerId: string | undefined) {
           weekday: row.weekday,
           startTime: (row.start_time as string).slice(0, 5),
           durationMin: row.duration_min,
+          recurrenceType: (row.recurrence_type as RecurrenceType | null) ?? "weekly",
+          recurrenceDays: row.recurrence_days ?? null,
         }))
       );
     }

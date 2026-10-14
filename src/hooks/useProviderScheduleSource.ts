@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import type { ScheduleInput } from "../types";
+import type { RecurrenceType, ScheduleInput } from "../types";
 
 export type ScheduleSource = "manual" | "google" | "none";
 
 type Result = {
   schedules: ScheduleInput[];
   source: ScheduleSource;
+  recurrenceType: RecurrenceType;
+  recurrenceDays: number | null;
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -17,6 +19,9 @@ export function useProviderScheduleSource(
 ): Result {
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [source, setSource] = useState<ScheduleSource>("none");
+  const [recurrenceType, setRecurrenceType] =
+    useState<RecurrenceType>("weekly");
+  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,6 +29,8 @@ export function useProviderScheduleSource(
     if (!providerId) {
       setSchedules([]);
       setSource("none");
+      setRecurrenceType("weekly");
+      setRecurrenceDays(null);
       setLoading(false);
       return;
     }
@@ -37,7 +44,7 @@ export function useProviderScheduleSource(
       // ============================================================
       const { data: manualData, error: manualErr } = await supabase
         .from("provider_schedules")
-        .select("weekday, start_time, duration_min")
+        .select("weekday, start_time, duration_min, recurrence_type, recurrence_days")
         .eq("provider_id", providerId)
         .order("weekday")
         .order("start_time");
@@ -50,8 +57,14 @@ export function useProviderScheduleSource(
             weekday: row.weekday,
             startTime: (row.start_time as string).slice(0, 5),
             durationMin: row.duration_min,
+            recurrenceType: (row.recurrence_type as RecurrenceType | null) ?? "weekly",
+            recurrenceDays: row.recurrence_days ?? null,
           }))
         );
+        setRecurrenceType(
+          (manualData[0].recurrence_type as RecurrenceType | null) ?? "weekly"
+        );
+        setRecurrenceDays(manualData[0].recurrence_days ?? null);
         setSource("manual");
         setLoading(false);
         return;
@@ -59,6 +72,7 @@ export function useProviderScheduleSource(
 
       // ============================================================
       // 2) appointments tipo 'personal' (derivado)
+      // Sem recorrência própria — assume 'weekly'
       // ============================================================
       const { data: apptData } = await supabase
         .from("appointments")
@@ -83,10 +97,14 @@ export function useProviderScheduleSource(
             weekday: row.weekday,
             startTime,
             durationMin: row.duration_min,
+            recurrenceType: "weekly",
+            recurrenceDays: null,
           });
         }
 
         setSchedules(result);
+        setRecurrenceType("weekly");
+        setRecurrenceDays(null);
         setSource("google");
         setLoading(false);
         return;
@@ -94,6 +112,8 @@ export function useProviderScheduleSource(
 
       setSchedules([]);
       setSource("none");
+      setRecurrenceType("weekly");
+      setRecurrenceDays(null);
       setLoading(false);
     } catch (err) {
       setError(
@@ -101,6 +121,8 @@ export function useProviderScheduleSource(
       );
       setSchedules([]);
       setSource("none");
+      setRecurrenceType("weekly");
+      setRecurrenceDays(null);
       setLoading(false);
     }
   }
@@ -110,5 +132,13 @@ export function useProviderScheduleSource(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerId]);
 
-  return { schedules, source, loading, error, reload: load };
+  return {
+    schedules,
+    source,
+    recurrenceType,
+    recurrenceDays,
+    loading,
+    error,
+    reload: load,
+  };
 }

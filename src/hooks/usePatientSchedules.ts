@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import type { ScheduleInput } from "../types";
+import type { RecurrenceType, ScheduleInput } from "../types";
 
 // Busca os horários recorrentes (patient_schedules) de um paciente
 export function usePatientSchedules(patientId: string | undefined) {
@@ -20,7 +20,7 @@ export function usePatientSchedules(patientId: string | undefined) {
 
     const { data, error } = await supabase
       .from("patient_schedules")
-      .select("weekday, start_time, duration_min")
+      .select("weekday, start_time, duration_min, recurrence_type, recurrence_days")
       .eq("patient_id", patientId)
       .order("weekday", { ascending: true })
       .order("start_time", { ascending: true });
@@ -34,6 +34,8 @@ export function usePatientSchedules(patientId: string | undefined) {
           weekday: row.weekday,
           startTime: (row.start_time as string).slice(0, 5), // "HH:MM"
           durationMin: row.duration_min,
+          recurrenceType: (row.recurrence_type as RecurrenceType | null) ?? "weekly",
+          recurrenceDays: row.recurrence_days ?? null,
         }))
       );
     }

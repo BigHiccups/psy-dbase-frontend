@@ -1,28 +1,33 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import type { ScheduleInput } from "../types";
+import type { RecurrenceType, ScheduleInput } from "../types";
 
 export type ScheduleSource = "manual" | "invite" | "google" | "none";
 
 type Result = {
   schedules: ScheduleInput[];
   source: ScheduleSource;
+  recurrenceType: RecurrenceType;
+  recurrenceDays: number | null;
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
 };
 
 // Busca os horários de um paciente em 3 camadas, na ordem de prioridade:
-// 1) patient_schedules      → source = "manual"
-// 2) patient_invite_schedules (via submission aprovada) → source = "invite"
-// 3) appointments derivados  → source = "google"
+// 1) patient_schedules      → source = "manual"      (tem recorrência)
+// 2) patient_invite_schedules (submission aprovada)   → source = "invite" (default weekly)
+// 3) appointments derivados  → source = "google"      (default weekly)
 //
-// Retorna o primeiro que encontrar. Se nenhum, retorna array vazio + source = "none".
+// Retorna o primeiro que encontrar. Se nenhum, array vazio + source = "none".
 export function usePatientScheduleSource(
   patientId: string | undefined
 ): Result {
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [source, setSource] = useState<ScheduleSource>("none");
+  const [recurrenceType, setRecurrenceType] =
+    useState<RecurrenceType>("weekly");
+  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +35,8 @@ export function usePatientScheduleSource(
     if (!patientId) {
       setSchedules([]);
       setSource("none");
+      setRecurrenceType("weekly");
+      setRecurrenceDays(null);
       setLoading(false);
       return;
     }
@@ -43,7 +50,7 @@ export function usePatientScheduleSource(
       // ============================================================
       const { data: manualData, error: manualErr } = await supabase
         .from("patient_schedules")
-        .select("weekday, start_time, duration_min")
+        .select("weekday, start_time, duration_min, recurrence_type, recurrence_days")
         .eq("patient_id", patientId)
         .order("weekday")
         .order("start_time");
@@ -56,8 +63,15 @@ export function usePatientScheduleSource(
             weekday: row.weekday,
             startTime: (row.start_time as string).slice(0, 5),
             durationMin: row.duration_min,
+            recurrenceType: (row.recurrence_type as RecurrenceType | null) ?? "weekly",
+            recurrenceDays: row.recurrence_days ?? null,
           }))
         );
+        // Recorrência: vem da primeira linha (todas têm o mesmo valor)
+        setRecurrenceType(
+          (manualData[0].recurrence_type as RecurrenceType | null) ?? "weekly"
+        );
+        setRecurrenceDays(manualData[0].recurrence_days ?? null);
         setSource("manual");
         setLoading(false);
         return;
@@ -65,6 +79,7 @@ export function usePatientScheduleSource(
 
       // ============================================================
       // 2) patient_invite_schedules (via submission aprovada)
+      // Sem recorrência própria — assume 'weekly'
       // ============================================================
       const { data: patientData } = await supabase
         .from("patients")
@@ -98,8 +113,12 @@ export function usePatientScheduleSource(
                 weekday: row.weekday,
                 startTime: (row.start_time as string).slice(0, 5),
                 durationMin: row.duration_min,
+                recurrenceType: "weekly",
+                recurrenceDays: null,
               }))
             );
+            setRecurrenceType("weekly");
+            setRecurrenceDays(null);
             setSource("invite");
             setLoading(false);
             return;
@@ -109,6 +128,7 @@ export function usePatientScheduleSource(
 
       // ============================================================
       // 3) appointments (derivado — paciente importado do Google)
+      // Sem recorrência própria — assume 'weekly'
       // ============================================================
       const { data: apptData } = await supabase
         .from("appointments")
@@ -133,10 +153,14 @@ export function usePatientScheduleSource(
             weekday: row.weekday,
             startTime,
             durationMin: row.duration_min,
+            recurrenceType: "weekly",
+            recurrenceDays: null,
           });
         }
 
         setSchedules(result);
+        setRecurrenceType("weekly");
+        setRecurrenceDays(null);
         setSource("google");
         setLoading(false);
         return;
@@ -145,6 +169,8 @@ export function usePatientScheduleSource(
       // Nenhuma camada encontrou nada
       setSchedules([]);
       setSource("none");
+      setRecurrenceType("weekly");
+      setRecurrenceDays(null);
       setLoading(false);
     } catch (err) {
       setError(
@@ -152,6 +178,8 @@ export function usePatientScheduleSource(
       );
       setSchedules([]);
       setSource("none");
+      setRecurrenceType("weekly");
+      setRecurrenceDays(null);
       setLoading(false);
     }
   }
@@ -161,5 +189,13 @@ export function usePatientScheduleSource(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
 
-  return { schedules, source, loading, error, reload: load };
+  return {
+    schedules,
+    source,
+    recurrenceType,
+    recurrenceDays,
+    loading,
+    error,
+    reload: load,
+  };
 }
