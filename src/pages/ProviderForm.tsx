@@ -8,6 +8,8 @@ import { useProvider } from "../hooks/useProvider";
 import { useProviderScheduleSource } from "../hooks/useProviderScheduleSource";
 import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
+import { validateRecurrence } from "../lib/recurrence";
+import { callRpcWithFallback } from "../lib/supabase-rpc-fallback";
 import {
   maskCPF,
   maskCNPJ,
@@ -19,7 +21,7 @@ import {
   isValidCNPJ,
   isValidPhoneBR,
 } from "../lib/masks";
-import type { ProviderKind, ScheduleInput } from "../types";
+import type { ProviderKind, RecurrenceType, ScheduleInput } from "../types";
 
 type FormState = {
   kind: ProviderKind;
@@ -52,6 +54,15 @@ function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
   return ka === kb;
 }
 
+function recurrenceEqual(
+  aType: RecurrenceType,
+  aDays: number | null,
+  bType: RecurrenceType,
+  bDays: number | null
+): boolean {
+  return aType === bType && aDays === bDays;
+}
+
 export function ProviderForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -61,8 +72,11 @@ export function ProviderForm() {
   const {
     schedules: sourcedSchedules,
     source,
+    recurrenceType: sourcedRecurrenceType,
+    recurrenceDays: sourcedRecurrenceDays,
     loading: loadingSchedules,
   } = useProviderScheduleSource(id);
+
   const { slots: occupiedSlots } = useOccupiedSlots({
     excludeProviderId: id,
   });
@@ -70,6 +84,15 @@ export function ProviderForm() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [initialSchedules, setInitialSchedules] = useState<ScheduleInput[]>([]);
+
+  const [recurrenceType, setRecurrenceType] =
+    useState<RecurrenceType>("weekly");
+  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
+  const [initialRecurrenceType, setInitialRecurrenceType] =
+    useState<RecurrenceType>("weekly");
+  const [initialRecurrenceDays, setInitialRecurrenceDays] =
+    useState<number | null>(null);
+
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -96,8 +119,21 @@ export function ProviderForm() {
       setInitialSchedules((prev) =>
         prev.length === 0 ? sourcedSchedules : prev
       );
+
+      setRecurrenceType(sourcedRecurrenceType);
+      setRecurrenceDays(sourcedRecurrenceDays);
+      setInitialRecurrenceType((prev) =>
+        prev === "weekly" && sourcedRecurrenceType !== "weekly"
+          ? sourcedRecurrenceType
+          : prev
+      );
+      setInitialRecurrenceDays((prev) =>
+        prev === null && sourcedRecurrenceDays !== null
+          ? sourcedRecurrenceDays
+          : prev
+      );
     }
-  }, [loadingSchedules, sourcedSchedules]);
+  }, [loadingSchedules, sourcedSchedules, sourcedRecurrenceType, sourcedRecurrenceDays]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => {
@@ -107,6 +143,14 @@ export function ProviderForm() {
       }
       return next;
     });
+  }
+
+  function handleRecurrenceChange(
+    nextType: RecurrenceType,
+    nextDays: number | null
+  ) {
+    setRecurrenceType(nextType);
+    setRecurrenceDays(nextDays);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -141,6 +185,12 @@ export function ProviderForm() {
       return;
     }
 
+    const recurrenceErr = validateRecurrence(recurrenceType, recurrenceDays);
+    if (recurrenceErr) {
+      setScheduleError(recurrenceErr);
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
@@ -154,27 +204,45 @@ export function ProviderForm() {
       session_price_cents: parseCurrencyToCents(form.session_price),
     };
 
+    // Só pessoa física tem horários. E só sincroniza se mudou algo.
+    const schedulesChanged = !schedulesEqual(schedules, initialSchedules);
+    const recurrenceChanged = !recurrenceEqual(
+      recurrenceType,
+      recurrenceDays,
+      initialRecurrenceType,
+      initialRecurrenceDays
+    );
+
     const shouldSyncSchedules =
       form.kind === "person" &&
       schedules.length > 0 &&
-      (isEdit ? !schedulesEqual(schedules, initialSchedules) : true);
+      (isEdit ? schedulesChanged || recurrenceChanged : true);
 
     if (isEdit) {
-      const { error } = await supabase
+      const { error: updateErr } = await supabase
         .from("providers")
         .update(payload)
         .eq("id", id);
 
-      if (error) {
-        setError(error.message);
+      if (updateErr) {
+        setError(updateErr.message);
         setSaving(false);
         return;
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc(
+        const { error: scheduleErr } = await callRpcWithFallback(
           "set_provider_schedules",
-          { p_provider_id: id, p_schedules: schedules }
+          {
+            p_provider_id: id,
+            p_schedules: schedules,
+            p_recurrence_type: recurrenceType,
+            p_recurrence_days: recurrenceDays,
+          },
+          {
+            p_provider_id: id,
+            p_schedules: schedules,
+          }
         );
 
         if (scheduleErr) {
@@ -196,22 +264,31 @@ export function ProviderForm() {
         return;
       }
 
-      const { data, error } = await supabase
+      const { data, error: insertErr } = await supabase
         .from("providers")
         .insert({ ...payload, user_id: user.id })
         .select()
         .single();
 
-      if (error || !data) {
-        setError(error?.message ?? "Erro ao criar prestador.");
+      if (insertErr || !data) {
+        setError(insertErr?.message ?? "Erro ao criar prestador.");
         setSaving(false);
         return;
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc(
+        const { error: scheduleErr } = await callRpcWithFallback(
           "set_provider_schedules",
-          { p_provider_id: data.id, p_schedules: schedules }
+          {
+            p_provider_id: data.id,
+            p_schedules: schedules,
+            p_recurrence_type: recurrenceType,
+            p_recurrence_days: recurrenceDays,
+          },
+          {
+            p_provider_id: data.id,
+            p_schedules: schedules,
+          }
         );
 
         if (scheduleErr) {
@@ -436,6 +513,9 @@ export function ProviderForm() {
               }
               onConflictChange={setHasScheduleConflict}
               title="Horários do prestador"
+              recurrenceType={recurrenceType}
+              recurrenceDays={recurrenceDays}
+              onRecurrenceChange={handleRecurrenceChange}
             />
           </Card>
         )}
