@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from "react";
-import { Plus, Trash2, CalendarClock, AlertCircle } from "lucide-react";
+import { Plus, Trash2, CalendarClock, AlertCircle, Repeat } from "lucide-react";
 import { Button, Badge } from "../ui";
 import { WEEKDAYS } from "../../lib/weekdays";
 import { slotOverlapsAppointment } from "../../lib/appointment-overlap";
-import type { ScheduleInput } from "../../types";
+import { RECURRENCE_OPTIONS } from "../../lib/recurrence";
+import type { RecurrenceType, ScheduleInput } from "../../types";
 
 type DisabledSlot = {
   weekday: number;
@@ -21,10 +22,21 @@ type Props = {
   hint?: string;
   title?: string;
   onConflictChange?: (hasConflict: boolean) => void;
+
+  // =========================================================
+  // Recorrência configurável (novo)
+  // =========================================================
+  // Se onRecurrenceChange NÃO for passado, o bloco "Frequência"
+  // não é renderizado. Isso evita mostrar controle que ainda
+  // não tem efeito (durante a migração).
+  recurrenceType?: RecurrenceType;
+  recurrenceDays?: number | null;
+  onRecurrenceChange?: (type: RecurrenceType, days: number | null) => void;
 };
 
 const DEFAULT_DURATION = 50;
 const DEFAULT_START_TIME = "14:00";
+const DEFAULT_RECURRENCE_TYPE: RecurrenceType = "weekly";
 
 function normalizeTime(t: string): string {
   return t.slice(0, 5);
@@ -40,7 +52,38 @@ export function ScheduleEditor({
   hint,
   title = "Horários das sessões",
   onConflictChange,
+  recurrenceType,
+  recurrenceDays,
+  onRecurrenceChange,
 }: Props) {
+  // =========================================================
+  // Recorrência
+  // =========================================================
+  const showRecurrence = !!onRecurrenceChange;
+  const effectiveRecurrenceType: RecurrenceType =
+    recurrenceType ?? DEFAULT_RECURRENCE_TYPE;
+  const isCustomDays = effectiveRecurrenceType === "custom_days";
+
+  function handleRecurrenceTypeChange(next: RecurrenceType) {
+    if (!onRecurrenceChange) return;
+    if (next === "custom_days") {
+      // mantém o valor atual de days, ou inicia em 15
+      onRecurrenceChange(next, recurrenceDays ?? 15);
+    } else {
+      onRecurrenceChange(next, null);
+    }
+  }
+
+  function handleRecurrenceDaysChange(raw: string) {
+    if (!onRecurrenceChange) return;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      onRecurrenceChange(effectiveRecurrenceType, null);
+      return;
+    }
+    onRecurrenceChange(effectiveRecurrenceType, parsed);
+  }
+
   function update(index: number, patch: Partial<ScheduleInput>) {
     onChange(value.map((s, i) => (i === index ? { ...s, ...patch } : s)));
   }
@@ -58,22 +101,17 @@ export function ScheduleEditor({
     }));
   }, [disabledSlots]);
 
-  // Verifica se um slot externo sobrepõe
   function isExternallyOverlapping(
     weekday: number,
     startTime: string,
     durationMin: number
   ): boolean {
     const found = occupiedList.find((occ) =>
-      slotOverlapsAppointment(
-        { weekday, startTime, durationMin },
-        occ
-      )
+      slotOverlapsAppointment({ weekday, startTime, durationMin }, occ)
     );
     return !!found;
   }
 
-  // Conflito interno: outra linha do próprio editor que sobrepõe
   function hasInternalConflict(index: number): boolean {
     const self = value[index];
     return value.some(
@@ -216,6 +254,57 @@ export function ScheduleEditor({
           </Button>
         )}
       </div>
+
+      {/* ============================================================
+          Bloco de Frequência (novo) — só aparece se onRecurrenceChange
+          for passado
+          ============================================================ */}
+      {showRecurrence && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50/60 p-3 dark:border-slate-800 dark:bg-slate-800/40">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-slate-300">
+                <Repeat size={12} />
+                Frequência
+              </label>
+              <select
+                value={effectiveRecurrenceType}
+                onChange={(e) =>
+                  handleRecurrenceTypeChange(e.target.value as RecurrenceType)
+                }
+                disabled={disabled || readOnly}
+                className={`w-full ${inputClasses}`}
+              >
+                {RECURRENCE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {isCustomDays && (
+              <div className="sm:w-40">
+                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-slate-300">
+                  A cada (dias)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={recurrenceDays ?? ""}
+                  onChange={(e) => handleRecurrenceDaysChange(e.target.value)}
+                  disabled={disabled || readOnly}
+                  className={`w-full ${inputClasses}`}
+                />
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+            A frequência vale para todos os horários deste paciente/prestador.
+          </p>
+        </div>
+      )}
 
       {value.length === 0 && (
         <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500 dark:border-slate-700 dark:text-slate-400">
