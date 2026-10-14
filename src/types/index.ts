@@ -16,10 +16,24 @@ export type Patient = {
   created_at: string;
   updated_at: string;
 };
+
+// =========================================================
+// Recorrência configurável
+// =========================================================
+export type RecurrenceType =
+  | "once"
+  | "weekly"
+  | "biweekly"
+  | "monthly"
+  | "every_30_days"
+  | "custom_days";
+
 export type ScheduleInput = {
-  weekday: number;      // 0=domingo, 6=sábado
-  startTime: string;    // "HH:MM"
-  durationMin: number;  // default 50
+  weekday: number;                  // 0=domingo, 6=sábado
+  startTime: string;                // "HH:MM"
+  durationMin: number;              // default 50
+  recurrenceType?: RecurrenceType;  // default 'weekly' se ausente
+  recurrenceDays?: number;          // só se custom_days, 1..365
 };
 
 export type InviteResponse = {
@@ -53,7 +67,7 @@ export type Provider = {
   phone: string | null;
   notes: string | null;
   status: ProviderStatus;
-  session_price_cents: number | null; 
+  session_price_cents: number | null;
   created_at: string;
   updated_at: string;
 };

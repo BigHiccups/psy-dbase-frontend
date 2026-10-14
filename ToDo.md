@@ -224,6 +224,23 @@ Precisamos cobrir: avulso, 15 em 15, mensal, a cada N dias.
       `package.json`
 - [ ] Atualizar `README`, `CONTEXT`, `TODO` (front + back)
 
+### Agendamento avulso
+- [ ] Botão "Novo agendamento" no PatientDetail
+- [ ] Botão "Novo agendamento" no ProviderDetail
+- [ ] Modal simples (data + hora + duração)
+- [ ] Insere 1 appointment is_recurring=false, sem tocar em *_schedules
+- [ ] Valida conflito por sobreposição (reusa appointment-overlap.ts)
+
+### Drag and drop na agenda
+- [ ] Escolher biblioteca (@dnd-kit/core)
+- [ ] Mover sessão individual (arrastar bloco)
+- [ ] Redimensionar duração (arrastar borda)
+- [ ] Mover série inteira (modifier key)
+- [ ] Criar por drag (arrastar de slot vazio)
+- [ ] Validar conflito antes de aplicar
+- [ ] Undo/redo (Ctrl+Z)
+- [ ] Touch/mobile
+- [ ] Decidir UX: ao mover appointment recorrente, pergunta "só este" ou "toda a série"?
 ---
 
 ## Fase 4 — Prontuário + Anamnese + Evolução SOAP
