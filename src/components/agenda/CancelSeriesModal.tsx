@@ -47,6 +47,13 @@ export function CancelSeriesModal({
       [subjectType === "patient" ? "p_patient_id" : "p_provider_id"]:
         subjectId,
       p_mode: mode,
+      // ============================================================
+      // Sempre manda p_renew_days (mesmo em null) pra desambiguar
+      // o overload entre a versão antiga (4 args) e a nova (5 args).
+      // Sem isso, o Postgres não sabe qual escolher quando os
+      // parâmetros opcionais são omitidos.
+      // ============================================================
+      p_renew_days: null,
     };
 
     if (mode === "from_date") params.p_from_date = fromDate;
@@ -175,11 +182,10 @@ function ModeOption({
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
-        selected
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selected
           ? "border-brand-300 bg-brand-50/40 dark:border-brand-700 dark:bg-brand-950/30"
           : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-      }`}
+        }`}
     >
       <input
         type="radio"
