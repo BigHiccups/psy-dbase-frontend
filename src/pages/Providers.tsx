@@ -48,10 +48,11 @@ export function Providers() {
           <button
             key={f.value}
             onClick={() => setFilter(f.value)}
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${filter === f.value
-              ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
-              : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
-              }`}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              filter === f.value
+                ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+                : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
+            }`}
           >
             {f.label}
           </button>
@@ -88,12 +89,13 @@ export function Providers() {
       {!loading && providers.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-left text-sm">
+            {/* ← MUDOU: coluna "Valor" em vez da segunda "Telefone" duplicada */}
             <thead className="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-slate-800/60 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3">Nome</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Tipo</th>
+                <th className="hidden px-4 py-3 md:table-cell">Valor</th>
                 <th className="hidden px-4 py-3 lg:table-cell">Telefone</th>
-                <th className="hidden px-4 py-3 sm:table-cell">Telefone</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
@@ -103,8 +105,9 @@ export function Providers() {
                 return (
                   <tr
                     key={p.id}
-                    className={`transition hover:bg-gray-50 dark:hover:bg-slate-800/50 ${isArchived ? "opacity-60" : ""
-                      }`}
+                    className={`transition hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
+                      isArchived ? "opacity-60" : ""
+                    }`}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

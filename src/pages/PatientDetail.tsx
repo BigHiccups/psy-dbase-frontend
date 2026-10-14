@@ -62,7 +62,12 @@ export function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { patient, loading, error, reload } = usePatient(id);
-  const { schedules: patientSchedules } = usePatientSchedules(id);
+
+  // ← MUDOU: também pega o reload dos schedules
+  const {
+    schedules: patientSchedules,
+    reload: reloadSchedules,
+  } = usePatientSchedules(id);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -100,6 +105,7 @@ export function PatientDetail() {
     }
     setArchiveOpen(false);
     reload();
+    reloadSchedules(); // ← MUDOU
   }
 
   async function findConflicts(): Promise<ConflictItem[]> {
@@ -202,6 +208,7 @@ export function PatientDetail() {
 
     setWorking(false);
     reload();
+    reloadSchedules(); // ← MUDOU
   }
 
   async function handleReactivateWithoutSchedules() {
@@ -568,6 +575,7 @@ export function PatientDetail() {
           onDone={() => {
             setSuspendOpen(false);
             reload();
+            reloadSchedules(); // ← MUDOU
           }}
         />
       )}

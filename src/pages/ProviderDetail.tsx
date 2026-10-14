@@ -46,7 +46,12 @@ export function ProviderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { provider, loading, error, reload } = useProvider(id);
-  const { schedules: providerSchedules } = useProviderSchedules(id);
+
+  // ← MUDOU: também pega o reload dos schedules
+  const {
+    schedules: providerSchedules,
+    reload: reloadSchedules,
+  } = useProviderSchedules(id);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -84,6 +89,7 @@ export function ProviderDetail() {
     }
     setArchiveOpen(false);
     reload();
+    reloadSchedules(); // ← MUDOU
   }
 
   async function findConflicts(): Promise<ConflictItem[]> {
@@ -204,6 +210,7 @@ export function ProviderDetail() {
 
     setWorking(false);
     reload();
+    reloadSchedules(); // ← MUDOU
   }
 
   async function handleReactivateWithoutSchedules() {
@@ -395,6 +402,7 @@ export function ProviderDetail() {
           )}
         </div>
       </Card>
+
       {/* Pessoa física: horários recorrentes */}
       {!isCompany && (
         <Card className="p-6">
@@ -565,6 +573,7 @@ export function ProviderDetail() {
           onDone={() => {
             setSuspendOpen(false);
             reload();
+            reloadSchedules(); // ← MUDOU
           }}
         />
       )}
