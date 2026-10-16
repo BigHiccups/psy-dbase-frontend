@@ -9,7 +9,6 @@ import { usePatientScheduleSource } from "../hooks/usePatientScheduleSource";
 import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { validateRecurrence } from "../lib/recurrence";
-import { callRpcWithFallback } from "../lib/supabase-rpc-fallback";
 import {
   maskCPF,
   maskPhone,
@@ -221,17 +220,13 @@ export function PatientForm() {
       );
 
       if (schedules.length > 0 && (schedulesChanged || recurrenceChanged)) {
-        const { error: scheduleErr } = await callRpcWithFallback(
+        const { error: scheduleErr } = await supabase.rpc(
           "set_patient_schedules",
           {
             p_patient_id: id,
             p_schedules: schedules,
             p_recurrence_type: recurrenceType,
             p_recurrence_days: recurrenceDays,
-          },
-          {
-            p_patient_id: id,
-            p_schedules: schedules,
           }
         );
 
@@ -267,17 +262,13 @@ export function PatientForm() {
       }
 
       if (schedules.length > 0) {
-        const { error: scheduleErr } = await callRpcWithFallback(
+        const { error: scheduleErr } = await supabase.rpc(
           "set_patient_schedules",
           {
             p_patient_id: data.id,
             p_schedules: schedules,
             p_recurrence_type: recurrenceType,
             p_recurrence_days: recurrenceDays,
-          },
-          {
-            p_patient_id: data.id,
-            p_schedules: schedules,
           }
         );
 

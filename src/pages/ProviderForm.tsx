@@ -9,7 +9,6 @@ import { useProviderScheduleSource } from "../hooks/useProviderScheduleSource";
 import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { validateRecurrence } from "../lib/recurrence";
-import { callRpcWithFallback } from "../lib/supabase-rpc-fallback";
 import {
   maskCPF,
   maskCNPJ,
@@ -231,17 +230,13 @@ export function ProviderForm() {
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await callRpcWithFallback(
+        const { error: scheduleErr } = await supabase.rpc(
           "set_provider_schedules",
           {
             p_provider_id: id,
             p_schedules: schedules,
             p_recurrence_type: recurrenceType,
             p_recurrence_days: recurrenceDays,
-          },
-          {
-            p_provider_id: id,
-            p_schedules: schedules,
           }
         );
 
@@ -277,17 +272,13 @@ export function ProviderForm() {
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await callRpcWithFallback(
+        const { error: scheduleErr } = await supabase.rpc(
           "set_provider_schedules",
           {
             p_provider_id: data.id,
             p_schedules: schedules,
             p_recurrence_type: recurrenceType,
             p_recurrence_days: recurrenceDays,
-          },
-          {
-            p_provider_id: data.id,
-            p_schedules: schedules,
           }
         );
 
@@ -351,8 +342,8 @@ export function ProviderForm() {
               type="button"
               onClick={() => update("kind", "person")}
               className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person"
-                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                 }`}
             >
               <User
@@ -377,8 +368,8 @@ export function ProviderForm() {
               type="button"
               onClick={() => update("kind", "company")}
               className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company"
-                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                 }`}
             >
               <Building2
