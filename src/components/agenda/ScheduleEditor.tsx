@@ -360,12 +360,12 @@ export function ScheduleEditor({
   }
 
   const inputClasses = `
-    rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900
-    transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20
-    disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500
-    dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100
-    dark:disabled:bg-slate-800/50 dark:disabled:text-slate-500
-  `;
+  h-9 rounded-md border border-gray-300 bg-white px-2 text-sm text-gray-900
+  transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20
+  disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500
+  dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100
+  dark:disabled:bg-slate-800/50 dark:disabled:text-slate-500
+`;
 
   return (
     <div>
@@ -478,16 +478,16 @@ export function ScheduleEditor({
             <div
               key={index}
               className={`rounded-xl border p-3 transition ${locked
-                  ? "border-amber-300 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/20"
-                  : "border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-800/40"
+                ? "border-amber-300 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/20"
+                : "border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-800/40"
                 }`}
             >
               <div className="flex items-start gap-3">
                 {/* Número */}
                 <div
-                  className={`mt-5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${locked
-                      ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
-                      : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                  className={`mt-[26px] flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${locked
+                    ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
+                    : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                     }`}
                 >
                   {index + 1}
@@ -574,7 +574,7 @@ export function ScheduleEditor({
                       type="button"
                       onClick={() => remove(index)}
                       disabled={value.length === 1 || disabled || isOnce}
-                      className="mt-5 shrink-0 rounded-md p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400 dark:disabled:hover:text-slate-500"
+                      className="mt-[22px] shrink-0 rounded-md p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400 dark:disabled:hover:text-slate-500"
                       title={
                         isOnce
                           ? "Único horário — não pode ser removido"
