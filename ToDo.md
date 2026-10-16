@@ -13,10 +13,8 @@
 
 ## 🎯 Próximos 3 passos
 
-1. **Frequência configurável — Etapa 3** — ler `anchor_date` nos hooks +
-   atualizar `PatientReview` + deploy + Migration 3
-2. **`provider_billings`** (Fase B) — vencimentos de prestadores `company`
-3. **Ajustes finos** — 404, favicon, `AlertDialog`, busca, `postMessage`
+1. **`provider_billings`** (Fase B) — vencimentos de prestadores `company`
+2. **Ajustes finos** — 404, favicon, `AlertDialog`, busca, `postMessage`
 
 ---
 
@@ -190,7 +188,6 @@
 - [x] `useProviderSchedules` idem
 - [x] `usePatientScheduleSource` lê recorrência (camada manual)
 - [x] `useProviderScheduleSource` idem
-- [ ] **Etapa 3 pendente** — hooks de `source` lerem `anchor_date`
 
 ### Forms e Detail
 
@@ -200,9 +197,12 @@
 - [x] `PatientDetail` — badge de frequência ao lado do título
 - [x] `ProviderDetail` — badge de frequência
 - [x] `CancelSeriesModal` — passa `p_renew_days: null` pra desambiguar overload
-- [ ] **Etapa 3 pendente** — `PatientReview` passar `recurrence_type` /
-      `recurrence_days` / `anchorDate` pra `promote_prospect_to_active` nova
-- [ ] **Etapa 3 pendente** — deploy + teste em produção
+- [x] Hooks de `source` leem `anchor_date`
+- [x] `PatientReview` passa `recurrence_type` / `recurrence_days` / `anchorDate`
+- [x] Deploy + teste em produção
+- [x] Migration 3 (drop RPCs antigas)
+- [x] Cleanup do `callRpcWithFallback`
+- [x] `MaskedDateInput` com máscara + setas ↑↓ + preservação de cursor
 
 ### Fase B — `provider_billings` (próxima rodada)
 

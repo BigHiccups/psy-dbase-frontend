@@ -536,10 +536,10 @@ o Postgres responder `function does not exist`.
 **Importante:** o `CancelSeriesModal` passa `p_renew_days: null` explicitamente
 pra desambiguar o overload (senão o Postgres não sabe qual versão chamar).
 
-#### Migration 3 — pendente
+#### Migration 3 — aplicada
 
-Depois de validar em produção, dropar as RPCs antigas (3/4 args) e remover o
-`callRpcWithFallback` do frontend.
+As RPCs antigas (3/4 args) foram dropadas. O `callRpcWithFallback` foi
+removido do frontend. Hoje há apenas **uma versão** de cada RPC.
 
 ### 4.29 `MaskedDateInput` — máscara de data BR ⭐ NOVO
 
@@ -648,10 +648,10 @@ Ver seção 4.24.
 | Bloco aparece na coluna errada da agenda            | `WEEKDAY_SHORT/LONG` em ordem JS, não ISO       | Usar `isoWeekday()` antes de indexar                        |
 | `appointments_subject_check` violada ao excluir     | FK com `on delete set null` conflita            | Usar RPC `delete_patient` / `delete_provider`               |
 | Slot do próprio paciente/provider fica âmbar        | `useOccupiedSlots` sem `excludeId`              | Passar `excludePatientId` / `excludeProviderId`             |
-| Salvar mesmo com conflito                           | Sem `onConflictChange` / sem validação no submit | Usar `hasScheduleConflict` + botão desabilitado             |
-| Dark mode com fundo claro + texto claro             | Falta `--color-brand-950` no `@theme`           | Adicionar `--color-brand-950: #042f2e`                      |
+| Salvar mesmo com conflito                           | Sem `onConflictChange` / sem validação no submit | Usar `hasScheduleConflict` + botão desabilitado            |
+| Dark mode com fundo claro + texto claro             | Falta `--color-brand-950` no `@theme`           | Adicionar `--color-brand-950: #042f2e`                    |
 | Amigo cai em localhost ao autorizar Google          | `GOOGLE_REDIRECT_URI` no backend de produção    | Atualizar pra URL da Vercel                                 |
-| **`Could not choose the best candidate function`**  | Overload ambíguo de RPC                         | Passar todos os parâmetros, ou usar `callRpcWithFallback`   |
+| **`Could not choose the best candidate function`**  | Overload ambíguo de RPC (histórico)             | Não existe mais — só há uma versão de cada RPC              |
 | **Cursor pula pro fim ao editar data com máscara**  | Input controlado reposiciona cursor             | Usar `MaskedDateInput` (setSelectionRange)                  |
 | **`<input type="date">` mostra mm/dd/aaaa**         | Locale do navegador                             | Usar `MaskedDateInput` (não `<input type="date">`)          |
 | **`monthly` cai em dia diferente do esperado**      | Faltava `anchor_date`                           | Sempre passar `anchorDate` no JSONB                         |
@@ -707,13 +707,10 @@ Ver seção 4.24.
 - ✅ `CancelSeriesModal` desambigua overload com `p_renew_days: null`
 - ✅ `callRpcWithFallback` implementado
 
-**Pendente (Frequência configurável) — Etapa 3:**
+**Frequência configurável — CONCLUÍDA ✅**
 
-- ⏳ `usePatientScheduleSource` / `useProviderScheduleSource` ler `anchor_date`
-- ⏳ `PatientReview` usar `promote_prospect_to_active` nova (com recorrência)
-- ⏳ Deploy + teste em produção
-- ⏳ Migration 3 — dropar RPCs antigas (3/4 args)
-- ⏳ Cleanup do `callRpcWithFallback`
+Todas as migrations aplicadas em produção. Frontend em produção usa as RPCs
+de 5 args. As RPCs antigas (3/4 args) foram dropadas.
 
 **Pendente — próximo:**
 
