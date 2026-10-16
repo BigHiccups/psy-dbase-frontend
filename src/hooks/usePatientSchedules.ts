@@ -5,12 +5,17 @@ import type { RecurrenceType, ScheduleInput } from "../types";
 // Busca os horários recorrentes (patient_schedules) de um paciente
 export function usePatientSchedules(patientId: string | undefined) {
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
+  const [recurrenceType, setRecurrenceType] =
+    useState<RecurrenceType>("weekly");
+  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
     if (!patientId) {
       setSchedules([]);
+      setRecurrenceType("weekly");
+      setRecurrenceDays(null);
       setLoading(false);
       return;
     }
@@ -28,16 +33,31 @@ export function usePatientSchedules(patientId: string | undefined) {
     if (error) {
       setError(error.message);
       setSchedules([]);
+      setRecurrenceType("weekly");
+      setRecurrenceDays(null);
     } else {
+      const rows = data ?? [];
       setSchedules(
-        (data ?? []).map((row) => ({
+        rows.map((row) => ({
           weekday: row.weekday,
-          startTime: (row.start_time as string).slice(0, 5), // "HH:MM"
+          startTime: (row.start_time as string).slice(0, 5),
           durationMin: row.duration_min,
-          recurrenceType: (row.recurrence_type as RecurrenceType | null) ?? "weekly",
+          recurrenceType:
+            (row.recurrence_type as RecurrenceType | null) ?? "weekly",
           recurrenceDays: row.recurrence_days ?? null,
         }))
       );
+
+      // Recorrência: vem da primeira linha (todas têm o mesmo valor)
+      if (rows.length > 0) {
+        setRecurrenceType(
+          (rows[0].recurrence_type as RecurrenceType | null) ?? "weekly"
+        );
+        setRecurrenceDays(rows[0].recurrence_days ?? null);
+      } else {
+        setRecurrenceType("weekly");
+        setRecurrenceDays(null);
+      }
     }
     setLoading(false);
   }
@@ -47,5 +67,12 @@ export function usePatientSchedules(patientId: string | undefined) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
 
-  return { schedules, loading, error, reload: load };
+  return {
+    schedules,
+    recurrenceType,
+    recurrenceDays,
+    loading,
+    error,
+    reload: load,
+  };
 }

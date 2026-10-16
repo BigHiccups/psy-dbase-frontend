@@ -26,6 +26,7 @@ import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
 import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
 import { centsToCurrencyBRL } from "../lib/masks";
+import { getRecurrenceShortLabel } from "../lib/recurrence";
 import type { ProviderKind, ScheduleInput } from "../types";
 
 const KIND_LABEL: Record<ProviderKind, string> = {
@@ -47,9 +48,10 @@ export function ProviderDetail() {
   const navigate = useNavigate();
   const { provider, loading, error, reload } = useProvider(id);
 
-  // ← MUDOU: também pega o reload dos schedules
   const {
     schedules: providerSchedules,
+    recurrenceType,
+    recurrenceDays,
     reload: reloadSchedules,
   } = useProviderSchedules(id);
 
@@ -89,7 +91,7 @@ export function ProviderDetail() {
     }
     setArchiveOpen(false);
     reload();
-    reloadSchedules(); // ← MUDOU
+    reloadSchedules();
   }
 
   async function findConflicts(): Promise<ConflictItem[]> {
@@ -210,7 +212,7 @@ export function ProviderDetail() {
 
     setWorking(false);
     reload();
-    reloadSchedules(); // ← MUDOU
+    reloadSchedules();
   }
 
   async function handleReactivateWithoutSchedules() {
@@ -415,6 +417,15 @@ export function ProviderDetail() {
               <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
                 Horários recorrentes
               </h2>
+              {providerSchedules.length > 0 && (
+                <Badge
+                  variant={recurrenceType === "weekly" ? "neutral" : "brand"}
+                >
+                  {recurrenceType === "custom_days" && recurrenceDays
+                    ? `A cada ${recurrenceDays} dias`
+                    : getRecurrenceShortLabel(recurrenceType)}
+                </Badge>
+              )}
             </div>
             {hasActiveSchedules && (
               <Button
@@ -573,7 +584,7 @@ export function ProviderDetail() {
           onDone={() => {
             setSuspendOpen(false);
             reload();
-            reloadSchedules(); // ← MUDOU
+            reloadSchedules();
           }}
         />
       )}

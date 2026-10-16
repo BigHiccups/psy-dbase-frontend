@@ -27,6 +27,7 @@ import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
 import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
 import { centsToCurrencyBRL } from "../lib/masks";
+import { getRecurrenceShortLabel } from "../lib/recurrence";
 import type { PatientStatus, ScheduleInput } from "../types";
 
 const STATUS_LABEL: Record<PatientStatus, string> = {
@@ -63,9 +64,10 @@ export function PatientDetail() {
   const navigate = useNavigate();
   const { patient, loading, error, reload } = usePatient(id);
 
-  // ← MUDOU: também pega o reload dos schedules
   const {
     schedules: patientSchedules,
+    recurrenceType,
+    recurrenceDays,
     reload: reloadSchedules,
   } = usePatientSchedules(id);
 
@@ -105,7 +107,7 @@ export function PatientDetail() {
     }
     setArchiveOpen(false);
     reload();
-    reloadSchedules(); // ← MUDOU
+    reloadSchedules();
   }
 
   async function findConflicts(): Promise<ConflictItem[]> {
@@ -208,7 +210,7 @@ export function PatientDetail() {
 
     setWorking(false);
     reload();
-    reloadSchedules(); // ← MUDOU
+    reloadSchedules();
   }
 
   async function handleReactivateWithoutSchedules() {
@@ -409,7 +411,7 @@ export function PatientDetail() {
         </div>
       </Card>
 
-      {/* Horários das sessões (com botão de suspender embutido) */}
+      {/* Horários das sessões */}
       <Card className="p-6">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -420,6 +422,15 @@ export function PatientDetail() {
             <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
               Horários das sessões
             </h2>
+            {patientSchedules.length > 0 && (
+              <Badge
+                variant={recurrenceType === "weekly" ? "neutral" : "brand"}
+              >
+                {recurrenceType === "custom_days" && recurrenceDays
+                  ? `A cada ${recurrenceDays} dias`
+                  : getRecurrenceShortLabel(recurrenceType)}
+              </Badge>
+            )}
           </div>
           {hasActiveSchedules && (
             <Button
@@ -575,7 +586,7 @@ export function PatientDetail() {
           onDone={() => {
             setSuspendOpen(false);
             reload();
-            reloadSchedules(); // ← MUDOU
+            reloadSchedules();
           }}
         />
       )}
