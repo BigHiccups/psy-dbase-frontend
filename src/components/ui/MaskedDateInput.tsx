@@ -69,11 +69,11 @@ export function MaskedDateInput({
   }, [value]);
 
   const base = `
-    rounded-md border px-2 py-1.5 text-sm
-    transition focus:outline-none focus:ring-2
-    disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500
-    dark:disabled:bg-slate-800/50 dark:disabled:text-slate-500
-  `;
+  h-9 rounded-md border px-2 text-sm
+  transition focus:outline-none focus:ring-2
+  disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500
+  dark:disabled:bg-slate-800/50 dark:disabled:text-slate-500
+`;
 
   const styles = invalid
     ? "border-red-400 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500/20 dark:border-red-700 dark:bg-red-950/40 dark:text-red-200"
