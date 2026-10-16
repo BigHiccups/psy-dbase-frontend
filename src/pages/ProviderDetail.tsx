@@ -415,7 +415,7 @@ export function ProviderDetail() {
                 className="text-brand-600 dark:text-brand-400"
               />
               <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                Horários recorrentes
+                Horários
               </h2>
               {providerSchedules.length > 0 && (
                 <Badge

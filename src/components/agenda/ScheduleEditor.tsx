@@ -266,6 +266,29 @@ export function ScheduleEditor({
     onConflictChange?.(hasConflict);
   }, [hasConflict, onConflictChange]);
 
+  // =========================================================
+  // Auto-adiciona 1 slot quando entra em 'once' com 0 horários
+  // =========================================================
+  // Em 'once', o usuário não vê o botão '+ Adicionar' (por design).
+  // Sem isso, ele fica preso sem poder criar o único horário.
+  useEffect(() => {
+    if (!isOnce) return;
+    if (value.length > 0) return;
+    if (readOnly || disabled) return;
+
+    // Cria o primeiro slot
+    const base: ScheduleInput = {
+      weekday: 1,
+      startTime: DEFAULT_START_TIME,
+      durationMin: DEFAULT_DURATION,
+    };
+    if (useDateInput) {
+      base.anchorDate = nextDateForWeekday(base.weekday);
+    }
+    onChange([base]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnce, value.length, readOnly, disabled]);
+
   function isSlotFree(
     weekday: number,
     startTime: string,
@@ -429,8 +452,10 @@ export function ScheduleEditor({
 
       {value.length === 0 && (
         <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500 dark:border-slate-700 dark:text-slate-400">
-          Nenhum horário definido.
-          {!readOnly && canAddMore && (
+          {isOnce
+            ? "Carregando campo de data..."
+            : "Nenhum horário definido."}
+          {!readOnly && !isOnce && canAddMore && (
             <>
               {" "}
               <button
@@ -459,23 +484,25 @@ export function ScheduleEditor({
             <div
               key={index}
               className={`rounded-xl border p-3 transition ${locked
-                ? "border-amber-300 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/20"
-                : "border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-800/40"
+                  ? "border-amber-300 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/20"
+                  : "border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-800/40"
                 }`}
             >
-              <div className="flex items-end gap-3">
+              <div className="flex items-start gap-3">
+                {/* Número */}
                 <div
-                  className={`mb-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${locked
-                    ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
-                    : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                  className={`mt-5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${locked
+                      ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
+                      : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                     }`}
                 >
                   {index + 1}
                 </div>
 
-                <div className="flex flex-1 flex-wrap items-end gap-3">
-                  {/* Campo de dia (weekday) ou data (máscara dd/mm/aaaa) */}
-                  <div className="min-w-[180px] flex-1">
+                {/* Campos */}
+                <div className="flex flex-1 items-start gap-3">
+                  {/* Dia / Data */}
+                  <div className="min-w-0 flex-1 ">
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-slate-300">
                       {useDateInput ? "Início" : "Dia da semana"}
                     </label>
@@ -506,7 +533,7 @@ export function ScheduleEditor({
                   </div>
 
                   {/* Hora */}
-                  <div>
+                  <div className="w-[130px] shrink-0">
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-slate-300">
                       Hora
                     </label>
@@ -517,16 +544,16 @@ export function ScheduleEditor({
                         update(index, { startTime: e.target.value })
                       }
                       disabled={disabled || readOnly}
-                      className={inputClasses}
+                      className={`w-full ${inputClasses}`}
                     />
                   </div>
 
                   {/* Duração */}
-                  <div>
+                  <div className="w-[110px] shrink-0">
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-slate-300">
                       Duração
                     </label>
-                    <div className="flex items-center gap-1">
+                    <div className="relative">
                       <input
                         type="number"
                         min={15}
@@ -539,9 +566,9 @@ export function ScheduleEditor({
                           })
                         }
                         disabled={disabled || readOnly}
-                        className={`w-16 ${inputClasses}`}
+                        className={`w-full pr-9 ${inputClasses}`}
                       />
-                      <span className="text-xs text-gray-500 dark:text-slate-400">
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 dark:text-slate-400">
                         min
                       </span>
                     </div>
@@ -553,7 +580,7 @@ export function ScheduleEditor({
                       type="button"
                       onClick={() => remove(index)}
                       disabled={value.length === 1 || disabled || isOnce}
-                      className="mb-1 rounded-md p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400 dark:disabled:hover:text-slate-500"
+                      className="mt-5 shrink-0 rounded-md p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400 dark:disabled:hover:text-slate-500"
                       title={
                         isOnce
                           ? "Único horário — não pode ser removido"
