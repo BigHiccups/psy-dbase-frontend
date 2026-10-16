@@ -1,3 +1,4 @@
+```markdown
 # TODO.md — psy-dbase-front
 
 > Tarefas pendentes, organizadas por fase.
@@ -6,17 +7,16 @@
 
 **URL de produção:** `https://psy-dbase-frontend.vercel.app`
 **Branch principal:** `main`
+**Branch atual:** `feat/recurrence`
 
 ---
 
 ## 🎯 Próximos 3 passos
 
-1. **Frequência configurável** — adicionar `recurrence_type` + `recurrence_days`
-   em `patient_schedules` / `provider_schedules` e refletir no `ScheduleEditor`
+1. **Frequência configurável — Etapa 3** — ler `anchor_date` nos hooks +
+   atualizar `PatientReview` + deploy + Migration 3
 2. **`provider_billings`** (Fase B) — vencimentos de prestadores `company`
-   (mensal / bimestral / semestral / anual)
-3. **Ajustes finos** — 404, favicon, metadados, `AlertDialog`, busca,
-   perfil/preferências em `/settings`, `postMessage` do OAuth
+3. **Ajustes finos** — 404, favicon, `AlertDialog`, busca, `postMessage`
 
 ---
 
@@ -57,7 +57,7 @@
 ### Integração + Revisão + Prestadores
 
 - [x] Página `/settings` com Google Calendar
-- [x] Bloco "Aguardando revisão" **no Dashboard** (movido de `/patients`)
+- [x] Bloco "Aguardando revisão" no Dashboard
 - [x] Página `/patients/:id/review`
 - [x] `displayName` (heurística visual)
 - [x] CRUD completo de prestadores
@@ -80,13 +80,13 @@
 - [x] Item "Agenda" na sidebar
 - [x] Tipos `Appointment`, `AppointmentWithRelations`, `AppointmentType`
 - [x] Correção de timezone (`isoWeekday`/`jsWeekday`)
-- [x] **Stacking de ativos** (principal 100%, sub-blocos 50%)
+- [x] Stacking de ativos (principal 100%, sub-blocos 50%)
 - [x] `StackOverviewModal` para `+N` blocos ocultos
-- [x] **Cancelados como badges por slot** (Semana/Dia) / por dia (Mês)
+- [x] Cancelados como badges por slot (Semana/Dia) / por dia (Mês)
 - [x] `SlotCancelledModal` / `DayCancelledModal`
-- [x] RPC `reactivate_appointment` (reativa com validação de conflito)
-- [x] RPC `delete_cancelled_appointments` (remove em massa)
-- [x] **"Cancelar série" no provider** (era só paciente)
+- [x] RPC `reactivate_appointment`
+- [x] RPC `delete_cancelled_appointments`
+- [x] "Cancelar série" no provider
 
 ### Horários recorrentes + bloqueio
 
@@ -94,18 +94,17 @@
 - [x] `useProviderSchedules` + `useProviderScheduleSource` (fallback duplo)
 - [x] `useOccupiedSlots` (com `excludePatientId` / `excludeProviderId`)
 - [x] `ScheduleEditor` com bloqueio visual (âmbar)
-- [x] Slot âmbar **editável** (recalcula conflito automaticamente)
+- [x] Slot âmbar editável (recalcula conflito automaticamente)
 - [x] `+ Adicionar` sugere slot livre
 - [x] Conflito externo + interno bloqueia Salvar
-- [x] **Validação por SOBREPOSIÇÃO DE INTERVALO** (não igualdade)
+- [x] Validação por SOBREPOSIÇÃO DE INTERVALO
 - [x] `schedulesEqual` evita regeneração desnecessária
 - [x] Bloqueio em `PatientForm`, `PatientReview`, `InvitePatientModal`,
       `ProviderForm`
-- [x] Arquivar cancela futuros / Reativar recria (paciente e provider)
-- [x] Reativação com modal:
-  - Sem schedules → `ReactivateModal`
-  - Com conflito → `ConflictOnReactivateModal`
-- [x] Botão "Suspender agendamentos" reposicionado no card de horários
+- [x] Arquivar cancela futuros / Reativar recria
+- [x] Reativação com modal (sem schedules → `ReactivateModal`, com conflito
+      → `ConflictOnReactivateModal`)
+- [x] Botão "Suspender agendamentos" no card de horários
 
 ### Prestadores (person + company)
 
@@ -114,9 +113,9 @@
       `delete_provider`, `cancel_provider_appointment_series`
 - [x] `ProviderForm` com `ScheduleEditor` (só `kind='person'`)
 - [x] `ProviderDetail` com todas as ações
-- [x] Card vazio "Definir horários" quando não há schedules
-- [x] Card "Vencimentos" (placeholder) para `company`
-- [x] Botão "Suspender agendamentos" no Provider
+- [x] Card vazio "Definir horários"
+- [x] Card "Vencimentos" (placeholder)
+- [x] Botão "Suspender agendamentos"
 
 ### Dark mode
 
@@ -125,92 +124,193 @@
 - [x] Script anti-flash no `index.html`
 - [x] `@variant dark` no `index.css`
 - [x] `--color-brand-950` no `@theme`
-- [x] Todas as telas e componentes em dark
+- [x] Todas as telas em dark
 
 ### Dashboard reformulado
 
-- [x] Cards de resumo: Pacientes ativos, Submissões pendentes,
-      **Sessões hoje**, **Sessões esta semana**
+- [x] Cards de resumo
 - [x] Hooks `useTodayAppointmentsCount`, `useWeekAppointmentsCount`
-- [x] Bloco "Aguardando revisão" (colapsável + scroll)
-- [x] Bloco "Próximas sessões" (colapsável, hoje + 7 dias)
-  - [x] Filtra horários já passados
-  - [x] Recarrega a cada 5 min + window focus
-  - [x] Clicar no item → `/agenda/day/<data>`
-- [x] Bloco "Aniversariantes do mês" (pacientes)
+- [x] Bloco "Aguardando revisão"
+- [x] Bloco "Próximas sessões"
+- [x] Bloco "Aniversariantes do mês"
 - [x] Removido "Ações rápidas"
-- [x] Removido "Complete seu perfil" → virou badge na sidebar
+- [x] Removido "Complete seu perfil" (→ badge na sidebar)
 
 ### Valor da sessão
 
 - [x] Coluna `session_price_cents` em `patients` e `providers`
-- [x] Máscara de moeda (`maskCurrencyBRL`, `parseCurrencyToCents`,
-      `centsToCurrencyBRL`)
+- [x] Máscara de moeda
 - [x] Campo em `PatientForm`, `ProviderForm`, `PatientReview`
 - [x] Exibição em `PatientDetail`, `ProviderDetail`
 - [x] Coluna "Valor" em `Patients` e `Providers`
 
 ---
 
-## Fase 3 estendida — Frequência configurável
+## Fase 3 estendida — Frequência configurável ⭐
 
-**Contexto:** hoje a recorrência é **sempre semanal** (`a cada 7 dias`).
-Precisamos cobrir: avulso, 15 em 15, mensal, a cada N dias.
+**Contexto:** cobre 6 tipos de recorrência: `once`, `weekly`, `biweekly`,
+`monthly`, `every_30_days`, `custom_days`. Antes era sempre semanal.
+
+### Banco (migrations)
+
+- [x] **Migration 1** — colunas `recurrence_type` + `recurrence_days` em
+      `patient_schedules` / `provider_schedules`
+- [x] **Migration 2** — 4 RPCs novas (5 args) convivendo com antigas
+- [x] **Migration 2.6** — coluna `anchor_date` + `compute_next_occurrence`
+      corrigido (4 args, `monthly` preserva o dia)
+- [x] Recriar `promote_prospect_to_active` com `recurrence_type` / `recurrence_days`
+- [ ] **Migration 3** — dropar RPCs antigas (3/4 args)
+- [ ] Cleanup do `callRpcWithFallback` no frontend
+
+### Tipos e helpers (frontend)
+
+- [x] `RecurrenceType` em `types/index.ts`
+- [x] `ScheduleInput` ganha `recurrenceType?`, `recurrenceDays?`, `anchorDate?`
+- [x] `src/lib/recurrence.ts` — `RECURRENCE_OPTIONS`, `getRecurrenceLabel`,
+      `getRecurrenceShortLabel`, `validateRecurrence`
+- [x] `src/lib/supabase-rpc-fallback.ts` — `callRpcWithFallback`
+- [x] `maskDateBR` / `parseDateBR` / `formatDateBR` / `isValidDateBR` em `masks.ts`
+- [x] Componente `MaskedDateInput` (máscara + preservação do cursor)
+
+### `ScheduleEditor`
+
+- [x] Campo "Frequência" com select das 6 opções
+- [x] Bloco visível só quando `onRecurrenceChange` é passado
+- [x] Campo por linha muda conforme frequência (date picker vs select de weekday)
+- [x] Conversão automática weekday ⇄ date ao trocar frequência
+- [x] `once` bloqueia "+ Adicionar" e lixeira (1 único slot)
+- [x] `custom_days` mostra campo "A cada N dias"
+- [x] Mostra "cai em: <weekday>" abaixo do date picker
+- [x] Validação de data inválida com feedback vermelho
+
+### Hooks
+
+- [x] `usePatientSchedules` lê `recurrence_type` / `recurrence_days` /
+      `anchor_date`, expõe `recurrenceType` / `recurrenceDays` no retorno
+- [x] `useProviderSchedules` idem
+- [x] `usePatientScheduleSource` lê recorrência (camada manual)
+- [x] `useProviderScheduleSource` idem
+- [ ] **Etapa 3 pendente** — hooks de `source` lerem `anchor_date`
+
+### Forms e Detail
+
+- [x] `PatientForm` — estado local de frequência + `anchorDate` no JSONB +
+      RPC via `callRpcWithFallback`
+- [x] `ProviderForm` — idem (só `kind='person'`)
+- [x] `PatientDetail` — badge de frequência ao lado do título
+- [x] `ProviderDetail` — badge de frequência
+- [x] `CancelSeriesModal` — passa `p_renew_days: null` pra desambiguar overload
+- [ ] **Etapa 3 pendente** — `PatientReview` passar `recurrence_type` /
+      `recurrence_days` / `anchorDate` pra `promote_prospect_to_active` nova
+- [ ] **Etapa 3 pendente** — deploy + teste em produção
+
+### Fase B — `provider_billings` (próxima rodada)
+
+Ver seção "Fase B — provider_billings" mais abaixo.
+
+---
+
+## Fase B — `provider_billings`
+
+**Contexto:** prestadores `kind='company'` não têm `provider_schedules`.
+Têm vencimentos financeiros (mensal, bimestral, semestral, anual).
 
 ### Schema
 
-- [ ] Adicionar em `patient_schedules`:
-  - `recurrence_type` (`once` | `weekly` | `biweekly` | `monthly` | `every_30_days` | `custom_days`)
-  - `recurrence_days` (int, só para `custom_days`)
-- [ ] Adicionar em `provider_schedules`: mesma coisa
-
-### RPCs
-
-- [ ] Atualizar `set_patient_schedules` para respeitar `recurrence_type`
-- [ ] Atualizar `set_provider_schedules` idem
-- [ ] Atualizar `cancel_*_appointment_series` para respeitar `recurrence_type`
-- [ ] Validação no banco: `recurrence_days` obrigatório se `custom_days`
-
-### Frontend
-
-- [ ] `ScheduleEditor` ganha campo **"Frequência"** acima da lista
-- [ ] Select com as 6 opções
-- [ ] Se `custom_days`, mostra input numérico
-- [ ] Atualizar tipos (`ScheduleInput` ganha `recurrenceType` + `recurrenceDays`)
-- [ ] `usePatientScheduleSource` / `useProviderScheduleSource` leem a frequência
-- [ ] Envio nos forms
-
-### Fase B — `provider_billings`
-
 - [ ] Tabela `provider_billings`:
-  - `provider_id`, `description`, `amount`
+  - `provider_id`, `description`, `amount` (centavos)
   - `due_day` (1–31)
   - `frequency` (`monthly` | `bimonthly` | `semiannual` | `yearly` | `once`)
   - `installments_total`, `installments_paid`
   - `starts_on`, `ends_on`, `status`
-- [ ] RPC `set_provider_billings`
-- [ ] RPC `mark_billing_as_paid`
-- [ ] RPC `cancel_provider_billings` (4 modos, incluindo **renovar**)
-- [ ] `BillingEditor` no `ProviderForm` para `company`
-- [ ] Card de vencimentos em `ProviderDetail`
-- [ ] **Badge de vencimento** no dia da agenda (não ocupa slot)
-- [ ] Modal `DayBillingsModal`
-- [ ] Integração com financeiro (Fase 5)
+
+### RPCs
+
+- [ ] `set_provider_billings`
+- [ ] `mark_billing_as_paid`
+- [ ] `cancel_provider_billings` (4 modos: imediato, from_date, suspend, renew)
+
+### Frontend
+
+- [ ] `BillingEditor` no `ProviderForm` (só `kind='company'`)
+- [ ] Card "Vencimentos" no `ProviderDetail` (hoje é placeholder)
+- [ ] Badge de vencimento no dia da agenda (não ocupa slot)
+- [ ] `DayBillingsModal`
+
+### Integração
+
+- [ ] Fase 5 (Financeiro) — gerar `expenses` correspondentes
+- [ ] Decidir se `appointments type='due'` migra pra `provider_billings` ou coexiste
 
 ---
 
-## Ajustes finos (próximo passo)
+## Eventos "all-day" (sem horário)
+
+**Contexto:** alguns eventos não têm horário específico — acontecem "durante
+o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
+
+### Banco
+
+- [ ] Permitir `start_time IS NULL` em `appointments`
+- [ ] Permitir `duration_min` nulo quando `start_time` é nulo
+- [ ] Atualizar constraint `appointments_subject_check` se necessário
+
+### Frontend
+
+- [ ] `ScheduleEditor` / `CreateAppointmentModal`: checkbox "dia inteiro"
+- [ ] Quando marcado, esconde campos de horário e duração
+- [ ] Agenda: renderiza all-day no topo do dia (fora da grade)
+- [ ] Validação de conflito: all-day não conflita com horários específicos
+
+### Onde usar primeiro
+
+- [ ] Vencimentos (`due`, `provider_billings`)
+- [ ] Feriados / folgas
+- [ ] Eventos pessoais sem hora marcada
+
+---
+
+## Agendamento avulso
+
+**Contexto:** criar 1 appointment fora da série, sem tocar em `*_schedules`.
+
+- [ ] Botão "Novo agendamento" no `PatientDetail`
+- [ ] Botão "Novo agendamento" no `ProviderDetail`
+- [ ] Modal simples (data + hora + duração)
+- [ ] Insere 1 appointment `is_recurring=false`
+- [ ] Valida conflito por sobreposição (reusa `appointment-overlap.ts`)
+
+---
+
+## Drag and drop na agenda
+
+**Contexto:** mover/redimensionar/criar appointments com o mouse.
+
+- [ ] Escolher biblioteca (`@dnd-kit/core`)
+- [ ] Mover sessão individual
+- [ ] Redimensionar duração
+- [ ] Mover série inteira (modifier key)
+- [ ] Criar por drag (arrastar de slot vazio)
+- [ ] Validar conflito antes de aplicar
+- [ ] Undo/redo (Ctrl+Z)
+- [ ] Touch/mobile
+- [ ] UX: ao mover recorrente, pergunta "só este" ou "toda a série"?
+
+---
+
+## Ajustes finos
 
 - [ ] Página 404 customizada
 - [ ] Favicon + metadados (adiado com re-branding)
 - [ ] Criar `AlertDialog` no design system
-- [ ] Trocar `alert()` restantes (`PatientDetail`, `ProviderDetail`) por
-      `AlertDialog`
+- [ ] Trocar `alert()` restantes (`PatientDetail`, `ProviderDetail`)
 - [ ] Busca em `/patients` e `/providers` (nome + telefone + CPF)
 - [ ] Editar perfil em `/settings`
 - [ ] Editar preferências do consultório em `/settings`
-- [ ] `postMessage` do OAuth callback para a aba original (evitar F5)
+- [ ] `postMessage` do OAuth callback (evitar F5)
 - [ ] Paginação quando a lista crescer
+- [ ] Substituir `MaskedDateInput` por `<input type="date">` quando o browser
+      suportar locale BR universalmente (não urgente)
 
 ---
 
@@ -224,23 +324,6 @@ Precisamos cobrir: avulso, 15 em 15, mensal, a cada N dias.
       `package.json`
 - [ ] Atualizar `README`, `CONTEXT`, `TODO` (front + back)
 
-### Agendamento avulso
-- [ ] Botão "Novo agendamento" no PatientDetail
-- [ ] Botão "Novo agendamento" no ProviderDetail
-- [ ] Modal simples (data + hora + duração)
-- [ ] Insere 1 appointment is_recurring=false, sem tocar em *_schedules
-- [ ] Valida conflito por sobreposição (reusa appointment-overlap.ts)
-
-### Drag and drop na agenda
-- [ ] Escolher biblioteca (@dnd-kit/core)
-- [ ] Mover sessão individual (arrastar bloco)
-- [ ] Redimensionar duração (arrastar borda)
-- [ ] Mover série inteira (modifier key)
-- [ ] Criar por drag (arrastar de slot vazio)
-- [ ] Validar conflito antes de aplicar
-- [ ] Undo/redo (Ctrl+Z)
-- [ ] Touch/mobile
-- [ ] Decidir UX: ao mover appointment recorrente, pergunta "só este" ou "toda a série"?
 ---
 
 ## Fase 4 — Prontuário + Anamnese + Evolução SOAP
@@ -277,10 +360,10 @@ Precisamos cobrir: avulso, 15 em 15, mensal, a cada N dias.
 
 - [ ] Campo **e-mail obrigatório** no `PublicForm`
 - [ ] Checkbox "Receber alerta de sessões na Google Agenda"
-  - [ ] Só aparece se o e-mail for **Gmail**
+  - [ ] Só aparece se o e-mail for Gmail
   - [ ] Sub-opções `5min` / `10min` / `30min` / `1h` antes
 - [ ] Checkbox "Receber alerta de vencimento de faturas por e-mail"
-  - [ ] Input **melhor dia de pagamento** (dia do mês)
+  - [ ] Input melhor dia de pagamento
 - [ ] Persistir preferências
 
 ### Integração Google Calendar (escrita) — backend
@@ -288,9 +371,7 @@ Precisamos cobrir: avulso, 15 em 15, mensal, a cada N dias.
 - [ ] Ao criar `appointments` → criar evento no Calendar do psicólogo
 - [ ] Enviar convite de reunião (Google Meet) para `psicologo + paciente`
 - [ ] Respeitar preferência de alerta
-- [ ] **Envio em cadeia:** só a próxima sessão vai para a agenda do paciente
-  - [ ] Após o término, a próxima é enviada (cron / evento)
-  - [ ] Obrigatório — mesmo se o paciente não aceitar
+- [ ] Envio em cadeia: só a próxima sessão vai para a agenda do paciente
 - [ ] Cancelar evento no Google quando appointment for cancelado
 
 ### Notificações
@@ -314,7 +395,7 @@ Precisamos cobrir: avulso, 15 em 15, mensal, a cada N dias.
 
 - [ ] Testes unitários (Vitest)
 - [ ] Testes de componentes (React Testing Library)
-- [ ] **Testes E2E (Playwright)** — fluxos críticos
+- [ ] Testes E2E (Playwright)
 - [ ] CI no GitHub Actions
 - [ ] Sentry
 - [ ] Acessibilidade
@@ -341,6 +422,11 @@ Precisamos cobrir: avulso, 15 em 15, mensal, a cada N dias.
   CRUD de prestadores, agenda em 3 modos, horários recorrentes, bloqueio
   rígido por sobreposição, stacking, cancelados como badges, dark mode,
   dashboard reformulado, valor da sessão
+- **Fase 3 estendida (parcial):** migrations 1/2/2.6, tipos, `ScheduleEditor`
+  dinâmico, `MaskedDateInput`, badges, `callRpcWithFallback`
 - **Design system:** Button, Input, Card, Badge, Modal, ConfirmDialog,
-  EmptyState, Spinner + Sidebar, Header, AppLayout, ThemeToggle
+  EmptyState, Spinner, MaskedDateInput + Sidebar, Header, AppLayout, ThemeToggle
 - **Migração Tailwind v3 → v4**
+```
+
+---
