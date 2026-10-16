@@ -8,17 +8,17 @@ import { usePatient } from "../hooks/usePatient";
 import { usePatientScheduleSource } from "../hooks/usePatientScheduleSource";
 import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
+import { validateRecurrence } from "../lib/recurrence";
 import {
   maskCPF,
   maskPhone,
   parseCurrencyToCents,
   centsToCurrencyBRL,
   isValidPhoneBR,
-  maskCurrencyBRL
+  maskCurrencyBRL,
 } from "../lib/masks";
 import { displayName } from "../lib/patient-display";
-import type { ScheduleInput } from "../types";
-
+import type { RecurrenceType, ScheduleInput } from "../types";
 
 export function PatientReview() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +29,8 @@ export function PatientReview() {
   const {
     schedules: sourcedSchedules,
     source,
+    recurrenceType: sourcedRecurrenceType,
+    recurrenceDays: sourcedRecurrenceDays,
     loading: loadingSchedules,
   } = usePatientScheduleSource(id);
 
@@ -44,6 +46,9 @@ export function PatientReview() {
     session_price: "",
   });
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
+  const [recurrenceType, setRecurrenceType] =
+    useState<RecurrenceType>("weekly");
+  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,14 +73,29 @@ export function PatientReview() {
   useEffect(() => {
     if (!loadingSchedules && sourcedSchedules.length > 0) {
       setSchedules(sourcedSchedules);
+      setRecurrenceType(sourcedRecurrenceType);
+      setRecurrenceDays(sourcedRecurrenceDays);
     }
-  }, [loadingSchedules, sourcedSchedules]);
+  }, [
+    loadingSchedules,
+    sourcedSchedules,
+    sourcedRecurrenceType,
+    sourcedRecurrenceDays,
+  ]);
 
   function update<K extends keyof typeof form>(
     key: K,
     value: (typeof form)[K]
   ) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleRecurrenceChange(
+    nextType: RecurrenceType,
+    nextDays: number | null
+  ) {
+    setRecurrenceType(nextType);
+    setRecurrenceDays(nextDays);
   }
 
   async function handleConfirm() {
@@ -94,6 +114,12 @@ export function PatientReview() {
 
     if (hasScheduleConflict) {
       setScheduleError("Resolva os horários em conflito antes de continuar.");
+      return;
+    }
+
+    const recurrenceErr = validateRecurrence(recurrenceType, recurrenceDays);
+    if (recurrenceErr) {
+      setScheduleError(recurrenceErr);
       return;
     }
 
@@ -151,6 +177,8 @@ export function PatientReview() {
       {
         p_patient_id: id,
         p_schedules: schedules,
+        p_recurrence_type: recurrenceType,
+        p_recurrence_days: recurrenceDays,
       }
     );
 
@@ -303,6 +331,9 @@ export function PatientReview() {
                   : "Estes horários gerarão agendamentos recorrentes. Horários já ocupados aparecem em âmbar."
             }
             onConflictChange={setHasScheduleConflict}
+            recurrenceType={recurrenceType}
+            recurrenceDays={recurrenceDays}
+            onRecurrenceChange={handleRecurrenceChange}
           />
         )}
       </Card>

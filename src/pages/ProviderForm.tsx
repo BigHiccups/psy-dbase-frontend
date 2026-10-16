@@ -48,7 +48,7 @@ const INITIAL_FORM: FormState = {
 function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
   if (a.length !== b.length) return false;
   const key = (s: ScheduleInput) =>
-    `${s.weekday}-${s.startTime.slice(0, 5)}-${s.durationMin}`;
+    `${s.weekday}-${s.startTime.slice(0, 5)}-${s.durationMin}-${s.anchorDate ?? ""}`;
   const ka = [...a].map(key).sort().join("|");
   const kb = [...b].map(key).sort().join("|");
   return ka === kb;
@@ -350,11 +350,10 @@ export function ProviderForm() {
             <button
               type="button"
               onClick={() => update("kind", "person")}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
-                form.kind === "person"
+              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person"
                   ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
                   : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-              }`}
+                }`}
             >
               <User
                 size={20}
@@ -377,11 +376,10 @@ export function ProviderForm() {
             <button
               type="button"
               onClick={() => update("kind", "company")}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
-                form.kind === "company"
+              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company"
                   ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
                   : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-              }`}
+                }`}
             >
               <Building2
                 size={20}

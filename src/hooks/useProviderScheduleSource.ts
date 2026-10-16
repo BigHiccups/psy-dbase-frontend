@@ -44,7 +44,9 @@ export function useProviderScheduleSource(
       // ============================================================
       const { data: manualData, error: manualErr } = await supabase
         .from("provider_schedules")
-        .select("weekday, start_time, duration_min, recurrence_type, recurrence_days")
+        .select(
+          "weekday, start_time, duration_min, recurrence_type, recurrence_days, anchor_date"
+        )
         .eq("provider_id", providerId)
         .order("weekday")
         .order("start_time");
@@ -57,8 +59,10 @@ export function useProviderScheduleSource(
             weekday: row.weekday,
             startTime: (row.start_time as string).slice(0, 5),
             durationMin: row.duration_min,
-            recurrenceType: (row.recurrence_type as RecurrenceType | null) ?? "weekly",
+            recurrenceType:
+              (row.recurrence_type as RecurrenceType | null) ?? "weekly",
             recurrenceDays: row.recurrence_days ?? null,
+            anchorDate: row.anchor_date ?? undefined,
           }))
         );
         setRecurrenceType(
@@ -72,7 +76,7 @@ export function useProviderScheduleSource(
 
       // ============================================================
       // 2) appointments tipo 'personal' (derivado)
-      // Sem recorrência própria — assume 'weekly'
+      // Sem recorrência própria — assume 'weekly', sem anchor
       // ============================================================
       const { data: apptData } = await supabase
         .from("appointments")
