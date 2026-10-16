@@ -33,7 +33,8 @@ export type ScheduleInput = {
   startTime: string;                // "HH:MM"
   durationMin: number;              // default 50
   recurrenceType?: RecurrenceType;  // default 'weekly' se ausente
-  recurrenceDays?: number | null;       // só se custom_days, 1..365
+  recurrenceDays?: number | null;   // só se custom_days, 1..365
+  anchorDate?: string;              // YYYY-MM-DD — data da 1ª ocorrência
 };
 
 export type InviteResponse = {

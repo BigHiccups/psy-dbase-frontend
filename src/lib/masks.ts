@@ -133,3 +133,62 @@ export function centsToCurrencyBRL(cents: number | null): string {
     maximumFractionDigits: 2,
   });
 }
+
+// =========================================================
+// Data brasileira (dd/mm/aaaa)
+// =========================================================
+
+// Aplica máscara enquanto digita: "10112026" → "10/11/2026"
+export function maskDateBR(value: string): string {
+  const digits = onlyDigits(value).slice(0, 8);
+
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1/$2")
+    .replace(/^(\d{2})\/(\d{2})(\d)/, "$1/$2/$3");
+}
+
+// Converte "dd/mm/aaaa" para "YYYY-MM-DD".
+// Retorna null se a data for inválida (ex: 31/02/2026).
+export function parseDateBR(value: string): string | null {
+  const digits = onlyDigits(value);
+  if (digits.length !== 8) return null;
+
+  const day = Number(digits.slice(0, 2));
+  const month = Number(digits.slice(2, 4));
+  const year = Number(digits.slice(4, 8));
+
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > 31) return null;
+  if (year < 1900 || year > 2200) return null;
+
+  const date = new Date(year, month - 1, day);
+
+  // new Date() normaliza datas inválidas (31/02 → 03/03).
+  // Se voltar diferente, era inválida.
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  const mm = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
+
+// Converte "YYYY-MM-DD" para "dd/mm/aaaa".
+// Retorna "" se a entrada for vazia/null.
+export function formatDateBR(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const parts = iso.split("-");
+  if (parts.length !== 3) return "";
+  const [y, m, d] = parts;
+  return `${d}/${m}/${y}`;
+}
+
+// Valida se "dd/mm/aaaa" é uma data válida
+export function isValidDateBR(value: string): boolean {
+  return parseDateBR(value) !== null;
+}
