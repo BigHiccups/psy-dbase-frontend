@@ -367,12 +367,6 @@ export function ScheduleEditor({
     dark:disabled:bg-slate-800/50 dark:disabled:text-slate-500
   `;
 
-  const invalidClasses = `
-    rounded-md border border-red-400 bg-red-50 px-2 py-1.5 text-sm text-red-900
-    transition focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20
-    dark:border-red-700 dark:bg-red-950/40 dark:text-red-200
-  `;
-
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
