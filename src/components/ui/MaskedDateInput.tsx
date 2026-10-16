@@ -17,8 +17,13 @@ type Segment = "day" | "month" | "year" | null;
 function getSegmentAt(text: string, cursor: number): Segment {
   // Texto tem formato "dd/mm/aaaa" (ou parcial)
   // Posições: 0-1 dia, 2 "/", 3-4 mês, 5 "/", 6-9 ano
-  if (cursor <= 2) return "day";
-  if (cursor <= 5) return "month";
+  //
+  // Se o cursor estiver além do texto digitado, considera que está no
+  // último segmento preenchido (ou no ano, se o texto estiver completo).
+  const effectiveCursor = Math.min(cursor, text.length);
+
+  if (effectiveCursor <= 2) return "day";
+  if (effectiveCursor <= 5) return "month";
   return "year";
 }
 
