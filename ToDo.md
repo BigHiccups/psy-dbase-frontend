@@ -204,6 +204,14 @@
       `recurrence_days` / `anchorDate` pra `promote_prospect_to_active` nova
 - [ ] **Etapa 3 pendente** — deploy + teste em produção
 
+### Decisão tomada: empresa não é agendável na agenda
+
+- Prestador `kind='company'` **não aparece** no `CreateAppointmentModal`
+- Empresas serão representadas por `provider_billings` (Fase B)
+- Aparecem como **badge no dia** da agenda, não como bloco de horário
+- Motivo: empresa não tem "sessão com hora", tem "vencimento mensal"
+
+
 ### Fase B — `provider_billings` (próxima rodada)
 
 Ver seção "Fase B — provider_billings" mais abaixo.

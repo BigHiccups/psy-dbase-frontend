@@ -1,33 +1,39 @@
 import { useMemo, useState } from "react";
-import {
-  Plus,
-  AlertCircle,
-  User,
-  Ban,
-  UserCircle,
-  UserPlus,
-  Briefcase,
-} from "lucide-react";
+import { Plus, AlertCircle } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { Button, Modal, Input, Badge } from "../ui";
+import { Button, Modal } from "../ui";
 import { usePatients } from "../../hooks/usePatients";
 import { useProviders } from "../../hooks/useProviders";
 import { useOccupiedSlots } from "../../hooks/useOccupiedSlots";
-import { formatLongDate, parseDateString } from "../../lib/agenda-date";
-import { slotOverlapsAppointment } from "../../lib/appointment-overlap";
+import { formatLongDate, parseDateString, addDays } from "../../lib/agenda-date";
+import { validateRecurrence } from "../../lib/recurrence";
+import { parseDateBR, formatDateBR, isValidDateBR } from "../../lib/masks";
 import { toTitleCase } from "../../lib/text";
-import { maskPhone, isValidPhoneBR } from "../../lib/masks";
-import type { AppointmentType } from "../../types";
+import { isValidPhoneBR } from "../../lib/masks";
+import type {
+  AppointmentType,
+  RecurrenceType,
+  ScheduleInput,
+} from "../../types";
+
+import {
+  findSingleConflict,
+  findSeriesConflict,
+  findPeriodConflict,
+} from "./create-appointment/conflict-checker";
+import { TypeSelector, type AppointmentOption } from "./create-appointment/TypeSelector";
+import { EntityPicker } from "./create-appointment/EntityPicker";
+import { DateTimeFields } from "./create-appointment/DateTimeFields";
+import { RecurrenceSelector } from "./create-appointment/RecurrenceSelector";
+import { BlockPeriodSelector } from "./create-appointment/BlockPeriodSelector";
 
 type Props = {
   open: boolean;
-  date: string;         // YYYY-MM-DD
+  date: string;
   initialHour: number;
   onClose: () => void;
   onCreated: () => void;
 };
-
-type Option = "session" | "personal" | "blocked";
 
 export function CreateAppointmentModal({
   open,
@@ -36,22 +42,7 @@ export function CreateAppointmentModal({
   onClose,
   onCreated,
 }: Props) {
-  const [option, setOption] = useState<Option>("session");
-
-  // Sessão — paciente
-  const [patientId, setPatientId] = useState<string>("");
-  const [patientQuery, setPatientQuery] = useState("");
-  const [newPatientName, setNewPatientName] = useState("");
-  const [newPatientPhone, setNewPatientPhone] = useState("");
-  const [creatingPatient, setCreatingPatient] = useState(false);
-
-  // Prestador
-  const [providerId, setProviderId] = useState<string>("");
-  const [providerQuery, setProviderQuery] = useState("");
-  const [newProviderName, setNewProviderName] = useState("");
-  const [newProviderPhone, setNewProviderPhone] = useState("");
-  const [creatingProvider, setCreatingProvider] = useState(false);
-
+  const [option, setOption] = useState<AppointmentOption>("session");
   const [startTime, setStartTime] = useState(
     `${String(initialHour).padStart(2, "0")}:00`
   );
@@ -60,98 +51,66 @@ export function CreateAppointmentModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Estado de paciente
+  const [patientId, setPatientId] = useState("");
+  const [patientQuery, setPatientQuery] = useState("");
+  const [creatingPatient, setCreatingPatient] = useState(false);
+  const [newPatientName, setNewPatientName] = useState("");
+  const [newPatientPhone, setNewPatientPhone] = useState("");
+
+  // Estado de prestador
+  const [providerId, setProviderId] = useState("");
+  const [providerQuery, setProviderQuery] = useState("");
+  const [creatingProvider, setCreatingProvider] = useState(false);
+  const [newProviderName, setNewProviderName] = useState("");
+  const [newProviderPhone, setNewProviderPhone] = useState("");
+
+  // Estado de repetição
+  const [repeat, setRepeat] = useState(false);
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
+  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(15);
+
+  // Estado de bloqueio
+  const [suspendFromText, setSuspendFromText] = useState(
+    formatDateBR(date)
+  );
+  const [suspendToText, setSuspendToText] = useState(formatDateBR(date));
+
   const { patients } = usePatients("active");
   const { providers } = useProviders("all");
   const { slots: occupiedSlots } = useOccupiedSlots();
 
-  // Só pessoas físicas são agendáveis na agenda
   const activePersonProviders = useMemo(
     () =>
-      providers.filter(
-        (p) => p.status === "active" && p.kind === "person"
-      ),
+      providers.filter((p) => p.status === "active" && p.kind === "person"),
     [providers]
   );
 
-  // =========================================================
-  // Buscas
-  // =========================================================
-  const filteredPatients = patientQuery
+  const filteredPatients = (patientQuery
     ? patients.filter((p) =>
         p.full_name.toLowerCase().includes(patientQuery.toLowerCase())
       )
-    : patients.slice(0, 5);
+    : patients.slice(0, 5)
+  ).map((p) => ({ id: p.id, name: p.full_name }));
 
-  const filteredProviders = providerQuery
+  const filteredProviders = (providerQuery
     ? activePersonProviders.filter((p) =>
         p.display_name.toLowerCase().includes(providerQuery.toLowerCase())
       )
-    : activePersonProviders.slice(0, 5);
+    : activePersonProviders.slice(0, 5)
+  ).map((p) => ({ id: p.id, name: p.display_name }));
 
-  const hasPatientMatch = filteredPatients.length > 0;
-  const hasProviderMatch = filteredProviders.length > 0;
-
-  // Se o usuário digitou um nome que é idêntico a um match existente,
-  // não faz sentido oferecer "criar novo". Ex: digitou "Teste B" e
-  // existe exatamente "Teste B".
-  const patientQueryIsExactMatch =
-    !!patientQuery.trim() &&
-    filteredPatients.some(
-      (p) =>
-        p.full_name.trim().toLowerCase() ===
-        patientQuery.trim().toLowerCase()
-    );
-
-  const providerQueryIsExactMatch =
-    !!providerQuery.trim() &&
-    filteredProviders.some(
-      (p) =>
-        p.display_name.trim().toLowerCase() ===
-        providerQuery.trim().toLowerCase()
-    );
-
-  // =========================================================
-  // Trocar tipo limpa estados
-  // =========================================================
-  function handleChangeOption(next: Option) {
+  // Reseta repetir quando muda pra bloqueio
+  function handleChangeOption(next: AppointmentOption) {
     setOption(next);
     setError(null);
+    if (next === "blocked") setRepeat(false);
   }
 
-  // =========================================================
-  // Validação de conflito por sobreposição
-  // =========================================================
-  function checkConflict(): string | null {
-    const weekday = parseDateString(date).getDay();
-
-    const conflicting = occupiedSlots.find((slot) => {
-      return slotOverlapsAppointment(
-        { weekday, startTime, durationMin: duration },
-        {
-          weekday: slot.weekday,
-          start_time: slot.startTime,
-          duration_min: slot.durationMin,
-        }
-      );
-    });
-
-    if (!conflicting) return null;
-
-    const who =
-      conflicting.subjectName ??
-      (conflicting.occupiedBy === "blocked"
-        ? "um bloqueio"
-        : "outro agendamento");
-
-    return `Horário em conflito com ${who} (${conflicting.startTime}). Ajuste ou remova o outro agendamento antes.`;
-  }
-
-  // =========================================================
-  // Submit
-  // =========================================================
   async function handleSubmit() {
     setError(null);
 
+    // ============ Validação de sujeito ============
     if (option === "session") {
       if (!patientId && !creatingPatient) {
         setError("Selecione um paciente ou crie um novo.");
@@ -186,27 +145,70 @@ export function CreateAppointmentModal({
       }
     }
 
-    const conflictMsg = checkConflict();
-    if (conflictMsg) {
-      setError(conflictMsg);
-      return;
+    // ============ Validação de recorrência ============
+    if (option !== "blocked" && repeat) {
+      const recurrenceErr = validateRecurrence(recurrenceType, recurrenceDays);
+      if (recurrenceErr) {
+        setError(recurrenceErr);
+        return;
+      }
+    }
+
+    // ============ Validação de datas do bloqueio ============
+    let fromIso = "";
+    let toIso = "";
+    if (option === "blocked") {
+      if (!isValidDateBR(suspendFromText)) {
+        setError("Data 'De' inválida.");
+        return;
+      }
+      if (!isValidDateBR(suspendToText)) {
+        setError("Data 'Até' inválida.");
+        return;
+      }
+      fromIso = parseDateBR(suspendFromText)!;
+      toIso = parseDateBR(suspendToText)!;
+      if (toIso < fromIso) {
+        setError("Data 'Até' deve ser posterior a 'De'.");
+        return;
+      }
+    }
+
+    // ============ Validação de conflito ============
+    if (option === "blocked") {
+      const conflictMsg = findPeriodConflict(occupiedSlots, fromIso, toIso, startTime, duration);
+      if (conflictMsg) return setError(conflictMsg);
+    } else if (repeat) {
+      const conflictMsg = findSeriesConflict(
+        occupiedSlots,
+        parseDateString(date).getDay(),
+        startTime,
+        duration,
+        recurrenceType,
+        recurrenceDays,
+        date
+      );
+      if (conflictMsg) return setError(conflictMsg);
+    } else {
+      const conflictMsg = findSingleConflict(
+        occupiedSlots,
+        parseDateString(date).getDay(),
+        startTime,
+        duration
+      );
+      if (conflictMsg) return setError(`Horário em conflito com ${conflictMsg}.`);
     }
 
     setSaving(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setError("Sessão expirada.");
       setSaving(false);
       return;
     }
 
-    // =========================================================
-    // Cadastro rápido — paciente
-    // =========================================================
+    // ============ Cadastro rápido ============
     let finalPatientId: string | null = null;
     let finalProviderId: string | null = null;
 
@@ -236,7 +238,6 @@ export function CreateAppointmentModal({
 
     if (option === "personal") {
       if (creatingProvider) {
-        // Cadastro rápido é sempre person (empresa fica de fora da agenda)
         const { data: newProvider, error: createErr } = await supabase
           .from("providers")
           .insert({
@@ -260,16 +261,79 @@ export function CreateAppointmentModal({
       }
     }
 
-    // =========================================================
-    // Cria o appointment
-    // =========================================================
-    const type: AppointmentType =
-      option === "session"
-        ? "session"
-        : option === "personal"
-          ? "personal"
-          : "blocked";
+    // ============ Caminho 1 — Bloqueio por período ============
+    if (option === "blocked") {
+      const inserts: Array<Record<string, unknown>> = [];
+      let cur = fromIso;
+      let guard = 0;
+      while (cur <= toIso && guard < 400) {
+        guard++;
+        inserts.push({
+          user_id: user.id,
+          patient_id: null,
+          provider_id: null,
+          type: "blocked",
+          weekday: parseDateString(cur).getDay(),
+          start_time: startTime + ":00",
+          duration_min: duration,
+          starts_on: cur,
+          ends_on: cur,
+          is_recurring: false,
+          status: "active",
+          notes: notes.trim() || null,
+          linked_expense: false,
+        });
+        cur = addDays(cur, 1);
+      }
 
+      const { error: blockErr } = await supabase.from("appointments").insert(inserts);
+      setSaving(false);
+
+      if (blockErr) return setError(blockErr.message);
+      
+      onCreated();
+      onClose();
+      return;
+    }
+
+    // ============ Caminho 2 — Série ============
+    if (repeat) {
+      const schedulesPayload: ScheduleInput[] = [
+        {
+          weekday: parseDateString(date).getDay(),
+          startTime,
+          durationMin: duration,
+          anchorDate: date,
+        },
+      ];
+
+      const rpcName = option === "session" ? "set_patient_schedules" : "set_provider_schedules";
+      const rpcParams = option === "session"
+        ? {
+            p_patient_id: finalPatientId,
+            p_schedules: schedulesPayload,
+            p_recurrence_type: recurrenceType,
+            p_recurrence_days: recurrenceDays,
+          }
+        : {
+            p_provider_id: finalProviderId,
+            p_schedules: schedulesPayload,
+            p_recurrence_type: recurrenceType,
+            p_recurrence_days: recurrenceDays,
+          };
+
+      const { error: rpcErr } = await supabase.rpc(rpcName as any, rpcParams as any);
+      setSaving(false);
+
+      if (rpcErr) return setError(rpcErr.message);
+
+      onCreated();
+      onClose();
+      return;
+    }
+
+    // ============ Caminho 3 — Avulso ============
+    const type: AppointmentType = option === "session" ? "session" : "personal";
     const payload = {
       user_id: user.id,
       patient_id: finalPatientId,
@@ -286,15 +350,10 @@ export function CreateAppointmentModal({
       linked_expense: option === "personal",
     };
 
-    const { error: insertErr } = await supabase
-      .from("appointments")
-      .insert(payload);
+    const { error: insertErr } = await supabase.from("appointments").insert(payload);
     setSaving(false);
 
-    if (insertErr) {
-      setError(insertErr.message);
-      return;
-    }
+    if (insertErr) return setError(insertErr.message);
 
     onCreated();
     onClose();
@@ -303,7 +362,6 @@ export function CreateAppointmentModal({
   return (
     <Modal open={open} onClose={onClose} title="Novo agendamento" size="lg">
       <div className="space-y-5">
-        {/* Data */}
         <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-slate-800/60">
           <p className="text-xs text-gray-500 dark:text-slate-400">Data</p>
           <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
@@ -311,283 +369,104 @@ export function CreateAppointmentModal({
           </p>
         </div>
 
-        {/* Tipo de agendamento */}
-        <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-slate-300">
-            Tipo de agendamento
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            <TypeButton
-              selected={option === "session"}
-              onClick={() => handleChangeOption("session")}
-              icon={<UserCircle size={18} />}
-              title="Sessão"
-              subtitle="Com paciente"
-            />
-            <TypeButton
-              selected={option === "personal"}
-              onClick={() => handleChangeOption("personal")}
-              icon={<Briefcase size={18} />}
-              title="Prestador"
-              subtitle="Supervisão, terapia"
-            />
-            <TypeButton
-              selected={option === "blocked"}
-              onClick={() => handleChangeOption("blocked")}
-              icon={<Ban size={18} />}
-              title="Bloqueio"
-              subtitle="Férias, pausa"
-            />
-          </div>
-        </div>
+        <TypeSelector value={option} onChange={handleChangeOption} />
 
-        {/* Busca paciente — só p/ sessão */}
         {option === "session" && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-              Paciente <span className="text-red-500">*</span>
-            </label>
-            <Input
-              placeholder="Buscar paciente por nome..."
-              value={patientQuery}
-              onChange={(e) => {
-                setPatientQuery(e.target.value);
-                setPatientId("");
-                setCreatingPatient(false);
-              }}
-              disabled={creatingPatient}
-            />
-
-            {!creatingPatient && (
-              <div className="mt-2 space-y-1 rounded-lg border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                {/* Lista de matches */}
-                {filteredPatients.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setPatientId(p.id);
-                      setPatientQuery(p.full_name);
-                    }}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-gray-50 dark:hover:bg-slate-800 ${
-                      patientId === p.id
-                        ? "bg-brand-50 text-brand-900 dark:bg-brand-950/40 dark:text-brand-200"
-                        : "text-gray-900 dark:text-slate-100"
-                    }`}
-                  >
-                    <User
-                      size={14}
-                      className="text-gray-400 dark:text-slate-500"
-                    />
-                    <span className="flex-1">{p.full_name}</span>
-                    {patientId === p.id && (
-                      <Badge variant="brand">Selecionado</Badge>
-                    )}
-                  </button>
-                ))}
-
-                {!hasPatientMatch && patientQuery.trim() !== "" && (
-                  <p className="px-3 py-2 text-xs text-gray-500 dark:text-slate-400">
-                    Nenhum paciente encontrado.
-                  </p>
-                )}
-
-                {/* "+ Criar novo" só aparece se:
-                    - nada foi selecionado ainda
-                    - o texto digitado NÃO é idêntico a um match existente
-                */}
-                {!patientId &&
-                  patientQuery.trim() !== "" &&
-                  !patientQueryIsExactMatch && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreatingPatient(true);
-                        setNewPatientName(patientQuery.trim());
-                      }}
-                      className="flex w-full items-center gap-2 border-t border-gray-100 px-3 py-2 text-left text-sm text-brand-700 hover:bg-brand-50 dark:border-slate-800 dark:text-brand-300 dark:hover:bg-brand-950/40"
-                    >
-                      <UserPlus size={14} />
-                      <span className="flex-1">
-                        Criar novo paciente "{patientQuery.trim()}"
-                      </span>
-                    </button>
-                  )}
-              </div>
-            )}
-
-            {creatingPatient && (
-              <div className="mt-2 space-y-3 rounded-lg border border-brand-200 bg-brand-50/40 p-3 dark:border-brand-800 dark:bg-brand-950/30">
-                <p className="text-xs font-medium text-brand-900 dark:text-brand-200">
-                  Novo paciente (cadastro rápido)
-                </p>
-                <Input
-                  label="Nome"
-                  value={newPatientName}
-                  onChange={(e) => setNewPatientName(e.target.value)}
-                  placeholder="Ex: Maria Silva"
-                />
-                <Input
-                  label="Telefone (opcional)"
-                  type="tel"
-                  inputMode="tel"
-                  value={newPatientPhone}
-                  onChange={(e) =>
-                    setNewPatientPhone(maskPhone(e.target.value))
-                  }
-                  placeholder="(00) 00000-0000"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatingPatient(false);
-                    setNewPatientName("");
-                    setNewPatientPhone("");
-                  }}
-                  className="text-xs text-gray-600 underline hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
-                >
-                  Cancelar cadastro rápido
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Busca prestador — só p/ personal (só person) */}
-        {option === "personal" && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-              Prestador <span className="text-red-500">*</span>
-            </label>
-            <Input
-              placeholder="Buscar prestador por nome..."
-              value={providerQuery}
-              onChange={(e) => {
-                setProviderQuery(e.target.value);
-                setProviderId("");
-                setCreatingProvider(false);
-              }}
-              disabled={creatingProvider}
-            />
-
-            {!creatingProvider && (
-              <div className="mt-2 space-y-1 rounded-lg border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                {filteredProviders.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setProviderId(p.id);
-                      setProviderQuery(p.display_name);
-                    }}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-gray-50 dark:hover:bg-slate-800 ${
-                      providerId === p.id
-                        ? "bg-brand-50 text-brand-900 dark:bg-brand-950/40 dark:text-brand-200"
-                        : "text-gray-900 dark:text-slate-100"
-                    }`}
-                  >
-                    <User
-                      size={14}
-                      className="text-gray-400 dark:text-slate-500"
-                    />
-                    <span className="flex-1">{p.display_name}</span>
-                    {providerId === p.id && (
-                      <Badge variant="brand">Selecionado</Badge>
-                    )}
-                  </button>
-                ))}
-
-                {!hasProviderMatch && providerQuery.trim() !== "" && (
-                  <p className="px-3 py-2 text-xs text-gray-500 dark:text-slate-400">
-                    Nenhum prestador encontrado.
-                  </p>
-                )}
-
-                {!providerId &&
-                  providerQuery.trim() !== "" &&
-                  !providerQueryIsExactMatch && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreatingProvider(true);
-                        setNewProviderName(providerQuery.trim());
-                      }}
-                      className="flex w-full items-center gap-2 border-t border-gray-100 px-3 py-2 text-left text-sm text-brand-700 hover:bg-brand-50 dark:border-slate-800 dark:text-brand-300 dark:hover:bg-brand-950/40"
-                    >
-                      <UserPlus size={14} />
-                      <span className="flex-1">
-                        Criar novo prestador "{providerQuery.trim()}"
-                      </span>
-                    </button>
-                  )}
-              </div>
-            )}
-
-            {creatingProvider && (
-              <div className="mt-2 space-y-3 rounded-lg border border-brand-200 bg-brand-50/40 p-3 dark:border-brand-800 dark:bg-brand-950/30">
-                <p className="text-xs font-medium text-brand-900 dark:text-brand-200">
-                  Novo prestador (cadastro rápido)
-                </p>
-                <Input
-                  label="Nome"
-                  value={newProviderName}
-                  onChange={(e) => setNewProviderName(e.target.value)}
-                  placeholder="Ex: Wlad"
-                />
-                <Input
-                  label="Telefone (opcional)"
-                  type="tel"
-                  inputMode="tel"
-                  value={newProviderPhone}
-                  onChange={(e) =>
-                    setNewProviderPhone(maskPhone(e.target.value))
-                  }
-                  placeholder="(00) 00000-0000"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatingProvider(false);
-                    setNewProviderName("");
-                    setNewProviderPhone("");
-                  }}
-                  className="text-xs text-gray-600 underline hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
-                >
-                  Cancelar cadastro rápido
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Horário + duração */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Horário de início"
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            required
+          <EntityPicker
+            label="Paciente"
+            items={filteredPatients}
+            selectedId={patientId}
+            query={patientQuery}
+            creating={creatingPatient}
+            newName={newPatientName}
+            newPhone={newPatientPhone}
+            onQueryChange={(q) => {
+              setPatientQuery(q);
+              setPatientId("");
+              setCreatingPatient(false);
+            }}
+            onSelect={(id, name) => {
+              setPatientId(id);
+              setPatientQuery(name);
+            }}
+            onStartCreating={(name) => {
+              setCreatingPatient(true);
+              setNewPatientName(name);
+            }}
+            onCreateCancel={() => {
+              setCreatingPatient(false);
+              setNewPatientName("");
+              setNewPatientPhone("");
+            }}
+            onNewNameChange={setNewPatientName}
+            onNewPhoneChange={setNewPatientPhone}
+            searchPlaceholder="Buscar paciente por nome..."
+            createLabel="Criar novo paciente"
           />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-              Duração
-            </label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
-              <option value={30}>30 minutos</option>
-              <option value={50}>50 minutos</option>
-              <option value={60}>60 minutos</option>
-              <option value={90}>90 minutos</option>
-              <option value={120}>120 minutos</option>
-            </select>
-          </div>
-        </div>
+        )}
 
-        {/* Observações */}
+        {option === "personal" && (
+          <EntityPicker
+            label="Prestador"
+            items={filteredProviders}
+            selectedId={providerId}
+            query={providerQuery}
+            creating={creatingProvider}
+            newName={newProviderName}
+            newPhone={newProviderPhone}
+            onQueryChange={(q) => {
+              setProviderQuery(q);
+              setProviderId("");
+              setCreatingProvider(false);
+            }}
+            onSelect={(id, name) => {
+              setProviderId(id);
+              setProviderQuery(name);
+            }}
+            onStartCreating={(name) => {
+              setCreatingProvider(true);
+              setNewProviderName(name);
+            }}
+            onCreateCancel={() => {
+              setCreatingProvider(false);
+              setNewProviderName("");
+              setNewProviderPhone("");
+            }}
+            onNewNameChange={setNewProviderName}
+            onNewPhoneChange={setNewProviderPhone}
+            searchPlaceholder="Buscar prestador por nome..."
+            createLabel="Criar novo prestador"
+          />
+        )}
+
+        <DateTimeFields
+          startTime={startTime}
+          duration={duration}
+          onStartTimeChange={setStartTime}
+          onDurationChange={setDuration}
+        />
+
+        {option !== "blocked" && (
+          <RecurrenceSelector
+            repeat={repeat}
+            recurrenceType={recurrenceType}
+            recurrenceDays={recurrenceDays}
+            onRepeatChange={setRepeat}
+            onTypeChange={setRecurrenceType}
+            onDaysChange={setRecurrenceDays}
+            dateLabel={formatLongDate(date)}
+          />
+        )}
+
+        {option === "blocked" && (
+          <BlockPeriodSelector
+            fromText={suspendFromText}
+            toText={suspendToText}
+            onFromChange={setSuspendFromText}
+            onToChange={setSuspendToText}
+          />
+        )}
+
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
             Observações
@@ -603,15 +482,11 @@ export function CreateAppointmentModal({
 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
-            <AlertCircle
-              size={16}
-              className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
-            />
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
             <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 
-        {/* Ações */}
         <div className="flex justify-end gap-2 border-t border-gray-100 pt-5 dark:border-slate-800">
           <Button variant="secondary" onClick={onClose}>
             Cancelar
@@ -623,52 +498,5 @@ export function CreateAppointmentModal({
         </div>
       </div>
     </Modal>
-  );
-}
-
-// =========================================================
-// Sub-componente: botão de tipo
-// =========================================================
-function TypeButton({
-  selected,
-  onClick,
-  icon,
-  title,
-  subtitle,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-2 rounded-lg border p-3 text-left transition ${
-        selected
-          ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-          : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-      }`}
-    >
-      <span
-        className={
-          selected
-            ? "text-brand-600 dark:text-brand-400"
-            : "text-gray-400 dark:text-slate-500"
-        }
-      >
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
-          {title}
-        </p>
-        <p className="truncate text-xs text-gray-500 dark:text-slate-400">
-          {subtitle}
-        </p>
-      </div>
-    </button>
   );
 }
