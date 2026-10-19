@@ -13,6 +13,7 @@ type Props = {
   date: string;
   appointments: AppointmentWithRelations[];
   onAppointmentClick: (appointment: AppointmentWithRelations) => void;
+  onResize: (appointment: AppointmentWithRelations, deltaY: number) => void;
   onSlotClick: (date: string, hour: number) => void;
   onReload: () => void;
 };
@@ -21,6 +22,7 @@ export function DayView({
   date,
   appointments,
   onAppointmentClick,
+  onResize, // <--- ADICIONADO AQUI
   onSlotClick,
   onReload,
 }: Props) {
@@ -94,10 +96,11 @@ export function DayView({
         </div>
 
         <div
-          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${isToday(date)
+          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${
+            isToday(date)
               ? "ring-1 ring-brand-200 dark:ring-brand-800"
               : ""
-            }`}
+          }`}
         >
           <div className="flex">
             <TimeColumn headerHeight={0} />
@@ -139,7 +142,7 @@ export function DayView({
                     key={l.appointment.id}
                     appointment={l.appointment}
                     onClick={onAppointmentClick}
-                    expanded
+                    onResize={onResize} // <--- ADICIONADO AQUI
                     top={l.top}
                     height={l.height}
                     leftPercent={l.leftPercent}

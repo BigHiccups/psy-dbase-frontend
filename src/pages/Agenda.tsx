@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import {
   useAgendaView,
   getViewRange,
@@ -22,6 +16,7 @@ import { AppointmentDetailModal } from "../components/agenda/AppointmentDetailMo
 import { CreateAppointmentModal } from "../components/agenda/CreateAppointmentModal";
 import { DayCancelledModal } from "../components/agenda/DayCancelledModal";
 import { MoveAppointmentModal } from "../components/agenda/MoveAppointmentModal";
+import { ResizeAppointmentModal } from "../components/agenda/ResizeAppointmentModal";
 import { Spinner } from "../components/ui";
 import {
   formatLongDate,
@@ -29,6 +24,7 @@ import {
   toMonthString,
 } from "../lib/agenda-date";
 import type { AppointmentWithRelations } from "../types";
+
 
 export function Agenda() {
   const navigate = useNavigate();
@@ -93,6 +89,11 @@ export function Agenda() {
     newStartTime: string;
   } | null>(null);
 
+  const [resizeTarget, setResizeTarget] = useState<{
+    appointment: AppointmentWithRelations;
+    deltaY: number;
+  } | null>(null);
+
   // Sensores do DnD (exige arrastar 5px para ativar, evitando cliques acidentais)
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -132,6 +133,10 @@ export function Agenda() {
     setMoveTarget({ appointment, newDate, newStartTime });
   }
 
+  function handleResize(appointment: AppointmentWithRelations, deltaY: number) {
+    setResizeTarget({ appointment, deltaY });
+  }
+
   // =========================================================
   // Handlers de cliques normais
   // =========================================================
@@ -160,7 +165,6 @@ export function Agenda() {
       : formatLongDate(agenda.date);
 
   return (
-    // O DndContext envelopa a tela toda para permitir arrastar entre as colunas
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="space-y-5">
         <AgendaToolbar
@@ -193,6 +197,7 @@ export function Agenda() {
                 date={agenda.date}
                 appointments={appointments}
                 onAppointmentClick={handleAppointmentClick}
+                onResize={handleResize} // <--- ADICIONADO AQUI
                 onSlotClick={handleSlotClick}
                 onReload={reload}
               />
@@ -205,6 +210,7 @@ export function Agenda() {
                   (a) => a.starts_on === agenda.date
                 )}
                 onAppointmentClick={handleAppointmentClick}
+                onResize={handleResize} // <--- ADICIONADO AQUI
                 onSlotClick={handleSlotClick}
                 onReload={reload}
               />
@@ -276,6 +282,19 @@ export function Agenda() {
             onMoved={() => {
               reload();
               setMoveTarget(null);
+            }}
+          />
+        )}
+
+        {/* Modal de confirmação do Resize */}
+        {resizeTarget && (
+          <ResizeAppointmentModal
+            appointment={resizeTarget.appointment}
+            deltaY={resizeTarget.deltaY}
+            onClose={() => setResizeTarget(null)}
+            onResized={() => {
+              reload();
+              setResizeTarget(null);
             }}
           />
         )}

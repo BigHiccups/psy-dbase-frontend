@@ -15,6 +15,7 @@ type Props = {
   date: string;
   appointments: AppointmentWithRelations[];
   onAppointmentClick: (appointment: AppointmentWithRelations) => void;
+  onResize: (appointment: AppointmentWithRelations, deltaY: number) => void;
   onSlotClick: (date: string, hour: number) => void;
   onReload: () => void;
 };
@@ -23,6 +24,7 @@ export function WeekView({
   date,
   appointments,
   onAppointmentClick,
+  onResize, // <--- ADICIONADO AQUI
   onSlotClick,
   onReload,
 }: Props) {
@@ -105,8 +107,9 @@ export function WeekView({
                   return (
                     <div
                       key={d}
-                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
-                        }`}
+                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${
+                        isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
+                      }`}
                     >
                       {hours.map((h) => {
                         const startTime = `${String(h).padStart(2, "0")}:00`;
@@ -147,6 +150,7 @@ export function WeekView({
                             key={l.appointment.id}
                             appointment={l.appointment}
                             onClick={onAppointmentClick}
+                            onResize={onResize} // <--- ADICIONADO AQUI
                             top={l.top}
                             height={l.height}
                             leftPercent={l.leftPercent}
