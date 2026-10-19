@@ -4,11 +4,13 @@ import { ArrowLeft, Save, AlertCircle, User, Building2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Button, Card, Input, Spinner } from "../components/ui";
 import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
+import { BillingList, type DraftBilling } from "../components/BillingList";
 import { useProvider } from "../hooks/useProvider";
 import { useProviderScheduleSource } from "../hooks/useProviderScheduleSource";
+import { useProviderBillings } from "../hooks/useProviderBillings";
 import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
-import { validateRecurrence } from "../lib/recurrence";
+import { toDateString } from "../lib/agenda-date";
 import {
   maskCPF,
   maskCNPJ,
@@ -20,6 +22,7 @@ import {
   isValidCNPJ,
   isValidPhoneBR,
 } from "../lib/masks";
+import { validateRecurrence } from "../lib/recurrence";
 import type { ProviderKind, RecurrenceType, ScheduleInput } from "../types";
 
 type FormState = {
@@ -76,21 +79,29 @@ export function ProviderForm() {
     loading: loadingSchedules,
   } = useProviderScheduleSource(id);
 
+  const {
+    billings: existingBillings,
+    saveBilling,
+    archiveBilling,
+    loading: loadingBillings,
+  } = useProviderBillings(id);
+
   const { slots: occupiedSlots } = useOccupiedSlots({
     excludeProviderId: id,
   });
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [personDocType, setPersonDocType] = useState<"cpf" | "cnpj">("cpf");
+
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [initialSchedules, setInitialSchedules] = useState<ScheduleInput[]>([]);
 
-  const [recurrenceType, setRecurrenceType] =
-    useState<RecurrenceType>("weekly");
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
   const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
-  const [initialRecurrenceType, setInitialRecurrenceType] =
-    useState<RecurrenceType>("weekly");
-  const [initialRecurrenceDays, setInitialRecurrenceDays] =
-    useState<number | null>(null);
+  const [initialRecurrenceType, setInitialRecurrenceType] = useState<RecurrenceType>("weekly");
+  const [initialRecurrenceDays, setInitialRecurrenceDays] = useState<number | null>(null);
+
+  const [draftBillings, setDraftBillings] = useState<DraftBilling[]>([]);
 
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
@@ -99,6 +110,10 @@ export function ProviderForm() {
 
   useEffect(() => {
     if (provider) {
+      const docDigits = provider.document?.replace(/\D/g, "") ?? "";
+      if (provider.kind === "person" && docDigits.length === 14) {
+        setPersonDocType("cnpj");
+      }
       setForm({
         kind: provider.kind,
         display_name: provider.display_name ?? "",
@@ -115,41 +130,56 @@ export function ProviderForm() {
   useEffect(() => {
     if (!loadingSchedules) {
       setSchedules(sourcedSchedules);
-      setInitialSchedules((prev) =>
-        prev.length === 0 ? sourcedSchedules : prev
-      );
+      setInitialSchedules((prev) => (prev.length === 0 ? sourcedSchedules : prev));
 
       setRecurrenceType(sourcedRecurrenceType);
       setRecurrenceDays(sourcedRecurrenceDays);
       setInitialRecurrenceType((prev) =>
-        prev === "weekly" && sourcedRecurrenceType !== "weekly"
-          ? sourcedRecurrenceType
-          : prev
+        prev === "weekly" && sourcedRecurrenceType !== "weekly" ? sourcedRecurrenceType : prev
       );
       setInitialRecurrenceDays((prev) =>
-        prev === null && sourcedRecurrenceDays !== null
-          ? sourcedRecurrenceDays
-          : prev
+        prev === null && sourcedRecurrenceDays !== null ? sourcedRecurrenceDays : prev
       );
     }
   }, [loadingSchedules, sourcedSchedules, sourcedRecurrenceType, sourcedRecurrenceDays]);
+
+  useEffect(() => {
+    if (isEdit && existingBillings) {
+      setDraftBillings(existingBillings);
+    }
+  }, [isEdit, existingBillings]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
       if (key === "kind" && value !== prev.kind) {
         next.document = "";
+        if (value === "company") next.session_price = "";
+        if (value === "person") setDraftBillings([]); // limpa os vencimentos ao trocar pra pessoa
       }
       return next;
     });
   }
 
-  function handleRecurrenceChange(
-    nextType: RecurrenceType,
-    nextDays: number | null
-  ) {
+  function handleRecurrenceChange(nextType: RecurrenceType, nextDays: number | null) {
     setRecurrenceType(nextType);
     setRecurrenceDays(nextDays);
+  }
+
+  async function handleRemoveBilling(id: string, index: number) {
+    if (!confirm("Remover este vencimento?")) return;
+
+    // 1. Remove da memória imediatamente
+    setDraftBillings((prev) => prev.filter((_, i) => i !== index));
+
+    // 2. Se tem ID (já foi salvo no banco), arquiva lá também
+    if (id) {
+      try {
+        await archiveBilling(id);
+      } catch (err) {
+        alert("Erro ao remover do banco: " + (err instanceof Error ? err.message : ""));
+      }
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -162,18 +192,23 @@ export function ProviderForm() {
       return;
     }
 
-    if (form.kind === "person" && form.document && !isValidCPF(form.document)) {
-      setError("CPF inválido.");
-      return;
+    if (form.kind === "person") {
+      const isCnpj = personDocType === "cnpj";
+      if (form.document && isCnpj && !isValidCNPJ(form.document)) {
+        setError("CNPJ inválido.");
+        return;
+      }
+      if (form.document && !isCnpj && !isValidCPF(form.document)) {
+        setError("CPF inválido.");
+        return;
+      }
     }
-    if (
-      form.kind === "company" &&
-      form.document &&
-      !isValidCNPJ(form.document)
-    ) {
+
+    if (form.kind === "company" && form.document && !isValidCNPJ(form.document)) {
       setError("CNPJ inválido.");
       return;
     }
+
     if (form.phone && !isValidPhoneBR(form.phone)) {
       setError("Telefone inválido. Use DDD + número.");
       return;
@@ -200,10 +235,10 @@ export function ProviderForm() {
       email: form.email.trim() || null,
       phone: form.phone || null,
       notes: form.notes.trim() || null,
-      session_price_cents: parseCurrencyToCents(form.session_price),
+      session_price_cents:
+        form.kind === "person" ? parseCurrencyToCents(form.session_price) : null,
     };
 
-    // Só pessoa física tem horários. E só sincroniza se mudou algo.
     const schedulesChanged = !schedulesEqual(schedules, initialSchedules);
     const recurrenceChanged = !recurrenceEqual(
       recurrenceType,
@@ -230,18 +265,36 @@ export function ProviderForm() {
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc(
-          "set_provider_schedules",
-          {
-            p_provider_id: id,
-            p_schedules: schedules,
-            p_recurrence_type: recurrenceType,
-            p_recurrence_days: recurrenceDays,
-          }
-        );
+        const { error: scheduleErr } = await supabase.rpc("set_provider_schedules", {
+          p_provider_id: id,
+          p_schedules: schedules,
+          p_recurrence_type: recurrenceType,
+          p_recurrence_days: recurrenceType === "custom_days" ? recurrenceDays : null,
+        });
 
         if (scheduleErr) {
           setScheduleError(scheduleErr.message);
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (form.kind === "company") {
+        try {
+          for (const b of draftBillings) {
+            await saveBilling({
+              id: b.id,
+              provider_id: id!,
+              description: b.description,
+              amount_cents: b.amount_cents,
+              due_day: b.due_day,
+              frequency: b.frequency,
+              starts_on: toDateString(new Date()),
+
+            });
+          }
+        } catch (billErr) {
+          setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
           setSaving(false);
           return;
         }
@@ -272,18 +325,35 @@ export function ProviderForm() {
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc(
-          "set_provider_schedules",
-          {
-            p_provider_id: data.id,
-            p_schedules: schedules,
-            p_recurrence_type: recurrenceType,
-            p_recurrence_days: recurrenceDays,
-          }
-        );
+        const { error: scheduleErr } = await supabase.rpc("set_provider_schedules", {
+          p_provider_id: data.id,
+          p_schedules: schedules,
+          p_recurrence_type: recurrenceType,
+          p_recurrence_days: recurrenceType === "custom_days" ? recurrenceDays : null,
+        });
 
         if (scheduleErr) {
           setScheduleError(scheduleErr.message);
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (form.kind === "company") {
+        try {
+          for (const b of draftBillings) {
+            await saveBilling({
+              provider_id: data.id,
+              description: b.description,
+              amount_cents: b.amount_cents,
+              due_day: b.due_day,
+              frequency: b.frequency,
+              starts_on: toDateString(new Date()),
+
+            });
+          }
+        } catch (billErr) {
+          setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
           setSaving(false);
           return;
         }
@@ -293,23 +363,13 @@ export function ProviderForm() {
     }
   }
 
-  if (isEdit && (loadingProvider || loadingSchedules)) {
+  if (isEdit && (loadingProvider || loadingSchedules || loadingBillings)) {
     return (
       <div className="flex items-center justify-center py-20">
         <Spinner size={24} />
       </div>
     );
   }
-
-  const priceLabel =
-    form.kind === "person"
-      ? "Valor da sessão"
-      : "Valor recorrente (referência)";
-
-  const priceHint =
-    form.kind === "person"
-      ? "Valor pago por sessão a este prestador."
-      : "Valor base do serviço. Refinado na Fase B (vencimentos).";
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -342,8 +402,8 @@ export function ProviderForm() {
               type="button"
               onClick={() => update("kind", "person")}
               className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person"
-                ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                 }`}
             >
               <User
@@ -355,12 +415,8 @@ export function ProviderForm() {
                 }
               />
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                  Pessoa física
-                </p>
-                <p className="text-xs text-gray-500 dark:text-slate-400">
-                  Psicólogo, supervisor, etc.
-                </p>
+                <p className="text-sm font-medium">Profissional</p>
+                <p className="text-xs text-gray-500">Supervisor, psicólogo, etc.</p>
               </div>
             </button>
 
@@ -368,8 +424,8 @@ export function ProviderForm() {
               type="button"
               onClick={() => update("kind", "company")}
               className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company"
-                ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                 }`}
             >
               <Building2
@@ -381,12 +437,8 @@ export function ProviderForm() {
                 }
               />
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                  Empresa
-                </p>
-                <p className="text-xs text-gray-500 dark:text-slate-400">
-                  Curso, plataforma, aluguel, etc.
-                </p>
+                <p className="text-sm font-medium">Empresa</p>
+                <p className="text-xs text-gray-500">Curso, aluguel, plataforma.</p>
               </div>
             </button>
           </div>
@@ -403,9 +455,7 @@ export function ProviderForm() {
             required
             value={form.display_name}
             onChange={(e) => update("display_name", e.target.value)}
-            placeholder={
-              form.kind === "person" ? "Ex: Wlad" : "Ex: Escuta Social Psi"
-            }
+            placeholder={form.kind === "person" ? "Ex: Wlad" : "Ex: Escuta Social Psi"}
           />
 
           {form.kind === "company" && (
@@ -418,33 +468,79 @@ export function ProviderForm() {
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              label={form.kind === "company" ? "CNPJ" : "CPF"}
-              inputMode="numeric"
-              value={form.document}
-              onChange={(e) =>
-                update(
-                  "document",
-                  form.kind === "company"
-                    ? maskCNPJ(e.target.value)
-                    : maskCPF(e.target.value)
-                )
-              }
-              placeholder={
-                form.kind === "company"
-                  ? "00.000.000/0000-00"
-                  : "000.000.000-00"
-              }
-            />
+            <div>
+              {/* Mini-seletor CPF/CNPJ para pessoa */}
+              {form.kind === "person" ? (
+                <div className="mb-2 flex h-[22px] items-end gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPersonDocType("cpf");
+                      update("document", "");
+                    }}
+                    className={
+                      personDocType === "cpf"
+                        ? "font-medium text-brand-600"
+                        : "text-gray-500"
+                    }
+                  >
+                    CPF
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPersonDocType("cnpj");
+                      update("document", "");
+                    }}
+                    className={
+                      personDocType === "cnpj"
+                        ? "font-medium text-brand-600"
+                        : "text-gray-500"
+                    }
+                  >
+                    CNPJ
+                  </button>
+                </div>
+              ) : (
+                <div className="mb-2 h-[22px]" />
+              )}
 
-            <Input
-              label="Telefone"
-              type="tel"
-              inputMode="tel"
-              value={form.phone}
-              onChange={(e) => update("phone", maskPhone(e.target.value))}
-              placeholder="(00) 00000-0000"
-            />
+              <Input
+                label={
+                  form.kind === "company" || personDocType === "cnpj"
+                    ? "CNPJ"
+                    : "CPF"
+                }
+                inputMode="numeric"
+                value={form.document}
+                onChange={(e) => {
+                  const isCnpj = form.kind === "company" || personDocType === "cnpj";
+                  update(
+                    "document",
+                    isCnpj ? maskCNPJ(e.target.value) : maskCPF(e.target.value)
+                  );
+                }}
+                placeholder={
+                  form.kind === "company" || personDocType === "cnpj"
+                    ? "00.000.000/0000-00"
+                    : "000.000.000-00"
+                }
+              />
+            </div>
+
+            <div>
+              {/* Espaçador invisível para alinhar o Telefone com o CPF */}
+              <div className="mb-2 h-[22px]" />
+              <Input
+                label="Telefone"
+                type="tel"
+                inputMode="tel"
+                value={form.phone}
+                onChange={(e) => update("phone", maskPhone(e.target.value))}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
           </div>
 
           <Input
@@ -462,29 +558,41 @@ export function ProviderForm() {
             Financeiro
           </h2>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-              {priceLabel}
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">
-                R$
-              </span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.session_price}
-                onChange={(e) =>
-                  update("session_price", maskCurrencyBRL(e.target.value))
-                }
-                placeholder="0,00"
-                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+          {form.kind === "person" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                Valor da sessão
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">
+                  R$
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form.session_price}
+                  onChange={(e) =>
+                    update("session_price", maskCurrencyBRL(e.target.value))
+                  }
+                  placeholder="0,00"
+                  className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                Valor pago por sessão a este prestador.
+              </p>
+            </div>
+          )}
+
+          {form.kind === "company" && (
+            <div className="pt-2">
+              <BillingList
+                billings={draftBillings}
+                onChange={setDraftBillings}
+                onRemove={handleRemoveBilling} 
               />
             </div>
-            <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-              {priceHint}
-            </p>
-          </div>
+          )}
         </Card>
 
         {/* Horários (só pessoa física) */}
@@ -539,23 +647,9 @@ export function ProviderForm() {
               Cancelar
             </Button>
           </Link>
-          <Button
-            type="submit"
-            disabled={saving || hasScheduleConflict}
-            title={
-              hasScheduleConflict
-                ? "Resolva os horários em conflito antes de salvar"
-                : undefined
-            }
-          >
+          <Button type="submit" disabled={saving || hasScheduleConflict}>
             <Save size={16} />
-            {saving
-              ? "Salvando..."
-              : hasScheduleConflict
-                ? "Resolva os conflitos"
-                : isEdit
-                  ? "Salvar alterações"
-                  : "Criar prestador"}
+            {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Criar prestador"}
           </Button>
         </div>
       </form>

@@ -11,7 +11,6 @@ import {
   Phone,
   Mail,
   IdCard,
-  Clock,
   PauseCircle,
   CalendarClock,
   Plus,
@@ -28,6 +27,7 @@ import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
 import { centsToCurrencyBRL } from "../lib/masks";
 import { getRecurrenceShortLabel } from "../lib/recurrence";
 import type { ProviderKind, ScheduleInput } from "../types";
+import { useProviderBillings } from "../hooks/useProviderBillings";
 
 const KIND_LABEL: Record<ProviderKind, string> = {
   person: "Pessoa física",
@@ -35,7 +35,7 @@ const KIND_LABEL: Record<ProviderKind, string> = {
 };
 
 function documentLabel(kind: ProviderKind): string {
-  return kind === "company" ? "CNPJ" : "CPF";
+  return kind === "company" ? "CNPJ" : "CPF/CNPJ";
 }
 
 type ConflictItem = {
@@ -54,6 +54,10 @@ export function ProviderDetail() {
     recurrenceDays,
     reload: reloadSchedules,
   } = useProviderSchedules(id);
+
+  const { billings, loading: loadingBillings } = useProviderBillings(
+    provider?.kind === "company" ? id : undefined
+  );
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -475,28 +479,62 @@ export function ProviderDetail() {
         </Card>
       )}
 
-      {/* Empresa: vencimentos (placeholder Fase B) */}
+      {/* Empresa: vencimentos */}
       {isCompany && (
         <Card className="p-6">
-          <div className="mb-3 flex items-center gap-2">
-            <CalendarClock
-              size={14}
-              className="text-brand-600 dark:text-brand-400"
-            />
-            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-              Vencimentos
-            </h2>
-          </div>
-          <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
-            <p className="text-sm text-gray-500 dark:text-slate-400">
-              Cadastre pagamentos recorrentes (mensal, bimestral, semestral,
-              anual).
-            </p>
-            <div className="mt-3 flex items-center justify-center gap-1 text-xs text-gray-400 dark:text-slate-500">
-              <Clock size={12} />
-              Disponível em breve
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock
+                size={14}
+                className="text-brand-600 dark:text-brand-400"
+              />
+              <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                Vencimentos recorrentes
+              </h2>
             </div>
           </div>
+
+          {loadingBillings ? (
+            <div className="flex justify-center py-4">
+              <Spinner size={20} />
+            </div>
+          ) : billings.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
+              <p className="text-sm text-gray-500 dark:text-slate-400">
+                Nenhum vencimento cadastrado.
+              </p>
+              <Link to={`/providers/${provider.id}/edit`}>
+                <Button variant="secondary" size="sm" className="mt-3">
+                  <Plus size={14} />
+                  Configurar vencimentos
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {billings.map((b) => (
+                <li
+                  key={b.id}
+                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-slate-100">
+                      {b.description}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">
+                      Todo dia {b.due_day} · {centsToCurrencyBRL(b.amount_cents)}
+                    </p>
+                  </div>
+                  <Link
+                    to={`/providers/${provider.id}/edit`}
+                    className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                  >
+                    Editar
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       )}
 
