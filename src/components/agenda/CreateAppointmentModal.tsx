@@ -19,13 +19,12 @@ import type {
 import {
   findSingleConflict,
   findSeriesConflict,
-  findPeriodConflict,
 } from "./create-appointment/conflict-checker";
 import { TypeSelector, type AppointmentOption } from "./create-appointment/TypeSelector";
 import { EntityPicker } from "./create-appointment/EntityPicker";
 import { DateTimeFields } from "./create-appointment/DateTimeFields";
 import { RecurrenceSelector } from "./create-appointment/RecurrenceSelector";
-import { BlockPeriodSelector } from "./create-appointment/BlockPeriodSelector";
+import { BlockFields, type BlockMode } from "./create-appointment/BlockFields";
 
 type Props = {
   open: boolean;
@@ -35,6 +34,9 @@ type Props = {
   onCreated: () => void;
 };
 
+const ALL_DAY_START = "07:00";
+const ALL_DAY_END = "23:59";
+
 export function CreateAppointmentModal({
   open,
   date,
@@ -43,38 +45,44 @@ export function CreateAppointmentModal({
   onCreated,
 }: Props) {
   const [option, setOption] = useState<AppointmentOption>("session");
+
+  // Horário padrão (Sessão / Prestador)
   const [startTime, setStartTime] = useState(
     `${String(initialHour).padStart(2, "0")}:00`
   );
   const [duration, setDuration] = useState(50);
+
+  // Horário padrão (Bloqueio)
+  const [blockStartTime, setBlockStartTime] = useState(ALL_DAY_START);
+  const [blockEndTime, setBlockEndTime] = useState(ALL_DAY_END);
+
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado de paciente
+  // Paciente
   const [patientId, setPatientId] = useState("");
   const [patientQuery, setPatientQuery] = useState("");
   const [creatingPatient, setCreatingPatient] = useState(false);
   const [newPatientName, setNewPatientName] = useState("");
   const [newPatientPhone, setNewPatientPhone] = useState("");
 
-  // Estado de prestador
+  // Prestador
   const [providerId, setProviderId] = useState("");
   const [providerQuery, setProviderQuery] = useState("");
   const [creatingProvider, setCreatingProvider] = useState(false);
   const [newProviderName, setNewProviderName] = useState("");
   const [newProviderPhone, setNewProviderPhone] = useState("");
 
-  // Estado de repetição
+  // Repetir
   const [repeat, setRepeat] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
   const [recurrenceDays, setRecurrenceDays] = useState<number | null>(15);
 
-  // Estado de bloqueio
-  const [suspendFromText, setSuspendFromText] = useState(
-    formatDateBR(date)
-  );
-  const [suspendToText, setSuspendToText] = useState(formatDateBR(date));
+  // Bloqueio
+  const [blockMode, setBlockMode] = useState<BlockMode>("all_day_single");
+  const [multiFromText, setMultiFromText] = useState(formatDateBR(date));
+  const [multiToText, setMultiToText] = useState(formatDateBR(date));
 
   const { patients } = usePatients("active");
   const { providers } = useProviders("all");
@@ -88,115 +96,96 @@ export function CreateAppointmentModal({
 
   const filteredPatients = (patientQuery
     ? patients.filter((p) =>
-        p.full_name.toLowerCase().includes(patientQuery.toLowerCase())
-      )
+      p.full_name.toLowerCase().includes(patientQuery.toLowerCase())
+    )
     : patients.slice(0, 5)
   ).map((p) => ({ id: p.id, name: p.full_name }));
 
   const filteredProviders = (providerQuery
     ? activePersonProviders.filter((p) =>
-        p.display_name.toLowerCase().includes(providerQuery.toLowerCase())
-      )
+      p.display_name.toLowerCase().includes(providerQuery.toLowerCase())
+    )
     : activePersonProviders.slice(0, 5)
   ).map((p) => ({ id: p.id, name: p.display_name }));
 
-  // Reseta repetir quando muda pra bloqueio
   function handleChangeOption(next: AppointmentOption) {
     setOption(next);
     setError(null);
-    if (next === "blocked") setRepeat(false);
+
+    if (next === "blocked") {
+      setRepeat(false);
+      setBlockStartTime(ALL_DAY_START);
+      setBlockEndTime(ALL_DAY_END);
+      setBlockMode("all_day_single");
+    } else {
+      setStartTime(`${String(initialHour).padStart(2, "0")}:00`);
+    }
   }
 
   async function handleSubmit() {
     setError(null);
 
-    // ============ Validação de sujeito ============
+    // ============ Validações comuns ============
     if (option === "session") {
-      if (!patientId && !creatingPatient) {
-        setError("Selecione um paciente ou crie um novo.");
-        return;
-      }
+      if (!patientId && !creatingPatient) return setError("Selecione um paciente ou crie um novo.");
       if (creatingPatient) {
-        if (!newPatientName.trim()) {
-          setError("Informe o nome do novo paciente.");
-          return;
-        }
-        if (newPatientPhone && !isValidPhoneBR(newPatientPhone)) {
-          setError("Telefone do paciente inválido.");
-          return;
-        }
+        if (!newPatientName.trim()) return setError("Informe o nome do novo paciente.");
+        if (newPatientPhone && !isValidPhoneBR(newPatientPhone)) return setError("Telefone do paciente inválido.");
       }
     }
 
     if (option === "personal") {
-      if (!providerId && !creatingProvider) {
-        setError("Selecione um prestador ou crie um novo.");
-        return;
-      }
+      if (!providerId && !creatingProvider) return setError("Selecione um prestador ou crie um novo.");
       if (creatingProvider) {
-        if (!newProviderName.trim()) {
-          setError("Informe o nome do novo prestador.");
-          return;
-        }
-        if (newProviderPhone && !isValidPhoneBR(newProviderPhone)) {
-          setError("Telefone do prestador inválido.");
-          return;
-        }
+        if (!newProviderName.trim()) return setError("Informe o nome do novo prestador.");
+        if (newProviderPhone && !isValidPhoneBR(newProviderPhone)) return setError("Telefone do prestador inválido.");
       }
     }
 
-    // ============ Validação de recorrência ============
+    // ============ Bloqueio: validações de data ============
+    if (option === "blocked") {
+      if (blockMode === "range_single_day" || blockMode === "multi_day") {
+        if (!blockStartTime || !blockEndTime) return setError("Preencha horário de início e fim.");
+        if (blockEndTime <= blockStartTime) return setError("Horário de fim deve ser posterior ao de início.");
+      }
+      if (blockMode === "multi_day") {
+        if (!isValidDateBR(multiFromText)) return setError("Data 'De' inválida.");
+        if (!isValidDateBR(multiToText)) return setError("Data 'Até' inválida.");
+        const fromIso = parseDateBR(multiFromText);
+        const toIso = parseDateBR(multiToText);
+        if (!fromIso || !toIso) return setError("Datas inválidas.");
+        if (toIso < fromIso) return setError("Data 'Até' deve ser posterior a 'De'.");
+      }
+    }
+
+    // ============ Série: validar recorrência ============
     if (option !== "blocked" && repeat) {
       const recurrenceErr = validateRecurrence(recurrenceType, recurrenceDays);
-      if (recurrenceErr) {
-        setError(recurrenceErr);
-        return;
-      }
+      if (recurrenceErr) return setError(recurrenceErr);
     }
 
-    // ============ Validação de datas do bloqueio ============
-    let fromIso = "";
-    let toIso = "";
-    if (option === "blocked") {
-      if (!isValidDateBR(suspendFromText)) {
-        setError("Data 'De' inválida.");
-        return;
+    // ============ Validação de conflito (só Sessão/Prestador) ============
+    if (option !== "blocked") {
+      if (repeat) {
+        const conflictMsg = findSeriesConflict(
+          occupiedSlots,
+          parseDateString(date).getDay(),
+          startTime,
+          duration,
+          recurrenceType,
+          recurrenceDays,
+          date
+        );
+        if (conflictMsg) return setError(conflictMsg);
+      } else {
+        const conflictMsg = findSingleConflict(
+          occupiedSlots,
+          parseDateString(date).getDay(),
+          startTime,
+          duration
+        );
+        if (conflictMsg) return setError(`Horário em conflito com ${conflictMsg}.`);
       }
-      if (!isValidDateBR(suspendToText)) {
-        setError("Data 'Até' inválida.");
-        return;
-      }
-      fromIso = parseDateBR(suspendFromText)!;
-      toIso = parseDateBR(suspendToText)!;
-      if (toIso < fromIso) {
-        setError("Data 'Até' deve ser posterior a 'De'.");
-        return;
-      }
-    }
-
-    // ============ Validação de conflito ============
-    if (option === "blocked") {
-      const conflictMsg = findPeriodConflict(occupiedSlots, fromIso, toIso, startTime, duration);
-      if (conflictMsg) return setError(conflictMsg);
-    } else if (repeat) {
-      const conflictMsg = findSeriesConflict(
-        occupiedSlots,
-        parseDateString(date).getDay(),
-        startTime,
-        duration,
-        recurrenceType,
-        recurrenceDays,
-        date
-      );
-      if (conflictMsg) return setError(conflictMsg);
-    } else {
-      const conflictMsg = findSingleConflict(
-        occupiedSlots,
-        parseDateString(date).getDay(),
-        startTime,
-        duration
-      );
-      if (conflictMsg) return setError(`Horário em conflito com ${conflictMsg}.`);
     }
 
     setSaving(true);
@@ -261,36 +250,110 @@ export function CreateAppointmentModal({
       }
     }
 
-    // ============ Caminho 1 — Bloqueio por período ============
+    // ============ Caminho 1 — Bloqueio ============
     if (option === "blocked") {
-      const inserts: Array<Record<string, unknown>> = [];
-      let cur = fromIso;
+      let startDate = date;
+      let endDate = date;
+      if (blockMode === "multi_day") {
+        startDate = parseDateBR(multiFromText)!;
+        endDate = parseDateBR(multiToText)!;
+      }
+
+      const timeToMins = (t: string) => {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      };
+
+      const blockStartMin = blockMode === "all_day_single" ? timeToMins(ALL_DAY_START) : timeToMins(blockStartTime);
+      const blockEndMin = blockMode === "all_day_single" ? timeToMins(ALL_DAY_END) : timeToMins(blockEndTime);
+
+      // 1. Buscar agendamentos ativos no período
+      const { data: activeAppts, error: fetchErr } = await supabase
+        .from("appointments")
+        .select("id, start_time, duration_min")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .gte("starts_on", startDate)
+        .lte("starts_on", endDate)
+        .in("type", ["session", "personal"]);
+
+      if (fetchErr) {
+        setError(fetchErr.message);
+        setSaving(false);
+        return;
+      }
+
+      // 2. Filtrar quais realmente se sobrepõem ao bloqueio
+      const idsToCancel = (activeAppts || []).filter(appt => {
+        const apptStart = timeToMins((appt.start_time as string).slice(0, 5));
+        const apptEnd = apptStart + appt.duration_min;
+        return (apptStart < blockEndMin && blockStartMin < apptEnd);
+      }).map(a => a.id);
+
+      // 3. Criar os blocos
+      let blocks: Array<Record<string, unknown>> = [];
+      let cur = startDate;
       let guard = 0;
-      while (cur <= toIso && guard < 400) {
+
+      while (cur <= endDate && guard < 400) {
         guard++;
-        inserts.push({
+        blocks.push({
           user_id: user.id,
           patient_id: null,
           provider_id: null,
           type: "blocked",
           weekday: parseDateString(cur).getDay(),
-          start_time: startTime + ":00",
-          duration_min: duration,
+          start_time: (blockMode === "all_day_single" ? ALL_DAY_START : blockStartTime) + ":00",
+          duration_min: blockEndMin - blockStartMin,
           starts_on: cur,
           ends_on: cur,
           is_recurring: false,
           status: "active",
-          notes: notes.trim() || null,
+          notes: notes.trim() || "Bloqueio",
           linked_expense: false,
         });
         cur = addDays(cur, 1);
       }
 
-      const { error: blockErr } = await supabase.from("appointments").insert(inserts);
-      setSaving(false);
+      const { data: insertedBlocks, error: blockErr } = await supabase
+        .from("appointments")
+        .insert(blocks)
+        .select("id, starts_on");
 
-      if (blockErr) return setError(blockErr.message);
-      
+      if (blockErr || !insertedBlocks) {
+        setError(blockErr?.message ?? "Erro ao criar bloqueio.");
+        setSaving(false);
+        return;
+      }
+
+      // 4. Cancelar os agendamentos (e salvar o ID do bloco nas observações deles)
+      if (idsToCancel.length > 0) {
+        for (const apptId of idsToCancel) {
+          // Descobre a data do appointment para achar o bloco correspondente
+          const { data: apptData } = await supabase
+            .from("appointments")
+            .select("starts_on, notes")
+            .eq("id", apptId)
+            .single();
+
+          if (apptData) {
+            const matchingBlock = insertedBlocks.find(b => b.starts_on === apptData.starts_on);
+            if (matchingBlock) {
+              // Guarda o ID do bloqueio nas observações do agendamento cancelado
+              const oldNotes = apptData.notes ? `${apptData.notes}\n` : "";
+              await supabase
+                .from("appointments")
+                .update({
+                  status: "cancelled",
+                  notes: `${oldNotes}[cancelled_by_block:${matchingBlock.id}]`
+                })
+                .eq("id", apptId);
+            }
+          }
+        }
+      }
+
+      setSaving(false);
       onCreated();
       onClose();
       return;
@@ -310,17 +373,17 @@ export function CreateAppointmentModal({
       const rpcName = option === "session" ? "set_patient_schedules" : "set_provider_schedules";
       const rpcParams = option === "session"
         ? {
-            p_patient_id: finalPatientId,
-            p_schedules: schedulesPayload,
-            p_recurrence_type: recurrenceType,
-            p_recurrence_days: recurrenceDays,
-          }
+          p_patient_id: finalPatientId,
+          p_schedules: schedulesPayload,
+          p_recurrence_type: recurrenceType,
+          p_recurrence_days: recurrenceDays,
+        }
         : {
-            p_provider_id: finalProviderId,
-            p_schedules: schedulesPayload,
-            p_recurrence_type: recurrenceType,
-            p_recurrence_days: recurrenceDays,
-          };
+          p_provider_id: finalProviderId,
+          p_schedules: schedulesPayload,
+          p_recurrence_type: recurrenceType,
+          p_recurrence_days: recurrenceDays,
+        };
 
       const { error: rpcErr } = await supabase.rpc(rpcName as any, rpcParams as any);
       setSaving(false);
@@ -439,12 +502,28 @@ export function CreateAppointmentModal({
           />
         )}
 
-        <DateTimeFields
-          startTime={startTime}
-          duration={duration}
-          onStartTimeChange={setStartTime}
-          onDurationChange={setDuration}
-        />
+        {option !== "blocked" ? (
+          <DateTimeFields
+            startTime={startTime}
+            duration={duration}
+            onStartTimeChange={setStartTime}
+            onDurationChange={setDuration}
+          />
+        ) : (
+          <BlockFields
+            mode={blockMode}
+            onModeChange={setBlockMode}
+            date={date}
+            startTime={blockStartTime}
+            endTime={blockEndTime}
+            onStartTimeChange={setBlockStartTime}
+            onEndTimeChange={setBlockEndTime}
+            multiFromText={multiFromText}
+            multiToText={multiToText}
+            onMultiFromChange={setMultiFromText}
+            onMultiToChange={setMultiToText}
+          />
+        )}
 
         {option !== "blocked" && (
           <RecurrenceSelector
@@ -455,15 +534,6 @@ export function CreateAppointmentModal({
             onTypeChange={setRecurrenceType}
             onDaysChange={setRecurrenceDays}
             dateLabel={formatLongDate(date)}
-          />
-        )}
-
-        {option === "blocked" && (
-          <BlockPeriodSelector
-            fromText={suspendFromText}
-            toText={suspendToText}
-            onFromChange={setSuspendFromText}
-            onToChange={setSuspendToText}
           />
         )}
 

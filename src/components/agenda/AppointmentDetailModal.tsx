@@ -7,6 +7,8 @@ import {
   AlertCircle,
   XCircle,
   ExternalLink,
+  Trash2,
+  PauseCircle,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { Button, Modal, Badge, ConfirmDialog } from "../ui";
@@ -32,6 +34,7 @@ export function AppointmentDetailModal({
   onChanged,
 }: Props) {
   const [cancelThisOpen, setCancelThisOpen] = useState(false);
+  const [deleteBlockOpen, setDeleteBlockOpen] = useState(false);
   const [cancelSeriesOpen, setCancelSeriesOpen] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,11 +44,13 @@ export function AppointmentDetailModal({
   const style = TYPE_STYLES[appointment.type];
   const isCancelled = appointment.status === "cancelled";
   const isCompleted = appointment.status === "completed";
+  const isBlocked = appointment.type === "blocked";
 
+  // Nome do sujeito
   const subjectName =
     appointment.patient?.full_name ??
     appointment.provider?.display_name ??
-    "(sem nome)";
+    (isBlocked ? "Bloqueio" : "(sem nome)");
 
   const subjectLink = appointment.patient
     ? `/patients/${appointment.patient.id}`
@@ -55,7 +60,7 @@ export function AppointmentDetailModal({
 
   const subjectLabel = appointment.patient ? "Paciente" : "Prestador";
 
-  // Determina se é paciente ou provider
+  // Determina se é paciente ou provider (só se não for bloqueio)
   const subjectType: "patient" | "provider" = appointment.patient_id
     ? "patient"
     : "provider";
@@ -64,7 +69,18 @@ export function AppointmentDetailModal({
 
   // Só permite cancelar série se for recorrente E tiver sujeito vinculado
   const canCancelSeries =
-    appointment.is_recurring && !!subjectId && appointment.type !== "blocked";
+    appointment.is_recurring && !!subjectId && !isBlocked;
+
+  // Cálculo de fim do bloqueio
+  const startMin = Number(appointment.start_time.split(":")[0]) * 60 + Number(appointment.start_time.split(":")[1]);
+  const endMin = startMin + appointment.duration_min;
+  const endH = Math.floor(endMin / 60) % 24;
+  const endM = endMin % 60;
+  const endTimeStr = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+  const blockEndDisplay = isBlocked
+    ? `${formatTime(appointment.start_time)} às ${endTimeStr}`
+    : `${formatTime(appointment.start_time)} · ${appointment.duration_min} minutos`;
 
   async function handleCancelThis() {
     setWorking(true);
@@ -87,6 +103,56 @@ export function AppointmentDetailModal({
     onClose();
   }
 
+  async function handleDeleteBlock() {
+    setWorking(true);
+    setError(null);
+
+    try {
+      // 1. Acha todos os agendamentos cancelados que contenham o ID deste bloqueio nas observações
+      // Usamos ilike para achar a string "[cancelled_by_block:ID]" no texto
+      const blockId = appointment!.id;
+      const { data: cancelledAppts, error: fetchErr } = await supabase
+        .from("appointments")
+        .select("id, notes")
+        .eq("user_id", appointment!.user_id)
+        .eq("status", "cancelled")
+        .ilike("notes", `%[cancelled_by_block:${blockId}]%`);
+
+      if (fetchErr) throw new Error(fetchErr.message);
+
+      // 2. Se achou, limpa o texto e reativa
+      if (cancelledAppts && cancelledAppts.length > 0) {
+        for (const appt of cancelledAppts) {
+          const cleanNotes = (appt.notes as string).replace(`[cancelled_by_block:${blockId}]`, "").trim();
+
+          await supabase
+            .from("appointments")
+            .update({
+              status: "active",
+              notes: cleanNotes || null
+            })
+            .eq("id", appt.id);
+        }
+      }
+
+      // 3. Deleta o bloqueio
+      const { error: deleteErr } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("id", appointment!.id);
+
+      if (deleteErr) throw new Error(`Erro ao remover bloqueio: ${deleteErr.message}`);
+
+      setDeleteBlockOpen(false);
+      onChanged();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <>
       <Modal open onClose={onClose} title="Detalhes do agendamento" size="md">
@@ -95,17 +161,30 @@ export function AppointmentDetailModal({
           <div
             className={`flex items-start gap-3 rounded-xl border-l-4 p-4 ${style.bg} ${style.border}`}
           >
-            <CalendarClock size={18} className={style.text} />
+            {isBlocked ? (
+              <PauseCircle size={18} className={style.text} />
+            ) : (
+              <CalendarClock size={18} className={style.text} />
+            )}
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <p className={`font-medium ${style.text}`}>{style.label}</p>
+                <p className={`font-medium ${style.text}`}>
+                  {isBlocked ? "Bloqueio" : style.label}
+                </p>
                 {isCancelled && <Badge variant="danger">Cancelado</Badge>}
                 {isCompleted && <Badge variant="success">Concluído</Badge>}
                 {!isCancelled && !isCompleted && (
                   <Badge variant="brand">Ativo</Badge>
                 )}
               </div>
-              <p className={`mt-0.5 text-sm ${style.text}`}>{subjectName}</p>
+              {!isBlocked && (
+                <p className={`mt-0.5 text-sm ${style.text}`}>{subjectName}</p>
+              )}
+              {isBlocked && appointment.notes && (
+                <p className={`mt-0.5 text-sm ${style.text}`}>
+                  {appointment.notes}
+                </p>
+              )}
             </div>
           </div>
 
@@ -118,10 +197,10 @@ export function AppointmentDetailModal({
             />
             <InfoRow
               icon={<Clock size={14} />}
-              label="Horário"
-              value={`${formatTime(appointment.start_time)} · ${appointment.duration_min} minutos`}
+              label={isBlocked ? "Período" : "Horário"}
+              value={blockEndDisplay}
             />
-            {appointment.type !== "due" && (
+            {!isBlocked && appointment.type !== "due" && (
               <InfoRow
                 icon={<CalendarClock size={14} />}
                 label="Recorrência"
@@ -134,8 +213,8 @@ export function AppointmentDetailModal({
             )}
           </div>
 
-          {/* Link para paciente/provider */}
-          {subjectLink && (
+          {/* Link para paciente/provider (só se não for bloqueio) */}
+          {!isBlocked && subjectLink && (
             <Link
               to={subjectLink}
               className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 transition hover:border-gray-300 hover:bg-gray-100 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-800"
@@ -152,8 +231,8 @@ export function AppointmentDetailModal({
             </Link>
           )}
 
-          {/* Notas */}
-          {appointment.notes && (
+          {/* Notas (quando não é bloqueio, porque no bloqueio já aparece em cima) */}
+          {!isBlocked && appointment.notes && (
             <div className="rounded-lg bg-gray-50 p-3 dark:bg-slate-800/60">
               <p className="mb-1 text-xs font-medium text-gray-500 dark:text-slate-400">
                 Observações
@@ -191,21 +270,32 @@ export function AppointmentDetailModal({
                     Cancelar série
                   </Button>
                 )}
-                <Button
-                  variant="danger"
-                  onClick={() => setCancelThisOpen(true)}
-                  disabled={working}
-                >
-                  <XCircle size={16} />
-                  Cancelar este
-                </Button>
+                {isBlocked ? (
+                  <Button
+                    variant="danger"
+                    onClick={() => setDeleteBlockOpen(true)}
+                    disabled={working}
+                  >
+                    <Trash2 size={16} />
+                    Remover bloqueio
+                  </Button>
+                ) : (
+                  <Button
+                    variant="danger"
+                    onClick={() => setCancelThisOpen(true)}
+                    disabled={working}
+                  >
+                    <XCircle size={16} />
+                    Cancelar este
+                  </Button>
+                )}
               </>
             )}
           </div>
         </div>
       </Modal>
 
-      {/* Confirmar cancelar este */}
+      {/* Confirmar cancelar este (sessão/prestador) */}
       <ConfirmDialog
         open={cancelThisOpen}
         onClose={() => setCancelThisOpen(false)}
@@ -219,6 +309,28 @@ export function AppointmentDetailModal({
           </>
         }
         confirmLabel="Cancelar agendamento"
+        cancelLabel="Voltar"
+        tone="danger"
+      />
+
+      {/* Confirmar remover bloqueio */}
+      <ConfirmDialog
+        open={deleteBlockOpen}
+        onClose={() => setDeleteBlockOpen(false)}
+        onConfirm={handleDeleteBlock}
+        title="Remover bloqueio?"
+        description={
+          <>
+            O bloqueio de {formatLongDate(appointment.starts_on)} será removido
+            e o horário ficará disponível novamente.
+            {(appointment.notes) && (
+              <span className="mt-2 block text-xs">
+                Observação: <em>{appointment.notes}</em>
+              </span>
+            )}
+          </>
+        }
+        confirmLabel="Remover bloqueio"
         cancelLabel="Voltar"
         tone="danger"
       />
