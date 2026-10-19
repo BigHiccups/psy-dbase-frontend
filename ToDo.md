@@ -13,9 +13,8 @@
 
 ## 🎯 Próximos 3 passos
 
-1. **Frequência configurável — Etapa 3** — ler `anchor_date` nos hooks +
-   atualizar `PatientReview` + deploy + Migration 3
-2. **`provider_billings`** (Fase B) — vencimentos de prestadores `company`
+1. **`provider_billings`** (Fase B) — vencimentos de prestadores `company`
+2. **Drag and drop (Fase 3)** — criar bloco arrastando de um slot vazio
 3. **Ajustes finos** — 404, favicon, `AlertDialog`, busca, `postMessage`
 
 ---
@@ -278,31 +277,37 @@ o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
 
 ---
 
-## Agendamento avulso
+## Agendamento e Bloqueio pela Agenda (refatoração)
 
-**Contexto:** criar 1 appointment fora da série, sem tocar em `*_schedules`.
-
-- [ ] Botão "Novo agendamento" no `PatientDetail`
-- [ ] Botão "Novo agendamento" no `ProviderDetail`
-- [ ] Modal simples (data + hora + duração)
-- [ ] Insere 1 appointment `is_recurring=false`
-- [ ] Valida conflito por sobreposição (reusa `appointment-overlap.ts`)
-
+- [x] Refatorar `CreateAppointmentModal` em sub-componentes (`create-appointment/`)
+- [x] 3 tipos de agendamento: Sessão, Prestador, Bloqueio
+- [x] Cadastro rápido in-loco para pacientes e prestadores
+- [x] Prestador filtra apenas `kind='person'` (empresas via `provider_billings`)
+- [x] Suporte a "Repetir" (criar série) direto no modal da agenda
+- [x] Bloqueio com 3 modos: range num dia, dia inteiro, vários dias
+- [x] Contador e lista de agendamentos impactados antes de salvar bloqueio
+- [x] Cancelamento automático dos agendamentos sobrepostos pelo bloqueio
+- [x] Reativação automática ao remover o bloqueio
+- [x] Adicionado campo `notes` para identificar o bloqueio na agenda
 ---
 
 ## Drag and drop na agenda
 
 **Contexto:** mover/redimensionar/criar appointments com o mouse.
 
-- [ ] Escolher biblioteca (`@dnd-kit/core`)
-- [ ] Mover sessão individual
-- [ ] Redimensionar duração
+## Drag and drop na agenda
+
+- [x] Escolher biblioteca (`@dnd-kit/core`)
+- [x] Mover sessão individual
+- [x] Redimensionar duração
+- [x] Preview visual em tempo real durante o redimensionamento
+- [ ] Criar por drag (arrastar de slot vazio) — FASE 3
+- [x] Validação de bloqueio e cancelados (não arrastáveis)
+- [x] Modal de confirmação para mover (`MoveAppointmentModal`)
+- [x] Modal de confirmação para redimensionar (`ResizeAppointmentModal`)
 - [ ] Mover série inteira (modifier key)
-- [ ] Criar por drag (arrastar de slot vazio)
-- [ ] Validar conflito antes de aplicar
 - [ ] Undo/redo (Ctrl+Z)
 - [ ] Touch/mobile
-- [ ] UX: ao mover recorrente, pergunta "só este" ou "toda a série"?
 
 ---
 

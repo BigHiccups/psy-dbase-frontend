@@ -58,6 +58,13 @@ src/
 │   │   ├── AppointmentDetailModal.tsx
 │   │   ├── CancelSeriesModal.tsx
 │   │   ├── CreateAppointmentModal.tsx
+│   │   ├── create-appointment/      # NOVO (sub-componentes do modal)
+│   │   │   ├── BlockFields.tsx
+│   │   │   ├── conflict-checker.ts
+│   │   │   ├── DateTimeFields.tsx
+│   │   │   ├── EntityPicker.tsx
+│   │   │   ├── RecurrenceSelector.tsx
+│   │   │   └── TypeSelector.tsx
 │   │   ├── DayCancelledModal.tsx
 │   │   ├── DayHeader.tsx
 │   │   ├── DayOverviewModal.tsx
@@ -68,7 +75,13 @@ src/
 │   │   ├── SlotCancelledModal.tsx
 │   │   ├── StackOverviewModal.tsx
 │   │   ├── TimeColumn.tsx
+│   │   ├── dnd/                     # NOVO (drag and drop)
+│   │   │   └── DroppableSlot.tsx
+│   │   ├── MoveAppointmentModal.tsx # NOVO
+│   │   ├── ResizeAppointmentModal.tsx # NOVO
+│   │   ├── ResizeHandle.tsx         # NOVO
 │   │   └── WeekView.tsx
+
 │   ├── layout/                # Sidebar, Header, AppLayout, ThemeToggle
 │   ├── ui/                    # Design system (Button, Input, Card, Badge,
 │   │                          #   Modal, ConfirmDialog, EmptyState, Spinner,
@@ -558,6 +571,24 @@ Helpers em `src/lib/masks.ts`:
 - `formatDateBR("YYYY-MM-DD")` → `"dd/mm/aaaa"`
 - `isValidDateBR("dd/mm/aaaa")` → boolean
 
+### 4.30 Agendamento pela Agenda (CreateAppointmentModal) ⭐ NOVO
+
+- Substitui a criação antiga. Tem 3 abas: Sessão, Prestador, Bloqueio.
+- Cadastro rápido in-loco (cria paciente/prestador sem sair da agenda).
+- Empresas (kind='company') não aparecem no dropdown de prestador (só person).
+- Suporta "Repetir este agendamento" (cria série via RPC, respeitando a frequência).
+- O tipo Bloqueio tem 3 modos: Range num dia, Dia inteiro (07:00–23:59), Vários dias.
+- O componente foi refatorado e seus sub-componentes vivem em create-appointment/.
+
+### 4.31 Drag and Drop na Agenda ⭐ NOVO
+
+Biblioteca: @dnd-kit/core.
+- Fase 1 (Mover): arrastar o bloco na grade muda starts_on, start_time e weekday. Para séries, move apenas a ocorrência (avisa no modal MoveAppointmentModal).
+- Fase 2 (Redimensionar): borda inferior do bloco tem o ResizeHandle. Durante o arraste, o bloco muda de tamanho em tempo real e um tooltip mostra o novo Término: HH:MM. Ao soltar, o ResizeAppointmentModal confirma e altera o duration_min.
+- Bloqueios e cancelados não são arrastáveis.
+O DroppableSlot forma a grade invisível de horas (id: YYYY-MM-DD|hour).
+
+
 ---
 
 ## 5. Fluxos principais
@@ -706,6 +737,10 @@ Ver seção 4.24.
 - ✅ Badges de frequência em `PatientDetail` / `ProviderDetail`
 - ✅ `CancelSeriesModal` desambigua overload com `p_renew_days: null`
 - ✅ `callRpcWithFallback` implementado
+- ✅ Frequência configurável 100% concluída
+- ✅ Refatoração do CreateAppointmentModal
+- ✅ Bloqueios com 3 modos + cancelamento e reativação automática
+- ✅ Drag and drop (Mover e Redimensionar)
 
 **Pendente (Frequência configurável) — Etapa 3:**
 
