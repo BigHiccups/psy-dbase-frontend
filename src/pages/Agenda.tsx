@@ -14,6 +14,7 @@ import {
 } from "../hooks/useAgendaView";
 import { HOUR_HEIGHT } from "../components/agenda/TimeColumn";
 import { useAppointments } from "../hooks/useAppointments";
+import { useAllUpcomingBillings, type BillingWithProvider } from "../hooks/useAllUpcomingBillings";
 import { AgendaToolbar } from "../components/agenda/AgendaToolbar";
 import { WeekView } from "../components/agenda/WeekView";
 import { DayView } from "../components/agenda/DayView";
@@ -24,6 +25,7 @@ import { CreateAppointmentModal } from "../components/agenda/CreateAppointmentMo
 import { DayCancelledModal } from "../components/agenda/DayCancelledModal";
 import { MoveAppointmentModal } from "../components/agenda/MoveAppointmentModal";
 import { ResizeAppointmentModal } from "../components/agenda/ResizeAppointmentModal";
+import { DayBillingsModal } from "../components/agenda/DayBillingsModal";
 import { Spinner } from "../components/ui";
 import {
   formatLongDate,
@@ -37,6 +39,7 @@ export function Agenda() {
   const params = useParams<{ view?: string; date?: string }>();
 
   const agenda = useAgendaView();
+  const { billings } = useAllUpcomingBillings();
 
   useEffect(() => {
     const viewFromUrl = params.view as AgendaView | undefined;
@@ -87,6 +90,11 @@ export function Agenda() {
     appointments: AppointmentWithRelations[];
   } | null>(null);
 
+  const [billingsModal, setBillingsModal] = useState<{
+    date: string;
+    billings: BillingWithProvider[];
+  } | null>(null);
+
   // =========================================================
   // Estado do Drag and Drop
   // =========================================================
@@ -101,9 +109,6 @@ export function Agenda() {
     deltaY: number;
   } | null>(null);
 
-  // =========================================================
-  // Estado do "Criar por Arrastar" (Fase 3)
-  // =========================================================
   const [drawingSlot, setDrawingSlot] = useState<{
     date: string;
     startHour: number;
@@ -166,19 +171,16 @@ export function Agenda() {
     const deltaY = clientY - drawingSlot.startY;
     const pixelsPerMin = HOUR_HEIGHT / 60;
 
-    // Se o arrasto for muito pequeno (menos de 15px), trata como clique normal
     if (Math.abs(deltaY) < 15) {
       setCreateSlot({ date: drawingSlot.date, hour: drawingSlot.startHour, duration: 50 });
       setDrawingSlot(null);
       return;
     }
 
-    // Calcula duração arredondando para múltiplos de 5
     let durationMins = Math.round(Math.abs(deltaY) / pixelsPerMin / 5) * 5;
     if (durationMins < 15) durationMins = 15;
     if (durationMins > 240) durationMins = 240;
 
-    // Se arrastou pra cima, a hora de início precisa ser recalculada
     let finalHour = drawingSlot.startHour;
     if (deltaY < 0) {
       const deltaHours = Math.floor(durationMins / 60);
@@ -196,7 +198,6 @@ export function Agenda() {
   }
 
   function handleSlotClick(date: string, hour: number) {
-    // Se o preview de desenho estiver ativo, ignora o clique
     if (drawingSlot) return;
     setCreateSlot({ date, hour });
   }
@@ -293,6 +294,8 @@ export function Agenda() {
               <WeekView
                 date={agenda.date}
                 appointments={appointments}
+                billings={billings}
+                onBillingsClick={(date: string, billings: BillingWithProvider[]) => setBillingsModal({ date, billings })}
                 onAppointmentClick={handleAppointmentClick}
                 onResize={handleResize}
                 onSlotClick={handleSlotClick}
@@ -310,6 +313,8 @@ export function Agenda() {
                 appointments={appointments.filter(
                   (a) => a.starts_on === agenda.date
                 )}
+                billings={billings}
+                onBillingsClick={(date, billings) => setBillingsModal({ date, billings })}
                 onAppointmentClick={handleAppointmentClick}
                 onResize={handleResize}
                 onSlotClick={handleSlotClick}
@@ -375,6 +380,15 @@ export function Agenda() {
             appointments={monthCancelledModal.appointments}
             onClose={() => setMonthCancelledModal(null)}
             onChanged={reload}
+          />
+        )}
+
+        {billingsModal && (
+          <DayBillingsModal
+            open
+            date={billingsModal.date}
+            billings={billingsModal.billings}
+            onClose={() => setBillingsModal(null)}
           />
         )}
 

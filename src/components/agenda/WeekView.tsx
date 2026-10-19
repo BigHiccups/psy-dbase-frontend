@@ -4,10 +4,12 @@ import { DayHeader } from "./DayHeader";
 import { AppointmentBlock } from "./AppointmentBlock";
 import { StackOverviewModal } from "./StackOverviewModal";
 import { SlotCancelledModal } from "./SlotCancelledModal";
+import { DroppableSlot } from "./dnd/DroppableSlot";
 import { weekDates, isToday } from "../../lib/agenda-date";
 import { computeLayout, countHiddenByStack } from "../../lib/appointment-layout";
+import { billingHappensOnDate } from "../../lib/billings-date";
 import type { AppointmentWithRelations } from "../../types";
-import { DroppableSlot } from "./dnd/DroppableSlot";
+import type { BillingWithProvider } from "../../hooks/useAllUpcomingBillings";
 
 const HEADER_HEIGHT = 64;
 
@@ -18,12 +20,12 @@ type Props = {
   onResize: (appointment: AppointmentWithRelations, deltaY: number) => void;
   onSlotClick: (date: string, hour: number) => void;
   onReload: () => void;
-  // NOVAS PROPS DA FASE 3
   onDrawStart?: (date: string, hour: number, clientY: number) => void;
   onDrawMove?: (clientY: number) => void;
   onDrawEnd?: (clientY: number) => void;
   previewBlock?: (date: string) => React.ReactNode;
-
+  billings?: BillingWithProvider[];
+  onBillingsClick?: (date: string, billings: BillingWithProvider[]) => void;
 };
 
 export function WeekView({
@@ -37,6 +39,8 @@ export function WeekView({
   onDrawMove,
   onDrawEnd,
   previewBlock,
+  billings = [],
+  onBillingsClick,
 }: Props) {
   const dates = weekDates(date);
 
@@ -54,6 +58,7 @@ export function WeekView({
   const activeByDate: Record<string, AppointmentWithRelations[]> = {};
   const dueByDate: Record<string, AppointmentWithRelations[]> = {};
   const cancelledBySlot: Record<string, AppointmentWithRelations[]> = {};
+  const billingsByDate: Record<string, BillingWithProvider[]> = {};
 
   for (const d of dates) activeByDate[d] = [];
 
@@ -76,6 +81,16 @@ export function WeekView({
     }
   }
 
+  // Calcula os vencimentos de cada dia
+  for (const b of billings) {
+    for (const d of dates) {
+      if (billingHappensOnDate(b.starts_on, b.due_day, b.frequency, d)) {
+        if (!billingsByDate[d]) billingsByDate[d] = [];
+        billingsByDate[d].push(b);
+      }
+    }
+  }
+
   const hours = Array.from(
     { length: END_HOUR - START_HOUR + 1 },
     (_, i) => START_HOUR + i
@@ -93,7 +108,11 @@ export function WeekView({
               />
               {dates.map((d) => (
                 <div key={d} className="min-w-0 flex-1">
-                  <DayHeader date={d} />
+                  <DayHeader
+                    date={d}
+                    billingsCount={billingsByDate[d]?.length}
+                    onBillingsClick={() => onBillingsClick?.(d, billingsByDate[d] || [])}
+                  />
                   {dueByDate[d] && dueByDate[d].length > 0 && (
                     <div className="border-t border-amber-100 bg-amber-50 px-1 py-0.5 text-center text-[10px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
                       {dueByDate[d].length} venc.
@@ -117,8 +136,9 @@ export function WeekView({
                   return (
                     <div
                       key={d}
-                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
-                        }`}
+                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${
+                        isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
+                      }`}
                     >
                       {hours.map((h) => {
                         const startTime = `${String(h).padStart(2, "0")}:00`;
@@ -162,7 +182,7 @@ export function WeekView({
                             key={l.appointment.id}
                             appointment={l.appointment}
                             onClick={onAppointmentClick}
-                            onResize={onResize} // <--- ADICIONADO AQUI
+                            onResize={onResize}
                             top={l.top}
                             height={l.height}
                             leftPercent={l.leftPercent}
@@ -202,6 +222,7 @@ export function WeekView({
                           );
                         }
                       )}
+
                       {previewBlock && previewBlock(d)}
                     </div>
                   );
