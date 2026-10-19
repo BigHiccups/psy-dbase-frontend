@@ -7,6 +7,7 @@ import { SlotCancelledModal } from "./SlotCancelledModal";
 import { weekDates, isToday } from "../../lib/agenda-date";
 import { computeLayout, countHiddenByStack } from "../../lib/appointment-layout";
 import type { AppointmentWithRelations } from "../../types";
+import { DroppableSlot } from "./dnd/DroppableSlot";
 
 const HEADER_HEIGHT = 64;
 
@@ -104,9 +105,8 @@ export function WeekView({
                   return (
                     <div
                       key={d}
-                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${
-                        isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
-                      }`}
+                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
+                        }`}
                     >
                       {hours.map((h) => {
                         const startTime = `${String(h).padStart(2, "0")}:00`;
@@ -114,10 +114,10 @@ export function WeekView({
                         const cancelledHere = cancelledBySlot[key];
 
                         return (
-                          <div
+                          <DroppableSlot
                             key={h}
+                            id={`${d}|${h}`}
                             onClick={() => onSlotClick(d, h)}
-                            className="relative cursor-pointer border-b border-gray-100 transition hover:bg-gray-50/60 dark:border-slate-800 dark:hover:bg-slate-800/40"
                             style={{ height: HOUR_HEIGHT }}
                           >
                             {cancelledHere && cancelledHere.length > 0 && (
@@ -136,7 +136,7 @@ export function WeekView({
                                 {cancelledHere.length} ✕
                               </button>
                             )}
-                          </div>
+                          </DroppableSlot>
                         );
                       })}
 

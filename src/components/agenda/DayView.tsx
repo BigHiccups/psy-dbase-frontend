@@ -7,6 +7,7 @@ import { SlotCancelledModal } from "./SlotCancelledModal";
 import { isToday, formatLongDate } from "../../lib/agenda-date";
 import { computeLayout, countHiddenByStack } from "../../lib/appointment-layout";
 import type { AppointmentWithRelations } from "../../types";
+import { DroppableSlot } from "./dnd/DroppableSlot";
 
 type Props = {
   date: string;
@@ -93,11 +94,10 @@ export function DayView({
         </div>
 
         <div
-          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${
-            isToday(date)
+          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${isToday(date)
               ? "ring-1 ring-brand-200 dark:ring-brand-800"
               : ""
-          }`}
+            }`}
         >
           <div className="flex">
             <TimeColumn headerHeight={0} />
@@ -107,10 +107,10 @@ export function DayView({
                 const cancelledHere = cancelledBySlot[startTime];
 
                 return (
-                  <div
+                  <DroppableSlot
                     key={h}
+                    id={`${date}|${h}`}
                     onClick={() => onSlotClick(date, h)}
-                    className="relative cursor-pointer border-b border-gray-100 transition hover:bg-gray-50/60 dark:border-slate-800 dark:hover:bg-slate-800/40"
                     style={{ height: HOUR_HEIGHT }}
                   >
                     {cancelledHere && cancelledHere.length > 0 && (
@@ -128,7 +128,7 @@ export function DayView({
                         {cancelledHere.length} ✕
                       </button>
                     )}
-                  </div>
+                  </DroppableSlot>
                 );
               })}
 
