@@ -73,6 +73,25 @@ export type Provider = {
   updated_at: string;
 };
 
+// =========================================================
+// Vencimentos de Prestadores (company)
+// =========================================================
+export type BillingFrequency = "monthly" | "bimonthly" | "semiannual" | "yearly" | "once";
+
+export type ProviderBilling = {
+  id: string;
+  user_id: string;
+  provider_id: string;
+  description: string;
+  amount_cents: number;
+  due_day: number;
+  frequency: BillingFrequency;
+  starts_on: string;
+  status: "active" | "archived";
+  created_at: string;
+  updated_at: string;
+};
+
 export type AppointmentType = "session" | "personal" | "blocked" | "due";
 export type AppointmentStatus = "active" | "cancelled" | "completed";
 
@@ -107,3 +126,4 @@ export type AppointmentWithRelations = Appointment & {
     display_name: string;
   } | null;
 };
+
