@@ -77,7 +77,7 @@ export function CreateAppointmentModal({
   // Repetir
   const [repeat, setRepeat] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
-  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(15);
+  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
 
   // Bloqueio
   const [blockMode, setBlockMode] = useState<BlockMode>("all_day_single");
@@ -117,8 +117,13 @@ export function CreateAppointmentModal({
       setBlockStartTime(ALL_DAY_START);
       setBlockEndTime(ALL_DAY_END);
       setBlockMode("all_day_single");
+      setRecurrenceDays(null); // <--- Limpa os dias
     } else {
       setStartTime(`${String(initialHour).padStart(2, "0")}:00`);
+      // Se não for custom_days, limpa o days para não dar conflito no backend/frontend
+      if (recurrenceType !== "custom_days") {
+        setRecurrenceDays(null);
+      }
     }
   }
 
@@ -370,22 +375,34 @@ export function CreateAppointmentModal({
         },
       ];
 
-      const rpcName = option === "session" ? "set_patient_schedules" : "set_provider_schedules";
-      const rpcParams = option === "session"
-        ? {
-          p_patient_id: finalPatientId,
-          p_schedules: schedulesPayload,
-          p_recurrence_type: recurrenceType,
-          p_recurrence_days: recurrenceDays,
-        }
-        : {
-          p_provider_id: finalProviderId,
-          p_schedules: schedulesPayload,
-          p_recurrence_type: recurrenceType,
-          p_recurrence_days: recurrenceDays,
-        };
+      // CORREÇÃO AQUI: só envia recurrenceDays se for custom_days
+      const finalRecurrenceDays =
+        recurrenceType === "custom_days" ? recurrenceDays : null;
 
-      const { error: rpcErr } = await supabase.rpc(rpcName as any, rpcParams as any);
+      const rpcName =
+        option === "session"
+          ? "set_patient_schedules"
+          : "set_provider_schedules";
+
+      const rpcParams =
+        option === "session"
+          ? {
+            p_patient_id: finalPatientId,
+            p_schedules: schedulesPayload,
+            p_recurrence_type: recurrenceType,
+            p_recurrence_days: finalRecurrenceDays,
+          }
+          : {
+            p_provider_id: finalProviderId,
+            p_schedules: schedulesPayload,
+            p_recurrence_type: recurrenceType,
+            p_recurrence_days: finalRecurrenceDays,
+          };
+
+      const { error: rpcErr } = await supabase.rpc(
+        rpcName as any,
+        rpcParams as any
+      );
       setSaving(false);
 
       if (rpcErr) return setError(rpcErr.message);
@@ -531,7 +548,15 @@ export function CreateAppointmentModal({
             recurrenceType={recurrenceType}
             recurrenceDays={recurrenceDays}
             onRepeatChange={setRepeat}
-            onTypeChange={setRecurrenceType}
+            onTypeChange={(t) => {
+              setRecurrenceType(t);
+              // Se mudou para semanal, quinzenal, etc, limpa os dias
+              if (t !== "custom_days") {
+                setRecurrenceDays(null);
+              } else if (recurrenceDays === null) {
+                setRecurrenceDays(15); // Só coloca 15 se for custom e estiver vazio
+              }
+            }}
             onDaysChange={setRecurrenceDays}
             dateLabel={formatLongDate(date)}
           />

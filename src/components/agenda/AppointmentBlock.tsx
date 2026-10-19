@@ -1,3 +1,5 @@
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { Check, X } from "lucide-react";
 import { TYPE_STYLES } from "../../lib/appointment-colors";
 import { formatTime, timeToMinutes, parseDateString } from "../../lib/agenda-date";
@@ -37,17 +39,12 @@ export function AppointmentBlock({
   const isCompleted = appointment.status === "completed";
   const isBlocked = appointment.type === "blocked";
 
-  // =========================================================
-  // Título e Subtítulo (Sessões vs Bloqueios)
-  // =========================================================
+  // Título e Subtítulo
   let title = appointment.patient?.full_name ?? appointment.provider?.display_name;
   let subtitle = `${formatTime(appointment.start_time)} · ${appointment.duration_min}min`;
 
   if (isBlocked) {
-    // Se tiver observações, usa como título, senão "Bloqueio"
     title = appointment.notes || "Bloqueio";
-    
-    // Cálculo de horário de fim do bloqueio
     const endTotalMins = startMin + appointment.duration_min;
     const endH = Math.floor(endTotalMins / 60) % 24;
     const endM = endTotalMins % 60;
@@ -57,22 +54,30 @@ export function AppointmentBlock({
     const isMultiDay = appointment.starts_on !== appointment.ends_on;
 
     if (!isMultiDay) {
-      // Ex: 10:00 às 13:00
       subtitle = `${formatTime(appointment.start_time)} às ${endTimeStr}`;
     } else {
-      // Ex: início 10:00 do dia 23/10, fim 09:00 do dia 25/10
       const startD = String(startDateObj.getDate()).padStart(2, "0");
       const startM = String(startDateObj.getMonth() + 1).padStart(2, "0");
-      
       const endDateObj = parseDateString(appointment.ends_on);
       const endD = String(endDateObj.getDate()).padStart(2, "0");
       const endM = String(endDateObj.getMonth() + 1).padStart(2, "0");
-      
       subtitle = `início ${formatTime(appointment.start_time)} do dia ${startD}/${startM}, fim ${endTimeStr} do dia ${endD}/${endM}`;
     }
+  } else if (!title) {
+    title = "(sem nome)";
   }
 
-  // Adiciona listras em CSS no background do bloqueio, se não houver no TYPE_STYLES
+  // Configura o Drag and Drop
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: appointment.id,
+    data: { appointment },
+    disabled: appointment.status !== "active" || isBlocked, // Não arrasta bloqueado/cancelado
+  });
+
+  const dragStyle = transform
+    ? { transform: CSS.Translate.toString(transform) }
+    : undefined;
+
   const blockBgStyle = isBlocked
     ? {
         backgroundImage:
@@ -82,6 +87,9 @@ export function AppointmentBlock({
 
   return (
     <button
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
       type="button"
       onClick={() => onClick(appointment)}
       className={`
@@ -91,6 +99,7 @@ export function AppointmentBlock({
         ${style.bg} ${style.border} ${style.text}
         ${isCancelled ? "line-through opacity-50" : ""}
         ${isCompleted ? "opacity-70" : ""}
+        ${isDragging ? "opacity-40 z-50 shadow-2xl ring-2 ring-brand-500 cursor-grabbing" : "cursor-grab"}
       `}
       style={{
         ...blockBgStyle,
@@ -98,7 +107,8 @@ export function AppointmentBlock({
         height: Math.max(computedHeight, 20),
         left: `calc(${leftPercent}% + 4px)`,
         width: `calc(${widthPercent}% - 8px)`,
-        zIndex,
+        zIndex: isDragging ? 999 : zIndex,
+        ...dragStyle,
       }}
     >
       <div className="flex items-center gap-1">

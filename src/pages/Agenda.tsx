@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
   useAgendaView,
   getViewRange,
   type AgendaView,
@@ -14,6 +21,7 @@ import { DayOverviewModal } from "../components/agenda/DayOverviewModal";
 import { AppointmentDetailModal } from "../components/agenda/AppointmentDetailModal";
 import { CreateAppointmentModal } from "../components/agenda/CreateAppointmentModal";
 import { DayCancelledModal } from "../components/agenda/DayCancelledModal";
+import { MoveAppointmentModal } from "../components/agenda/MoveAppointmentModal";
 import { Spinner } from "../components/ui";
 import {
   formatLongDate,
@@ -76,6 +84,57 @@ export function Agenda() {
     appointments: AppointmentWithRelations[];
   } | null>(null);
 
+  // =========================================================
+  // Estado do Drag and Drop
+  // =========================================================
+  const [moveTarget, setMoveTarget] = useState<{
+    appointment: AppointmentWithRelations;
+    newDate: string;
+    newStartTime: string;
+  } | null>(null);
+
+  // Sensores do DnD (exige arrastar 5px para ativar, evitando cliques acidentais)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    // Se soltou fora de um slot válido, ignora
+    if (!over) return;
+
+    const appointment = active.data.current
+      ?.appointment as AppointmentWithRelations;
+    if (!appointment) return;
+
+    // O id do DroppableSlot tem o formato "YYYY-MM-DD|hour" (ex: "2026-10-23|14")
+    const [newDate, hourStr] = (over.id as string).split("|");
+    const hour = parseInt(hourStr, 10);
+
+    // Mantém os minutos originais (ex: se era 14:30, vira 15:30)
+    const originalMinutes = appointment.start_time.split(":")[1].slice(0, 2);
+    const newStartTime = `${String(hour).padStart(2, "0")}:${originalMinutes}`;
+
+    // Se a data e o horário não mudaram, não faz nada
+    if (
+      newDate === appointment.starts_on &&
+      newStartTime === appointment.start_time.slice(0, 5)
+    ) {
+      return;
+    }
+
+    // Abre o modal de confirmação
+    setMoveTarget({ appointment, newDate, newStartTime });
+  }
+
+  // =========================================================
+  // Handlers de cliques normais
+  // =========================================================
   function handleSlotClick(date: string, hour: number) {
     setCreateSlot({ date, hour });
   }
@@ -101,109 +160,126 @@ export function Agenda() {
       : formatLongDate(agenda.date);
 
   return (
-    <div className="space-y-5">
-      <AgendaToolbar
-        view={agenda.view}
-        onViewChange={agenda.setView}
-        onPrevious={agenda.goPrevious}
-        onNext={agenda.goNext}
-        onToday={agenda.goToday}
-        title={title}
-      />
-
-      {loading && (
-        <div className="flex items-center justify-center py-20">
-          <Spinner size={24} />
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
-          <p className="text-sm text-red-700 dark:text-red-300">
-            Erro: {error}
-          </p>
-        </div>
-      )}
-
-      {!loading && !error && (
-        <>
-          {agenda.view === "week" && (
-            <WeekView
-              date={agenda.date}
-              appointments={appointments}
-              onAppointmentClick={handleAppointmentClick}
-              onSlotClick={handleSlotClick}
-              onReload={reload}
-            />
-          )}
-
-          {agenda.view === "day" && (
-            <DayView
-              date={agenda.date}
-              appointments={appointments.filter(
-                (a) => a.starts_on === agenda.date
-              )}
-              onAppointmentClick={handleAppointmentClick}
-              onSlotClick={handleSlotClick}
-              onReload={reload}
-            />
-          )}
-
-          {agenda.view === "month" && (
-            <MonthView
-              monthStr={toMonthString(agenda.date)}
-              appointments={appointments}
-              onDayClick={handleDayClick}
-              onCancelledClick={handleMonthCancelledClick}
-              onAppointmentClick={handleAppointmentClick}
-            />
-          )}
-        </>
-      )}
-
-      <AppointmentDetailModal
-        appointment={selectedAppointment}
-        onClose={() => setSelectedAppointment(null)}
-        onChanged={reload}
-      />
-
-      {dayOverviewDate && (
-        <DayOverviewModal
-          open
-          date={dayOverviewDate}
-          appointments={appointments.filter(
-            (a) => a.starts_on === dayOverviewDate
-          )}
-          onClose={() => setDayOverviewDate(null)}
-          onAppointmentClick={(a) => {
-            setDayOverviewDate(null);
-            setSelectedAppointment(a);
-          }}
+    // O DndContext envelopa a tela toda para permitir arrastar entre as colunas
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="space-y-5">
+        <AgendaToolbar
+          view={agenda.view}
+          onViewChange={agenda.setView}
+          onPrevious={agenda.goPrevious}
+          onNext={agenda.goNext}
+          onToday={agenda.goToday}
+          title={title}
         />
-      )}
 
-      {createSlot && (
-        <CreateAppointmentModal
-          open
-          date={createSlot.date}
-          initialHour={createSlot.hour}
-          onClose={() => setCreateSlot(null)}
-          onCreated={() => {
-            reload();
-            setCreateSlot(null);
-          }}
-        />
-      )}
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <Spinner size={24} />
+          </div>
+        )}
 
-      {monthCancelledModal && (
-        <DayCancelledModal
-          open
-          date={monthCancelledModal.date}
-          appointments={monthCancelledModal.appointments}
-          onClose={() => setMonthCancelledModal(null)}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+            <p className="text-sm text-red-700 dark:text-red-300">
+              Erro: {error}
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && (
+          <>
+            {agenda.view === "week" && (
+              <WeekView
+                date={agenda.date}
+                appointments={appointments}
+                onAppointmentClick={handleAppointmentClick}
+                onSlotClick={handleSlotClick}
+                onReload={reload}
+              />
+            )}
+
+            {agenda.view === "day" && (
+              <DayView
+                date={agenda.date}
+                appointments={appointments.filter(
+                  (a) => a.starts_on === agenda.date
+                )}
+                onAppointmentClick={handleAppointmentClick}
+                onSlotClick={handleSlotClick}
+                onReload={reload}
+              />
+            )}
+
+            {agenda.view === "month" && (
+              <MonthView
+                monthStr={toMonthString(agenda.date)}
+                appointments={appointments}
+                onDayClick={handleDayClick}
+                onCancelledClick={handleMonthCancelledClick}
+                onAppointmentClick={handleAppointmentClick}
+              />
+            )}
+          </>
+        )}
+
+        <AppointmentDetailModal
+          appointment={selectedAppointment}
+          onClose={() => setSelectedAppointment(null)}
           onChanged={reload}
         />
-      )}
-    </div>
+
+        {dayOverviewDate && (
+          <DayOverviewModal
+            open
+            date={dayOverviewDate}
+            appointments={appointments.filter(
+              (a) => a.starts_on === dayOverviewDate
+            )}
+            onClose={() => setDayOverviewDate(null)}
+            onAppointmentClick={(a) => {
+              setDayOverviewDate(null);
+              setSelectedAppointment(a);
+            }}
+          />
+        )}
+
+        {createSlot && (
+          <CreateAppointmentModal
+            open
+            date={createSlot.date}
+            initialHour={createSlot.hour}
+            onClose={() => setCreateSlot(null)}
+            onCreated={() => {
+              reload();
+              setCreateSlot(null);
+            }}
+          />
+        )}
+
+        {monthCancelledModal && (
+          <DayCancelledModal
+            open
+            date={monthCancelledModal.date}
+            appointments={monthCancelledModal.appointments}
+            onClose={() => setMonthCancelledModal(null)}
+            onChanged={reload}
+          />
+        )}
+
+        {/* Modal de confirmação do Drag and Drop */}
+        {moveTarget && (
+          <MoveAppointmentModal
+            appointment={moveTarget.appointment}
+            newDate={moveTarget.newDate}
+            newStartTime={moveTarget.newStartTime}
+            onClose={() => setMoveTarget(null)}
+            onMoved={() => {
+              reload();
+              setMoveTarget(null);
+            }}
+          />
+        )}
+      </div>
+    </DndContext>
   );
 }
