@@ -30,6 +30,7 @@ type Props = {
   open: boolean;
   date: string;
   initialHour: number;
+  initialDuration?: number;
   onClose: () => void;
   onCreated: () => void;
 };
@@ -41,6 +42,7 @@ export function CreateAppointmentModal({
   open,
   date,
   initialHour,
+  initialDuration,
   onClose,
   onCreated,
 }: Props) {
@@ -50,7 +52,7 @@ export function CreateAppointmentModal({
   const [startTime, setStartTime] = useState(
     `${String(initialHour).padStart(2, "0")}:00`
   );
-  const [duration, setDuration] = useState(50);
+  const [duration, setDuration] = useState(initialDuration ?? 50);
 
   // Horário padrão (Bloqueio)
   const [blockStartTime, setBlockStartTime] = useState(ALL_DAY_START);

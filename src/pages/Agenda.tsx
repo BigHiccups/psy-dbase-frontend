@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import {
   useAgendaView,
   getViewRange,
   type AgendaView,
 } from "../hooks/useAgendaView";
+import { HOUR_HEIGHT } from "../components/agenda/TimeColumn";
 import { useAppointments } from "../hooks/useAppointments";
 import { AgendaToolbar } from "../components/agenda/AgendaToolbar";
 import { WeekView } from "../components/agenda/WeekView";
@@ -24,7 +31,6 @@ import {
   toMonthString,
 } from "../lib/agenda-date";
 import type { AppointmentWithRelations } from "../types";
-
 
 export function Agenda() {
   const navigate = useNavigate();
@@ -73,6 +79,7 @@ export function Agenda() {
   const [createSlot, setCreateSlot] = useState<{
     date: string;
     hour: number;
+    duration?: number;
   } | null>(null);
 
   const [monthCancelledModal, setMonthCancelledModal] = useState<{
@@ -94,7 +101,16 @@ export function Agenda() {
     deltaY: number;
   } | null>(null);
 
-  // Sensores do DnD (exige arrastar 5px para ativar, evitando cliques acidentais)
+  // =========================================================
+  // Estado do "Criar por Arrastar" (Fase 3)
+  // =========================================================
+  const [drawingSlot, setDrawingSlot] = useState<{
+    date: string;
+    startHour: number;
+    startY: number;
+    currentY: number;
+  } | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -106,22 +122,18 @@ export function Agenda() {
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
-    // Se soltou fora de um slot válido, ignora
     if (!over) return;
 
     const appointment = active.data.current
       ?.appointment as AppointmentWithRelations;
     if (!appointment) return;
 
-    // O id do DroppableSlot tem o formato "YYYY-MM-DD|hour" (ex: "2026-10-23|14")
     const [newDate, hourStr] = (over.id as string).split("|");
     const hour = parseInt(hourStr, 10);
 
-    // Mantém os minutos originais (ex: se era 14:30, vira 15:30)
     const originalMinutes = appointment.start_time.split(":")[1].slice(0, 2);
     const newStartTime = `${String(hour).padStart(2, "0")}:${originalMinutes}`;
 
-    // Se a data e o horário não mudaram, não faz nada
     if (
       newDate === appointment.starts_on &&
       newStartTime === appointment.start_time.slice(0, 5)
@@ -129,7 +141,6 @@ export function Agenda() {
       return;
     }
 
-    // Abre o modal de confirmação
     setMoveTarget({ appointment, newDate, newStartTime });
   }
 
@@ -138,9 +149,55 @@ export function Agenda() {
   }
 
   // =========================================================
-  // Handlers de cliques normais
+  // Handlers do Criar por Arrastar
   // =========================================================
+  function handleDrawStart(date: string, hour: number, clientY: number) {
+    setDrawingSlot({ date, startHour: hour, startY: clientY, currentY: clientY });
+  }
+
+  function handleDrawMove(clientY: number) {
+    if (!drawingSlot) return;
+    setDrawingSlot((prev) => (prev ? { ...prev, currentY: clientY } : null));
+  }
+
+  function handleDrawEnd(clientY: number) {
+    if (!drawingSlot) return;
+
+    const deltaY = clientY - drawingSlot.startY;
+    const pixelsPerMin = HOUR_HEIGHT / 60;
+
+    // Se o arrasto for muito pequeno (menos de 15px), trata como clique normal
+    if (Math.abs(deltaY) < 15) {
+      setCreateSlot({ date: drawingSlot.date, hour: drawingSlot.startHour, duration: 50 });
+      setDrawingSlot(null);
+      return;
+    }
+
+    // Calcula duração arredondando para múltiplos de 5
+    let durationMins = Math.round(Math.abs(deltaY) / pixelsPerMin / 5) * 5;
+    if (durationMins < 15) durationMins = 15;
+    if (durationMins > 240) durationMins = 240;
+
+    // Se arrastou pra cima, a hora de início precisa ser recalculada
+    let finalHour = drawingSlot.startHour;
+    if (deltaY < 0) {
+      const deltaHours = Math.floor(durationMins / 60);
+      if (deltaY < -(clientY - drawingSlot.startY) % HOUR_HEIGHT) {
+        finalHour = Math.max(0, drawingSlot.startHour - deltaHours);
+      }
+    }
+
+    setCreateSlot({
+      date: drawingSlot.date,
+      hour: finalHour,
+      duration: durationMins,
+    });
+    setDrawingSlot(null);
+  }
+
   function handleSlotClick(date: string, hour: number) {
+    // Se o preview de desenho estiver ativo, ignora o clique
+    if (drawingSlot) return;
     setCreateSlot({ date, hour });
   }
 
@@ -163,6 +220,46 @@ export function Agenda() {
     agenda.view === "month"
       ? formatMonth(toMonthString(agenda.date))
       : formatLongDate(agenda.date);
+
+  // =========================================================
+  // Bloco de Preview (Fantasma)
+  // =========================================================
+  function renderPreviewBlock(columnDate: string) {
+    if (!drawingSlot || drawingSlot.date !== columnDate) return null;
+
+    const deltaY = drawingSlot.currentY - drawingSlot.startY;
+    const pixelsPerMin = HOUR_HEIGHT / 60;
+    const durationMins = Math.round(Math.abs(deltaY) / pixelsPerMin / 5) * 5;
+
+    if (durationMins >= 5) {
+      const top = (drawingSlot.startHour - 7) * HOUR_HEIGHT + (deltaY < 0 ? deltaY : 0);
+      const height = durationMins * pixelsPerMin;
+
+      const startMin = drawingSlot.startHour * 60 + (deltaY < 0 ? deltaY / pixelsPerMin : 0);
+      const endMin = startMin + durationMins;
+      const endH = Math.floor(endMin / 60) % 24;
+      const endM = Math.round(endMin % 60);
+      const endTimeStr = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+      return (
+        <div
+          className="absolute z-40 rounded-md border-l-2 border-brand-500 bg-brand-100/80 px-2 py-1 text-xs text-brand-900 shadow-sm pointer-events-none dark:bg-brand-900/50 dark:text-brand-100"
+          style={{
+            top: top,
+            height: height,
+            left: "4px",
+            right: "4px",
+          }}
+        >
+          <p className="font-medium">Novo agendamento</p>
+          <p className="text-[10px] opacity-80">
+            {String(drawingSlot.startHour).padStart(2, "0")}:00 · {endTimeStr}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -197,9 +294,13 @@ export function Agenda() {
                 date={agenda.date}
                 appointments={appointments}
                 onAppointmentClick={handleAppointmentClick}
-                onResize={handleResize} // <--- ADICIONADO AQUI
+                onResize={handleResize}
                 onSlotClick={handleSlotClick}
                 onReload={reload}
+                onDrawStart={handleDrawStart}
+                onDrawMove={handleDrawMove}
+                onDrawEnd={handleDrawEnd}
+                previewBlock={renderPreviewBlock}
               />
             )}
 
@@ -210,9 +311,13 @@ export function Agenda() {
                   (a) => a.starts_on === agenda.date
                 )}
                 onAppointmentClick={handleAppointmentClick}
-                onResize={handleResize} // <--- ADICIONADO AQUI
+                onResize={handleResize}
                 onSlotClick={handleSlotClick}
                 onReload={reload}
+                onDrawStart={handleDrawStart}
+                onDrawMove={handleDrawMove}
+                onDrawEnd={handleDrawEnd}
+                previewBlock={renderPreviewBlock}
               />
             )}
 
@@ -254,6 +359,7 @@ export function Agenda() {
             open
             date={createSlot.date}
             initialHour={createSlot.hour}
+            initialDuration={createSlot.duration}
             onClose={() => setCreateSlot(null)}
             onCreated={() => {
               reload();
@@ -272,7 +378,6 @@ export function Agenda() {
           />
         )}
 
-        {/* Modal de confirmação do Drag and Drop */}
         {moveTarget && (
           <MoveAppointmentModal
             appointment={moveTarget.appointment}
@@ -286,7 +391,6 @@ export function Agenda() {
           />
         )}
 
-        {/* Modal de confirmação do Resize */}
         {resizeTarget && (
           <ResizeAppointmentModal
             appointment={resizeTarget.appointment}
