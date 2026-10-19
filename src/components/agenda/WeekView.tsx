@@ -18,15 +18,25 @@ type Props = {
   onResize: (appointment: AppointmentWithRelations, deltaY: number) => void;
   onSlotClick: (date: string, hour: number) => void;
   onReload: () => void;
+  // NOVAS PROPS DA FASE 3
+  onDrawStart?: (date: string, hour: number, clientY: number) => void;
+  onDrawMove?: (clientY: number) => void;
+  onDrawEnd?: (clientY: number) => void;
+  previewBlock?: (date: string) => React.ReactNode;
+
 };
 
 export function WeekView({
   date,
   appointments,
   onAppointmentClick,
-  onResize, // <--- ADICIONADO AQUI
+  onResize,
   onSlotClick,
   onReload,
+  onDrawStart,
+  onDrawMove,
+  onDrawEnd,
+  previewBlock,
 }: Props) {
   const dates = weekDates(date);
 
@@ -107,9 +117,8 @@ export function WeekView({
                   return (
                     <div
                       key={d}
-                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${
-                        isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
-                      }`}
+                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""
+                        }`}
                     >
                       {hours.map((h) => {
                         const startTime = `${String(h).padStart(2, "0")}:00`;
@@ -121,6 +130,9 @@ export function WeekView({
                             key={h}
                             id={`${d}|${h}`}
                             onClick={() => onSlotClick(d, h)}
+                            onDrawStart={onDrawStart}
+                            onDrawMove={onDrawMove}
+                            onDrawEnd={onDrawEnd}
                             style={{ height: HOUR_HEIGHT }}
                           >
                             {cancelledHere && cancelledHere.length > 0 && (
@@ -190,6 +202,7 @@ export function WeekView({
                           );
                         }
                       )}
+                      {previewBlock && previewBlock(d)}
                     </div>
                   );
                 })}

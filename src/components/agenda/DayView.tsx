@@ -16,15 +16,25 @@ type Props = {
   onResize: (appointment: AppointmentWithRelations, deltaY: number) => void;
   onSlotClick: (date: string, hour: number) => void;
   onReload: () => void;
+  // NOVAS PROPS DA FASE 3
+  onDrawStart?: (date: string, hour: number, clientY: number) => void;
+  onDrawMove?: (clientY: number) => void;
+  onDrawEnd?: (clientY: number) => void;
+  previewBlock?: (date: string) => React.ReactNode;
+
 };
 
 export function DayView({
   date,
   appointments,
   onAppointmentClick,
-  onResize, // <--- ADICIONADO AQUI
+  onResize,
   onSlotClick,
   onReload,
+  onDrawStart,
+  onDrawMove,
+  onDrawEnd,
+  previewBlock,
 }: Props) {
   const [stackModal, setStackModal] = useState<
     AppointmentWithRelations[] | null
@@ -96,11 +106,10 @@ export function DayView({
         </div>
 
         <div
-          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${
-            isToday(date)
-              ? "ring-1 ring-brand-200 dark:ring-brand-800"
-              : ""
-          }`}
+          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${isToday(date)
+            ? "ring-1 ring-brand-200 dark:ring-brand-800"
+            : ""
+            }`}
         >
           <div className="flex">
             <TimeColumn headerHeight={0} />
@@ -112,8 +121,11 @@ export function DayView({
                 return (
                   <DroppableSlot
                     key={h}
-                    id={`${date}|${h}`}
-                    onClick={() => onSlotClick(date, h)}
+                    id={`${date}|${h}`} // <--- MUDOU DE 'd' PARA 'date'
+                    onClick={() => onSlotClick(date, h)} // <--- MUDOU DE 'd' PARA 'date'
+                    onDrawStart={onDrawStart}
+                    onDrawMove={onDrawMove}
+                    onDrawEnd={onDrawEnd}
                     style={{ height: HOUR_HEIGHT }}
                   >
                     {cancelledHere && cancelledHere.length > 0 && (
@@ -175,6 +187,7 @@ export function DayView({
                   </button>
                 );
               })}
+              {previewBlock && previewBlock(date)}
             </div>
           </div>
         </div>
