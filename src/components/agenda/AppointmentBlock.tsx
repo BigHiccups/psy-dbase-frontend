@@ -1,14 +1,17 @@
+import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Check, X } from "lucide-react";
 import { TYPE_STYLES } from "../../lib/appointment-colors";
 import { formatTime, timeToMinutes, parseDateString } from "../../lib/agenda-date";
 import { HOUR_HEIGHT, START_HOUR } from "./TimeColumn";
+import { ResizeHandle } from "./ResizeHandle";
 import type { AppointmentWithRelations } from "../../types";
 
 type Props = {
   appointment: AppointmentWithRelations;
   onClick: (appointment: AppointmentWithRelations) => void;
+  onResize?: (appointment: AppointmentWithRelations, deltaY: number) => void;
   expanded?: boolean;
   top?: number;
   height?: number;
@@ -20,6 +23,7 @@ type Props = {
 export function AppointmentBlock({
   appointment,
   onClick,
+  onResize,
   expanded,
   top,
   height,
@@ -32,14 +36,18 @@ export function AppointmentBlock({
   const startMin = timeToMinutes(appointment.start_time);
   const startOffset = startMin - START_HOUR * 60;
   const computedTop = top ?? (startOffset / 60) * HOUR_HEIGHT;
-  const computedHeight =
-    height ?? (appointment.duration_min / 60) * HOUR_HEIGHT;
+  const originalHeight = height ?? (appointment.duration_min / 60) * HOUR_HEIGHT;
+
+  // Estado de preview para o resize
+  const [previewHeight, setPreviewHeight] = useState<number | null>(null);
+  const [previewEndTime, setPreviewEndTime] = useState<string | null>(null);
+
+  const currentHeight = previewHeight ?? Math.max(originalHeight, 20);
 
   const isCancelled = appointment.status === "cancelled";
   const isCompleted = appointment.status === "completed";
   const isBlocked = appointment.type === "blocked";
 
-  // Título e Subtítulo
   let title = appointment.patient?.full_name ?? appointment.provider?.display_name;
   let subtitle = `${formatTime(appointment.start_time)} · ${appointment.duration_min}min`;
 
@@ -67,63 +75,95 @@ export function AppointmentBlock({
     title = "(sem nome)";
   }
 
-  // Configura o Drag and Drop
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: appointment.id,
     data: { appointment },
-    disabled: appointment.status !== "active" || isBlocked, // Não arrasta bloqueado/cancelado
+    disabled: appointment.status !== "active" || isBlocked,
   });
 
-  const dragStyle = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined;
+  const dragStyle = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
 
   const blockBgStyle = isBlocked
-    ? {
-        backgroundImage:
-          "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.05) 4px, rgba(0,0,0,0.05) 8px)",
-      }
+    ? { backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.05) 4px, rgba(0,0,0,0.05) 8px)" }
     : {};
 
+  // Função que o ResizeHandle chama em tempo real
+  function handleResizeMove(deltaY: number) {
+    if (!onResize) return;
+    
+    // Calcula a nova altura em pixels
+    const newHeight = Math.max(originalHeight + deltaY, 20);
+    setPreviewHeight(newHeight);
+
+    // Calcula o novo horário de fim para o tooltip
+    const newDurationMin = Math.round((newHeight / HOUR_HEIGHT) * 60);
+    const endTotalMins = startMin + newDurationMin;
+    const endH = Math.floor(endTotalMins / 60) % 24;
+    const endM = endTotalMins % 60;
+    setPreviewEndTime(`${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`);
+  }
+
+  // Função que o ResizeHandle chama ao soltar o mouse
+  function handleResizeEnd(deltaY: number) {
+    setPreviewHeight(null);
+    setPreviewEndTime(null);
+    if (onResize) onResize(appointment, deltaY);
+  }
+
   return (
-    <button
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      type="button"
-      onClick={() => onClick(appointment)}
-      className={`
-        absolute overflow-hidden rounded-md border-l-2 px-2 py-1
-        text-left text-xs transition hover:brightness-95 focus:outline-none
-        focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 dark:focus:ring-offset-slate-950
-        ${style.bg} ${style.border} ${style.text}
-        ${isCancelled ? "line-through opacity-50" : ""}
-        ${isCompleted ? "opacity-70" : ""}
-        ${isDragging ? "opacity-40 z-50 shadow-2xl ring-2 ring-brand-500 cursor-grabbing" : "cursor-grab"}
-      `}
+    <div
+      className="absolute"
       style={{
-        ...blockBgStyle,
         top: computedTop,
-        height: Math.max(computedHeight, 20),
+        height: currentHeight,
         left: `calc(${leftPercent}% + 4px)`,
         width: `calc(${widthPercent}% - 8px)`,
-        zIndex: isDragging ? 999 : zIndex,
-        ...dragStyle,
+        zIndex: previewHeight ? 1000 : isDragging ? 999 : zIndex,
       }}
     >
-      <div className="flex items-center gap-1">
-        {isCompleted && <Check size={10} className="shrink-0" />}
-        {isCancelled && <X size={10} className="shrink-0" />}
-        <p className="truncate font-medium">
-          {expanded && !isBlocked ? `${formatTime(appointment.start_time)} · ` : ""}
-          {title}
-        </p>
-      </div>
-      {computedHeight >= 40 && (
-        <p className="mt-0.5 truncate text-[10px] opacity-80">
-          {subtitle}
-        </p>
+      <button
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        type="button"
+        onClick={() => onClick(appointment)}
+        className={`
+          absolute inset-0 w-full h-full overflow-hidden rounded-md border-l-2 px-2 py-1
+          text-left text-xs transition hover:brightness-95 focus:outline-none
+          focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 dark:focus:ring-offset-slate-950
+          ${style.bg} ${style.border} ${style.text}
+          ${isCancelled ? "line-through opacity-50" : ""}
+          ${isCompleted ? "opacity-70" : ""}
+          ${isDragging ? "opacity-40 shadow-2xl ring-2 ring-brand-500 cursor-grabbing" : "cursor-grab"}
+        `}
+        style={{ ...blockBgStyle, ...dragStyle }}
+      >
+        <div className="flex items-center gap-1">
+          {isCompleted && <Check size={10} className="shrink-0" />}
+          {isCancelled && <X size={10} className="shrink-0" />}
+          <p className="truncate font-medium">
+            {expanded && !isBlocked ? `${formatTime(appointment.start_time)} · ` : ""}
+            {title}
+          </p>
+        </div>
+        {currentHeight >= 40 && (
+          <p className="mt-0.5 truncate text-[10px] opacity-80">{subtitle}</p>
+        )}
+      </button>
+
+      {/* Tooltip de prévia enquanto arrasta a borda */}
+      {previewHeight && previewEndTime && (
+        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-medium text-white shadow-lg z-50 pointer-events-none">
+          Término: {previewEndTime}
+        </div>
       )}
-    </button>
+
+      {onResize && !isBlocked && !isCancelled && !isCompleted && (
+        <ResizeHandle
+          onResizeMove={handleResizeMove}
+          onResizeEnd={handleResizeEnd}
+        />
+      )}
+    </div>
   );
 }
