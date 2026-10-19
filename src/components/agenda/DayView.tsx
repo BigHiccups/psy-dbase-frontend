@@ -4,10 +4,12 @@ import { DayHeader } from "./DayHeader";
 import { AppointmentBlock } from "./AppointmentBlock";
 import { StackOverviewModal } from "./StackOverviewModal";
 import { SlotCancelledModal } from "./SlotCancelledModal";
+import { DroppableSlot } from "./dnd/DroppableSlot";
 import { isToday, formatLongDate } from "../../lib/agenda-date";
 import { computeLayout, countHiddenByStack } from "../../lib/appointment-layout";
+import { billingHappensOnDate } from "../../lib/billings-date";
 import type { AppointmentWithRelations } from "../../types";
-import { DroppableSlot } from "./dnd/DroppableSlot";
+import type { BillingWithProvider } from "../../hooks/useAllUpcomingBillings";
 
 type Props = {
   date: string;
@@ -16,11 +18,12 @@ type Props = {
   onResize: (appointment: AppointmentWithRelations, deltaY: number) => void;
   onSlotClick: (date: string, hour: number) => void;
   onReload: () => void;
-  // NOVAS PROPS DA FASE 3
   onDrawStart?: (date: string, hour: number, clientY: number) => void;
   onDrawMove?: (clientY: number) => void;
   onDrawEnd?: (clientY: number) => void;
   previewBlock?: (date: string) => React.ReactNode;
+  billings?: BillingWithProvider[];
+  onBillingsClick?: (date: string, billings: BillingWithProvider[]) => void;
 
 };
 
@@ -35,6 +38,8 @@ export function DayView({
   onDrawMove,
   onDrawEnd,
   previewBlock,
+  billings = [],
+  onBillingsClick,
 }: Props) {
   const [stackModal, setStackModal] = useState<
     AppointmentWithRelations[] | null
@@ -75,7 +80,10 @@ export function DayView({
     <>
       <div className="space-y-4">
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          <DayHeader date={date} large />
+          <DayHeader date={date}
+            large billingsCount={billings.filter(b => billingHappensOnDate(b.starts_on, b.due_day, b.frequency, date)).length}
+            onBillingsClick={() => onBillingsClick?.(date, billings.filter(b => billingHappensOnDate(b.starts_on, b.due_day, b.frequency, date)))}
+          />
           <div className="px-4 py-3">
             <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
               {formatLongDate(date)}
