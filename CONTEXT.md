@@ -39,6 +39,7 @@ fases — prontuário, financeiro, notificações e integração Calendar bidire
 | Estilo        | **Tailwind CSS v4** (plugin `@tailwindcss/vite`)        | 4.3.x  |
 | Roteamento    | React Router                                            | 7.x    |
 | Ícones        | lucide-react                                            | —      |
+| Drag and Drop | **@dnd-kit/core**                                       | 6.x    |
 | Auth          | Supabase Auth (Google OAuth)                            | —      |
 | Dados         | `@supabase/supabase-js`                                 | 2.x    |
 | HTTP          | fetch nativo (via `src/lib/api.ts`)                     | —      |
@@ -49,7 +50,7 @@ fases — prontuário, financeiro, notificações e integração Calendar bidire
 
 ## 3. Estrutura de pastas
 
-```
+```text
 src/
 ├── components/
 │   ├── agenda/
@@ -58,34 +59,44 @@ src/
 │   │   ├── AppointmentDetailModal.tsx
 │   │   ├── CancelSeriesModal.tsx
 │   │   ├── CreateAppointmentModal.tsx
-│   │   ├── create-appointment/      # NOVO (sub-componentes do modal)
+│   │   ├── create-appointment/          # NOVO (sub-componentes do modal)
 │   │   │   ├── BlockFields.tsx
 │   │   │   ├── conflict-checker.ts
 │   │   │   ├── DateTimeFields.tsx
 │   │   │   ├── EntityPicker.tsx
 │   │   │   ├── RecurrenceSelector.tsx
 │   │   │   └── TypeSelector.tsx
+│   │   ├── DayBillingsBadge.tsx         # NOVO (badge de vencimentos)
+│   │   ├── DayBillingsModal.tsx         # NOVO (modal de vencimentos)
 │   │   ├── DayCancelledModal.tsx
 │   │   ├── DayHeader.tsx
 │   │   ├── DayOverviewModal.tsx
 │   │   ├── DayView.tsx
+│   │   ├── dnd/                         # NOVO (drag and drop)
+│   │   │   └── DroppableSlot.tsx
 │   │   ├── MonthDayCell.tsx
 │   │   ├── MonthView.tsx
+│   │   ├── MoveAppointmentModal.tsx     # NOVO
+│   │   ├── ResizeAppointmentModal.tsx   # NOVO
+│   │   ├── ResizeHandle.tsx             # NOVO
 │   │   ├── ScheduleEditor.tsx
 │   │   ├── SlotCancelledModal.tsx
 │   │   ├── StackOverviewModal.tsx
 │   │   ├── TimeColumn.tsx
-│   │   ├── dnd/                     # NOVO (drag and drop)
-│   │   │   └── DroppableSlot.tsx
-│   │   ├── MoveAppointmentModal.tsx # NOVO
-│   │   ├── ResizeAppointmentModal.tsx # NOVO
-│   │   ├── ResizeHandle.tsx         # NOVO
 │   │   └── WeekView.tsx
-
-│   ├── layout/                # Sidebar, Header, AppLayout, ThemeToggle
-│   ├── ui/                    # Design system (Button, Input, Card, Badge,
-│   │                          #   Modal, ConfirmDialog, EmptyState, Spinner,
-│   │                          #   MaskedDateInput)
+│   ├── layout/                          # Sidebar, Header, AppLayout, ThemeToggle
+│   ├── ui/                              # Design system
+│   │   ├── Button.tsx
+│   │   ├── Input.tsx
+│   │   ├── MaskedDateInput.tsx          # NOVO
+│   │   ├── Card.tsx
+│   │   ├── Badge.tsx
+│   │   ├── Modal.tsx
+│   │   ├── ConfirmDialog.tsx
+│   │   ├── EmptyState.tsx
+│   │   └── Spinner.tsx
+│   ├── BillingEditorModal.tsx           # NOVO (modal de criar/editar vencimento)
+│   ├── BillingList.tsx                  # NOVO (lista de vencimentos no form)
 │   ├── ConflictOnReactivateModal.tsx
 │   ├── InvitePatientModal.tsx
 │   ├── ProspectCard.tsx
@@ -95,6 +106,7 @@ src/
 │   └── AuthContext.tsx
 ├── hooks/
 │   ├── useAgendaView.ts
+│   ├── useAllUpcomingBillings.ts        # NOVO (vencimentos globais)
 │   ├── useAppointments.ts
 │   ├── useBirthdays.ts
 │   ├── useOccupiedSlots.ts
@@ -103,6 +115,7 @@ src/
 │   ├── usePatientSchedules.ts
 │   ├── usePatientScheduleSource.ts
 │   ├── useProvider.ts
+│   ├── useProviderBillings.ts           # NOVO (CRUD de vencimentos)
 │   ├── useProviders.ts
 │   ├── useProviderSchedules.ts
 │   ├── useProviderScheduleSource.ts
@@ -119,11 +132,11 @@ src/
 │   ├── appointment-layout.ts
 │   ├── appointment-overlap.ts
 │   ├── appointments-filter.ts
-│   ├── masks.ts               # + maskDateBR/parseDateBR/formatDateBR
+│   ├── billings-date.ts                 # NOVO (projeção de datas de vencimento)
+│   ├── masks.ts                         # inclui máscaras de data (dd/mm/aaaa)
 │   ├── patient-display.ts
-│   ├── recurrence.ts          # NOVO
+│   ├── recurrence.ts                    # NOVO (helpers de frequência)
 │   ├── supabase.ts
-│   ├── supabase-rpc-fallback.ts # NOVO
 │   ├── text.ts
 │   └── weekdays.ts
 ├── pages/
@@ -140,11 +153,10 @@ src/
 │   ├── PublicForm.tsx
 │   └── Settings.tsx
 ├── types/
-│   └── index.ts               # + RecurrenceType, ScheduleInput.anchorDate
+│   └── index.ts                         # inclui ProviderBilling, RecurrenceType, etc.
 ├── App.tsx
 ├── index.css
 └── main.tsx
-```
 
 ---
 
@@ -573,21 +585,30 @@ Helpers em `src/lib/masks.ts`:
 
 ### 4.30 Agendamento pela Agenda (CreateAppointmentModal) ⭐ NOVO
 
-- Substitui a criação antiga. Tem 3 abas: Sessão, Prestador, Bloqueio.
-- Cadastro rápido in-loco (cria paciente/prestador sem sair da agenda).
-- Empresas (kind='company') não aparecem no dropdown de prestador (só person).
-- Suporta "Repetir este agendamento" (cria série via RPC, respeitando a frequência).
-- O tipo Bloqueio tem 3 modos: Range num dia, Dia inteiro (07:00–23:59), Vários dias.
-- O componente foi refatorado e seus sub-componentes vivem em create-appointment/.
+- O modal de criação foi quebrado em sub-componentes (create-appointment/).
+- 3 abas: Sessão (paciente), Prestador, Bloqueio.
+- Cadastro rápido: permite criar paciente ou prestador sem sair da agenda. 
+- O modal de prestador aceita person (com horários) e não mostra company (foco em atendimento).
+- Empresa (company): não aparece no modal de agendamento. Tem apenas vencimentos.
 
 ### 4.31 Drag and Drop na Agenda ⭐ NOVO
 
-Biblioteca: @dnd-kit/core.
-- Fase 1 (Mover): arrastar o bloco na grade muda starts_on, start_time e weekday. Para séries, move apenas a ocorrência (avisa no modal MoveAppointmentModal).
-- Fase 2 (Redimensionar): borda inferior do bloco tem o ResizeHandle. Durante o arraste, o bloco muda de tamanho em tempo real e um tooltip mostra o novo Término: HH:MM. Ao soltar, o ResizeAppointmentModal confirma e altera o duration_min.
+- Usa @dnd-kit/core.
+- Mover: DroppableSlot (id YYYY-MM-DD|hour) recebe o bloco; MoveAppointmentModal confirma.
+- Redimensionar: ResizeHandle na borda inferior altera a altura do bloco em tempo real (preview com "Término: HH:MM"). Ao soltar, ResizeAppointmentModal confirma e altera duration_min.
+- Criar por arrastar: clicar e arrastar num slot vazio cria um bloco fantasma verde e, ao soltar, abre o CreateAppointmentModal com duração pré-calculada. Clique curto abre com 50min padrão.
 - Bloqueios e cancelados não são arrastáveis.
-O DroppableSlot forma a grade invisível de horas (id: YYYY-MM-DD|hour).
 
+### 4.32 Provider Billings (Vencimentos de Empresas) ⭐ NOVO
+- Modelo: tabela provider_billings (id, provider_id, description, amount_cents, due_day, frequency, starts_on, status).
+- Soft delete: ao remover, o status vira archived. O hook useProviderBillings filtra status='active'.
+- No ProviderForm: ao criar uma empresa nova, os vencimentos são mantidos em memória (draftBillings) e salvos no banco após a criação do provider (evita erro de FK).
+- Na Agenda: o hook useAllUpcomingBillings traz os dados, e billingHappensOnDate projeta se a conta cai naquele dia. O DayHeader renderiza um badge DayBillingsBadge (💰). Ao clicar, abre DayBillingsModal.
+
+### 4.33 Pessoa Física com CPF ou CNPJ ⭐ NOVO
+- A opção "Pessoa" no ProviderForm permite alternar entre CPF e CNPJ.
+- Motivo: Supervisores podem ser autônomos (CPF) ou MEI/clínica (CNPJ), mas continuam sendo agendáveis como profissionais (com horários).
+- A validação se adapta ao tipo escolhido.
 
 ---
 
@@ -742,28 +763,26 @@ Ver seção 4.24.
 - ✅ Bloqueios com 3 modos + cancelamento e reativação automática
 - ✅ Drag and drop (Mover e Redimensionar)
 
-**Pendente (Frequência configurável) — Etapa 3:**
+- ✅ `usePatientScheduleSource` / `useProviderScheduleSource` ler `anchor_date`
+- ✅ `PatientReview` usar `promote_prospect_to_active` nova (com recorrência)
+- ✅ Deploy + teste em produção
+- ✅ Migration 3 — dropar RPCs antigas (3/4 args)
+- ✅ Cleanup do `callRpcWithFallback`
 
-- ⏳ `usePatientScheduleSource` / `useProviderScheduleSource` ler `anchor_date`
-- ⏳ `PatientReview` usar `promote_prospect_to_active` nova (com recorrência)
-- ⏳ Deploy + teste em produção
-- ⏳ Migration 3 — dropar RPCs antigas (3/4 args)
-- ⏳ Cleanup do `callRpcWithFallback`
-
-**Pendente — próximo:**
-
-- ⏳ **`provider_billings`** (Fase B) — vencimentos de empresas
-- ⏳ **Agendamento avulso** — botão "Novo agendamento" fora da série
-- ⏳ **Drag and drop na agenda** — `@dnd-kit/core`
-- ⏳ **Ajustes finos** — 404, favicon, metadados, `AlertDialog`, busca,
+- ✅ **`provider_billings`** (Fase B) — vencimentos de empresas
+- ✅ **Agendamento avulso** — botão "Novo agendamento" fora da série
+- ✅ **Drag and drop na agenda** — `@dnd-kit/core`
+- ✅ **Ajustes finos** — 404, favicon, metadados, `AlertDialog`, busca,
   perfil/preferências em `/settings`, `postMessage` do OAuth
-- ⏳ **Re-branding** — pausado
+- ✅ **Re-branding** — pausado
+
 
 **Pendente — fases seguintes:**
-
+- ⏳ Ajustes finos (404, AlertDialog, busca, postMessage).
 - ⏳ Financeiro (Fase 5) + Recibos + Relatórios
 - ⏳ Notificações + Calendar escrita (Fase 6)
 - ⏳ Prontuário (Fase 4)
+- ⏳ Fase 6 (Notificações / Google Calendar escrita).
 - ⏳ Testes E2E (Playwright)
 
 **Branches ativas:**
