@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -30,7 +30,7 @@ import {
 import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
-import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
+import { WEEKDAY_LONG, isoWeekday, toDateString } from "../lib/agenda-date";
 import { centsToCurrencyBRL } from "../lib/masks";
 import { getRecurrenceShortLabel } from "../lib/recurrence";
 import type { ProviderKind, ScheduleInput } from "../types";
@@ -43,6 +43,12 @@ const KIND_LABEL: Record<ProviderKind, string> = {
 
 function documentLabel(kind: ProviderKind): string {
   return kind === "company" ? "CNPJ" : "CPF/CNPJ";
+}
+
+function formatBR(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
 }
 
 type ConflictItem = {
@@ -80,6 +86,45 @@ export function ProviderDetail() {
   const [conflictDetails, setConflictDetails] = useState<ConflictItem[]>([]);
   const [working, setWorking] = useState(false);
   const [alertState, setAlertState] = useState<AlertState | null>(null);
+  const [billingPaid, setBillingPaid] = useState<Record<string, string>>({});
+  const [registeringBillingId, setRegisteringBillingId] = useState<
+    string | null
+  >(null);
+
+  // Carrega status de pagamento (transactions com paid_on) do mês corrente
+  useEffect(() => {
+    if (!provider || provider.kind !== "company" || billings.length === 0) {
+      setBillingPaid({});
+      return;
+    }
+
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const monthEnd = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`;
+
+    (async () => {
+      const { data } = await supabase
+        .from("transactions")
+        .select("billing_id, paid_on")
+        .in(
+          "billing_id",
+          billings.map((b) => b.id)
+        )
+        .eq("type", "expense")
+        .not("paid_on", "is", null)
+        .gte("occurred_on", monthStart)
+        .lt("occurred_on", monthEnd);
+
+      const map: Record<string, string> = {};
+      for (const row of data ?? []) {
+        if (row.billing_id && row.paid_on) {
+          map[row.billing_id] = row.paid_on;
+        }
+      }
+      setBillingPaid(map);
+    })();
+  }, [provider?.id, provider?.kind, billings]);
 
   async function handleArchive() {
     if (!provider) return;
@@ -294,6 +339,45 @@ export function ProviderDetail() {
     }
     setDeleteOpen(false);
     navigate("/providers");
+  }
+
+  async function handleRegisterPayment(
+    billingId: string,
+    description: string,
+    amountCents: number
+  ) {
+    setRegisteringBillingId(billingId);
+    try {
+      const { error } = await supabase.rpc("create_expense_from_billing", {
+        p_billing_id: billingId,
+        p_amount_cents: null,
+        p_occurred_on: null,
+        p_paid_on: toDateString(new Date()),
+        p_payment_method: null,
+      });
+
+      if (error) {
+        setAlertState({
+          title: "Erro ao registrar pagamento",
+          message: error.message,
+          tone: "error",
+        });
+        return;
+      }
+
+      setAlertState({
+        title: "Pagamento registrado",
+        message: `${description} · R$ ${centsToCurrencyBRL(amountCents)}`,
+        tone: "success",
+      });
+
+      setBillingPaid((prev) => ({
+        ...prev,
+        [billingId]: toDateString(new Date()),
+      }));
+    } finally {
+      setRegisteringBillingId(null);
+    }
   }
 
   if (loading) {
@@ -550,27 +634,53 @@ export function ProviderDetail() {
             </div>
           ) : (
             <ul className="space-y-2">
-              {billings.map((b) => (
-                <li
-                  key={b.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-slate-100">
-                      {b.description}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-slate-400">
-                      Todo dia {b.due_day} · {centsToCurrencyBRL(b.amount_cents)}
-                    </p>
-                  </div>
-                  <Link
-                    to={`/providers/${provider.id}/edit`}
-                    className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+              {billings.map((b) => {
+                const paidOn = billingPaid[b.id];
+                return (
+                  <li
+                    key={b.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
                   >
-                    Editar
-                  </Link>
-                </li>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-gray-900 dark:text-slate-100">
+                        {b.description}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-slate-400">
+                        Todo dia {b.due_day} ·{" "}
+                        {centsToCurrencyBRL(b.amount_cents)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {paidOn ? (
+                        <Badge variant="success">Pago {formatBR(paidOn)}</Badge>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            handleRegisterPayment(
+                              b.id,
+                              b.description,
+                              b.amount_cents
+                            )
+                          }
+                          disabled={registeringBillingId === b.id}
+                        >
+                          {registeringBillingId === b.id
+                            ? "Registrando..."
+                            : "Registrar pagamento"}
+                        </Button>
+                      )}
+                      <Link
+                        to={`/providers/${provider.id}/edit`}
+                        className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                      >
+                        Editar
+                      </Link>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>

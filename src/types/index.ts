@@ -128,3 +128,40 @@ export type AppointmentWithRelations = Appointment & {
   } | null;
 };
 
+// =========================================================
+// Financeiro (transactions)
+// =========================================================
+export type TransactionType = "income" | "expense";
+export type PaymentMethod = "pix" | "cash" | "card" | "transfer" | "other";
+
+export type Transaction = {
+  id: string;
+  user_id: string;
+  type: TransactionType;
+  amount_cents: number;
+  description: string;
+  category: string;
+  occurred_on: string;
+  paid_on: string | null;
+  patient_id: string | null;
+  provider_id: string | null;
+  billing_id: string | null;
+  payment_method: PaymentMethod | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TransactionInput = {
+  type: TransactionType;
+  amount_cents: number;
+  description: string;
+  category: string;
+  occurred_on: string;
+  paid_on: string | null;
+  patient_id: string | null;
+  provider_id: string | null;
+  billing_id: string | null;
+  payment_method: PaymentMethod | null;
+  notes: string | null;
+};

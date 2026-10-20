@@ -15,6 +15,7 @@ import { ProviderForm } from "./pages/ProviderForm";
 import { PublicForm } from "./pages/PublicForm";
 import { Settings } from "./pages/Settings";
 import { Agenda } from "./pages/Agenda";
+import { Finance } from "./pages/Finance";
 
 export default function App() {
   return (
@@ -46,6 +47,10 @@ export default function App() {
               {/* Agenda */}
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/agenda/:view/:date" element={<Agenda />} />
+
+              {/* Financeiro */}
+              <Route path="/finance" element={<Finance />} />
+
 
               <Route path="/settings" element={<Settings />} />
             </Route>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarClock,
@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Trash2,
   PauseCircle,
+  Wallet,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { Button, Modal, Badge, ConfirmDialog } from "../ui";
@@ -38,6 +39,38 @@ export function AppointmentDetailModal({
   const [cancelSeriesOpen, setCancelSeriesOpen] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<
+    "unknown" | "none" | "paid"
+  >("unknown");
+  const [creatingIncome, setCreatingIncome] = useState(false);
+
+  // Verifica se já existe receita vinculada a essa sessão concluída
+  useEffect(() => {
+    if (!appointment) {
+      setPaymentStatus("unknown");
+      return;
+    }
+    if (appointment.type !== "session" || appointment.status !== "completed") {
+      setPaymentStatus("unknown");
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("patient_id", appointment.patient_id!)
+        .eq("occurred_on", appointment.starts_on)
+        .eq("type", "income")
+        .limit(1);
+      setPaymentStatus(data && data.length > 0 ? "paid" : "none");
+    })();
+  }, [
+    appointment?.id,
+    appointment?.status,
+    appointment?.patient_id,
+    appointment?.starts_on,
+    appointment?.type,
+  ]);
 
   if (!appointment) return null;
 
@@ -72,7 +105,9 @@ export function AppointmentDetailModal({
     appointment.is_recurring && !!subjectId && !isBlocked;
 
   // Cálculo de fim do bloqueio
-  const startMin = Number(appointment.start_time.split(":")[0]) * 60 + Number(appointment.start_time.split(":")[1]);
+  const startMin =
+    Number(appointment.start_time.split(":")[0]) * 60 +
+    Number(appointment.start_time.split(":")[1]);
   const endMin = startMin + appointment.duration_min;
   const endH = Math.floor(endMin / 60) % 24;
   const endM = endMin % 60;
@@ -123,13 +158,15 @@ export function AppointmentDetailModal({
       // 2. Se achou, limpa o texto e reativa
       if (cancelledAppts && cancelledAppts.length > 0) {
         for (const appt of cancelledAppts) {
-          const cleanNotes = (appt.notes as string).replace(`[cancelled_by_block:${blockId}]`, "").trim();
+          const cleanNotes = (appt.notes as string)
+            .replace(`[cancelled_by_block:${blockId}]`, "")
+            .trim();
 
           await supabase
             .from("appointments")
             .update({
               status: "active",
-              notes: cleanNotes || null
+              notes: cleanNotes || null,
             })
             .eq("id", appt.id);
         }
@@ -141,7 +178,8 @@ export function AppointmentDetailModal({
         .delete()
         .eq("id", appointment!.id);
 
-      if (deleteErr) throw new Error(`Erro ao remover bloqueio: ${deleteErr.message}`);
+      if (deleteErr)
+        throw new Error(`Erro ao remover bloqueio: ${deleteErr.message}`);
 
       setDeleteBlockOpen(false);
       onChanged();
@@ -151,6 +189,29 @@ export function AppointmentDetailModal({
     } finally {
       setWorking(false);
     }
+  }
+
+  async function handleCreateIncome() {
+    if (!appointment) return;
+    setCreatingIncome(true);
+    setError(null);
+
+    const { error } = await supabase.rpc("create_income_from_appointment", {
+      p_appointment_id: appointment.id,
+      p_amount_cents: null,
+      p_paid_on: null,
+      p_payment_method: null,
+    });
+
+    setCreatingIncome(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setPaymentStatus("paid");
+    onChanged();
   }
 
   return (
@@ -167,12 +228,15 @@ export function AppointmentDetailModal({
               <CalendarClock size={18} className={style.text} />
             )}
             <div className="flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <p className={`font-medium ${style.text}`}>
                   {isBlocked ? "Bloqueio" : style.label}
                 </p>
                 {isCancelled && <Badge variant="danger">Cancelado</Badge>}
                 {isCompleted && <Badge variant="success">Concluído</Badge>}
+                {isCompleted && paymentStatus === "paid" && (
+                  <Badge variant="success">Pago</Badge>
+                )}
                 {!isCancelled && !isCompleted && (
                   <Badge variant="brand">Ativo</Badge>
                 )}
@@ -258,6 +322,16 @@ export function AppointmentDetailModal({
             <Button variant="secondary" onClick={onClose}>
               Fechar
             </Button>
+            {paymentStatus === "none" && (
+              <Button
+                variant="secondary"
+                onClick={handleCreateIncome}
+                disabled={working || creatingIncome}
+              >
+                <Wallet size={16} />
+                {creatingIncome ? "Registrando..." : "Confirmar pagamento"}
+              </Button>
+            )}
             {!isCancelled && !isCompleted && (
               <>
                 {canCancelSeries && (
@@ -323,7 +397,7 @@ export function AppointmentDetailModal({
           <>
             O bloqueio de {formatLongDate(appointment.starts_on)} será removido
             e o horário ficará disponível novamente.
-            {(appointment.notes) && (
+            {appointment.notes && (
               <span className="mt-2 block text-xs">
                 Observação: <em>{appointment.notes}</em>
               </span>

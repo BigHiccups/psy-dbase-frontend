@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { to: "/providers", label: "Prestadores", icon: Building2 },
   { to: "/agenda", label: "Agenda", icon: Calendar },
   { to: "/records", label: "Prontuário", icon: FileText, disabled: true },
-  { to: "/finance", label: "Financeiro", icon: Wallet, disabled: true },
+  { to: "/finance", label: "Financeiro", icon: Wallet },
   { to: "/settings", label: "Configurações", icon: Settings },
 ];
 
