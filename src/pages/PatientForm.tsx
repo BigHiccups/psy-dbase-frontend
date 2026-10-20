@@ -18,7 +18,7 @@ import {
   isValidCPF,
   isValidPhoneBR,
 } from "../lib/masks";
-import type { RecurrenceType, ScheduleInput } from "../types";
+import type { PaymentFormat, RecurrenceType, ScheduleInput } from "../types";
 
 type FormState = {
   full_name: string;
@@ -30,6 +30,9 @@ type FormState = {
   emergency_contact_phone: string;
   notes: string;
   session_price: string;
+  payment_format: PaymentFormat;
+  default_payment_method: string;
+  session_number_start: string;
 };
 
 const INITIAL_FORM: FormState = {
@@ -42,6 +45,9 @@ const INITIAL_FORM: FormState = {
   emergency_contact_phone: "",
   notes: "",
   session_price: "",
+  payment_format: "avulso",
+  default_payment_method: "",
+  session_number_start: "0",
 };
 
 function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
@@ -107,6 +113,9 @@ export function PatientForm() {
         emergency_contact_phone: patient.emergency_contact_phone ?? "",
         notes: patient.notes ?? "",
         session_price: centsToCurrencyBRL(patient.session_price_cents),
+        payment_format: patient.payment_format ?? "avulso",
+        default_payment_method: patient.default_payment_method ?? "",
+        session_number_start: patient.session_number_start?.toString() ?? "0",
       });
     }
   }, [patient]);
@@ -197,6 +206,9 @@ export function PatientForm() {
       emergency_contact_phone: form.emergency_contact_phone || null,
       notes: form.notes.trim() || null,
       session_price_cents: parseCurrencyToCents(form.session_price),
+      payment_format: form.payment_format,
+      default_payment_method: form.default_payment_method || null,
+      session_number_start: parseInt(form.session_number_start, 10) || 0,
     };
 
     if (isEdit) {
@@ -414,6 +426,52 @@ export function PatientForm() {
             <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
               Valor cobrado por sessão. Usado nos relatórios financeiros.
             </p>
+          </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 mt-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                Forma de Pagamento
+              </label>
+              <select
+                value={form.payment_format}
+                onChange={(e) => update("payment_format", e.target.value as any)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="vencimento">Vencimento</option>
+                <option value="antecipado">Antecipado</option>
+                <option value="avulso">Avulso</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                Meio de Pagamento Padrão
+              </label>
+              <select
+                value={form.default_payment_method}
+                onChange={(e) => update("default_payment_method", e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="">—</option>
+                <option value="pix">PIX</option>
+                <option value="debito">Débito</option>
+                <option value="credito">Crédito</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="transferencia">Transferência</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <Input
+              label="Iniciar contagem de sessões em"
+              type="number"
+              min={0}
+              value={form.session_number_start}
+              onChange={(e) => update("session_number_start", e.target.value)}
+              hint="Se o paciente já fez sessões antes de entrar no sistema, coloque o número da última sessão aqui."
+            />
           </div>
         </Card>
 

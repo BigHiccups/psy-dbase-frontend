@@ -3,13 +3,18 @@ import { supabase } from "../lib/supabase";
 import type { Transaction, TransactionInput, TransactionType } from "../types";
 
 export type TransactionFilters = {
-  month?: string;                         // "YYYY-MM"
+  month?: string;
   type?: TransactionType | "all";
   status?: "all" | "paid" | "pending";
 };
 
+export type TransactionWithMeta = Transaction & {
+  display_name: string;
+  time_str: string | null;
+};
+
 export function useTransactions(filters: TransactionFilters = {}) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<TransactionWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +24,13 @@ export function useTransactions(filters: TransactionFilters = {}) {
 
     let query = supabase
       .from("transactions")
-      .select("*")
+      .select(`
+        *,
+        patient:patients (full_name),
+        provider:providers (display_name),
+        billing:provider_billings (description),
+        appointment:appointments (start_time)
+      `)
       .order("occurred_on", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -40,11 +51,62 @@ export function useTransactions(filters: TransactionFilters = {}) {
     }
 
     const { data, error } = await query;
+    
     if (error) {
       setError(error.message);
       setTransactions([]);
     } else {
-      setTransactions((data ?? []) as Transaction[]);
+      const rawTransactions = data || [];
+      
+      // Coleta os IDs de pacientes e as datas para buscar sessões "órfãs" (sem appointment_id)
+      const patientIds = [...new Set(rawTransactions.map((t: any) => t.patient_id).filter(Boolean))];
+      const dates = [...new Set(rawTransactions.map((t: any) => t.occurred_on))];
+
+      let fallbackAppointments: any[] = [];
+      if (patientIds.length > 0 && dates.length > 0) {
+        const { data: appts } = await supabase
+          .from("appointments")
+          .select("patient_id, starts_on, start_time")
+          .in("patient_id", patientIds)
+          .in("starts_on", dates)
+          .eq("type", "session");
+        fallbackAppointments = appts || [];
+      }
+
+      const formatted = rawTransactions.map((row: any) => {
+        const appt = Array.isArray(row.appointment) ? row.appointment[0] : row.appointment;
+        const pat = Array.isArray(row.patient) ? row.patient[0] : row.patient;
+        const prov = Array.isArray(row.provider) ? row.provider[0] : row.provider;
+        
+        let displayName = row.description;
+        let timeStr = null;
+
+        if (appt && appt.start_time) {
+          timeStr = appt.start_time.slice(0, 5);
+        } else if (row.patient_id) {
+          // Fallback: busca na lista de agendamentos do dia
+          const fallback = fallbackAppointments.find(
+            (a) => a.patient_id === row.patient_id && a.starts_on === row.occurred_on
+          );
+          if (fallback) timeStr = fallback.start_time.slice(0, 5);
+        }
+
+        if (pat) {
+          displayName = pat.full_name;
+        } else if (prov) {
+          displayName = prov.display_name;
+        } else if (row.billing) {
+          displayName = row.billing.description;
+        }
+
+        return {
+          ...row,
+          display_name: displayName,
+          time_str: timeStr,
+        } as TransactionWithMeta;
+      });
+
+      setTransactions(formatted);
     }
     setLoading(false);
   }, [filters.month, filters.type, filters.status]);
@@ -54,9 +116,7 @@ export function useTransactions(filters: TransactionFilters = {}) {
   }, [load]);
 
   async function create(input: TransactionInput) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sessão expirada.");
 
     const { error } = await supabase
@@ -91,6 +151,16 @@ export function useTransactions(filters: TransactionFilters = {}) {
     await load();
   }
 
+  // NOVA FUNÇÃO: Desfazer pagamento
+  async function markAsPending(id: string) {
+    const { error } = await supabase
+      .from("transactions")
+      .update({ paid_on: null })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    await load();
+  }
+
   return {
     transactions,
     loading,
@@ -100,5 +170,6 @@ export function useTransactions(filters: TransactionFilters = {}) {
     update,
     remove,
     markAsPaid,
+    markAsPending, // Exportando a nova função
   };
 }
