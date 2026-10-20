@@ -44,6 +44,7 @@ export function useProviderBillings(providerId: string | undefined) {
     description: string;
     amount_cents: number;
     due_day: number;
+    due_month: number | null;
     frequency: string;
     starts_on: string;
   }) {
@@ -55,10 +56,11 @@ export function useProviderBillings(providerId: string | undefined) {
       p_due_day: payload.due_day,
       p_frequency: payload.frequency,
       p_starts_on: payload.starts_on,
+      p_due_month: payload.due_month ?? null,
     });
 
     if (error) throw new Error(error.message);
-    await load(); // Recarrega a lista
+    await load();
   }
 
   async function archiveBilling(id: string) {

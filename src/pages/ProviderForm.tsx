@@ -288,9 +288,10 @@ export function ProviderForm() {
               description: b.description,
               amount_cents: b.amount_cents,
               due_day: b.due_day,
+              due_month: b.due_month ?? null,
               frequency: b.frequency,
-              starts_on: toDateString(new Date()),
-
+              // Preserva starts_on original; só usa hoje se for billing novo
+              starts_on: b.starts_on ?? toDateString(new Date()),
             });
           }
         } catch (billErr) {
@@ -347,9 +348,9 @@ export function ProviderForm() {
               description: b.description,
               amount_cents: b.amount_cents,
               due_day: b.due_day,
+              due_month: b.due_month ?? null,
               frequency: b.frequency,
-              starts_on: toDateString(new Date()),
-
+              starts_on: b.starts_on ?? toDateString(new Date()),
             });
           }
         } catch (billErr) {
@@ -402,8 +403,8 @@ export function ProviderForm() {
               type="button"
               onClick={() => update("kind", "person")}
               className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person"
-                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                 }`}
             >
               <User
@@ -424,8 +425,8 @@ export function ProviderForm() {
               type="button"
               onClick={() => update("kind", "company")}
               className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company"
-                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
+                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                 }`}
             >
               <Building2
@@ -589,7 +590,7 @@ export function ProviderForm() {
               <BillingList
                 billings={draftBillings}
                 onChange={setDraftBillings}
-                onRemove={handleRemoveBilling} 
+                onRemove={handleRemoveBilling}
               />
             </div>
           )}
