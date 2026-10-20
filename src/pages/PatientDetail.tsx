@@ -21,7 +21,14 @@ import {
 import { supabase } from "../lib/supabase";
 import { usePatient } from "../hooks/usePatient";
 import { usePatientSchedules } from "../hooks/usePatientSchedules";
-import { Button, Card, Badge, ConfirmDialog, Spinner } from "../components/ui";
+import {
+  Button,
+  Card,
+  Badge,
+  ConfirmDialog,
+  AlertDialog,
+  Spinner,
+} from "../components/ui";
 import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
@@ -59,6 +66,12 @@ type ConflictItem = {
   occupiedBy: string;
 };
 
+type AlertState = {
+  title: string;
+  message: string;
+  tone: "info" | "error" | "success";
+};
+
 export function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -78,6 +91,7 @@ export function PatientDetail() {
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictDetails, setConflictDetails] = useState<ConflictItem[]>([]);
   const [working, setWorking] = useState(false);
+  const [alertState, setAlertState] = useState<AlertState | null>(null);
 
   async function handleArchive() {
     if (!patient) return;
@@ -89,7 +103,11 @@ export function PatientDetail() {
     );
 
     if (cancelErr) {
-      alert(cancelErr.message);
+      setAlertState({
+        title: "Erro ao arquivar",
+        message: cancelErr.message,
+        tone: "error",
+      });
       setWorking(false);
       return;
     }
@@ -102,7 +120,11 @@ export function PatientDetail() {
     setWorking(false);
 
     if (error) {
-      alert(error.message);
+      setAlertState({
+        title: "Erro ao arquivar",
+        message: error.message,
+        tone: "error",
+      });
       return;
     }
     setArchiveOpen(false);
@@ -190,7 +212,11 @@ export function PatientDetail() {
       .eq("id", patient.id);
 
     if (error) {
-      alert(error.message);
+      setAlertState({
+        title: "Erro ao reativar",
+        message: error.message,
+        tone: "error",
+      });
       setWorking(false);
       return;
     }
@@ -202,7 +228,11 @@ export function PatientDetail() {
       );
 
       if (scheduleErr) {
-        alert(scheduleErr.message);
+        setAlertState({
+          title: "Erro ao reativar",
+          message: scheduleErr.message,
+          tone: "error",
+        });
         setWorking(false);
         return;
       }
@@ -226,7 +256,11 @@ export function PatientDetail() {
     );
 
     if (validSchedules.length === 0) {
-      alert("Nenhum horário livre para reativar. Escolha novos horários.");
+      setAlertState({
+        title: "Sem horários livres",
+        message: "Nenhum horário livre para reativar. Escolha novos horários.",
+        tone: "error",
+      });
       return;
     }
 
@@ -245,7 +279,11 @@ export function PatientDetail() {
     setWorking(false);
 
     if (error) {
-      alert(error.message);
+      setAlertState({
+        title: "Erro ao excluir",
+        message: error.message,
+        tone: "error",
+      });
       return;
     }
     setDeleteOpen(false);
@@ -590,6 +628,14 @@ export function PatientDetail() {
           }}
         />
       )}
+
+      <AlertDialog
+        open={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title ?? ""}
+        message={alertState?.message}
+        tone={alertState?.tone ?? "info"}
+      />
     </div>
   );
 }

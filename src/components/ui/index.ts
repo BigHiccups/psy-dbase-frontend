@@ -6,3 +6,4 @@ export { Modal } from "./Modal";
 export { EmptyState } from "./EmptyState";
 export { Spinner } from "./Spinner";
 export { ConfirmDialog } from "./ConfirmDialog";
+export { AlertDialog } from "./AlertDialog";
