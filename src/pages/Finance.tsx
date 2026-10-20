@@ -11,6 +11,7 @@ import {
   TrendingDown,
   Clock,
   RotateCcw,
+  Paperclip,
 } from "lucide-react";
 import {
   Button,
@@ -23,12 +24,16 @@ import {
 } from "../components/ui";
 import { TransactionModal } from "../components/TransactionModal";
 import { PendingSuggestionsCard } from "../components/PendingSuggestionsCard";
+import { PaymentReceiptModal } from "../components/PaymentReceiptModal";
 import { useTransactions } from "../hooks/useTransactions";
 import { usePendingSuggestions } from "../hooks/usePendingSuggestions";
 import { centsToCurrencyBRL } from "../lib/masks";
 import type { Transaction, TransactionInput, TransactionType } from "../types";
+import { ReceiptViewerModal } from "../components/ReceiptViewerModal";
+
 
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
 
 const CATEGORY_LABELS: Record<string, string> = {
   session: "Sessão", package: "Pacote", workshop: "Workshop", gift: "Doação",
@@ -46,14 +51,32 @@ function suggestionToFakeTransaction(s: any): Transaction {
   const now = new Date().toISOString();
   if (s.kind === "session") {
     const [y, m, d] = s.suggested_date.split("-");
-    return { id: "", user_id: "", type: "income", amount_cents: s.suggested_amount_cents ?? 0, description: `Sessão ${d}/${m}/${y}`, category: "session", occurred_on: s.suggested_date, paid_on: null, patient_id: s.appointment.patient_id, provider_id: null, billing_id: null, appointment_id: s.appointment.id, payment_method: null, notes: null, created_at: now, updated_at: now };
+    return {
+      id: "", user_id: "", type: "income", amount_cents: s.suggested_amount_cents ?? 0,
+      description: `Sessão ${d}/${m}/${y}`, category: "session", occurred_on: s.suggested_date,
+      paid_on: null, patient_id: s.appointment.patient_id, provider_id: null, billing_id: null,
+      appointment_id: s.appointment.id, payment_method: null, notes: null, receipt_url: null,
+      created_at: now, updated_at: now
+    };
   }
   if (s.kind === "personal") {
     const [y, m, d] = s.suggested_date.split("-");
-    return { id: "", user_id: "", type: "expense", amount_cents: s.suggested_amount_cents ?? 0, description: `${s.appointment.provider?.display_name ?? "Prestador"} · ${d}/${m}/${y}`, category: "supervision", occurred_on: s.suggested_date, paid_on: null, patient_id: null, provider_id: s.appointment.provider_id, billing_id: null, appointment_id: s.appointment.id, payment_method: null, notes: null, created_at: now, updated_at: now };
+    return {
+      id: "", user_id: "", type: "expense", amount_cents: s.suggested_amount_cents ?? 0,
+      description: `${s.appointment.provider?.display_name ?? "Prestador"} · ${d}/${m}/${y}`,
+      category: "supervision", occurred_on: s.suggested_date, paid_on: null, patient_id: null,
+      provider_id: s.appointment.provider_id, billing_id: null, appointment_id: s.appointment.id,
+      payment_method: null, notes: null, receipt_url: null, created_at: now, updated_at: now
+    };
   }
   const [y, m] = s.suggested_date.split("-");
-  return { id: "", user_id: "", type: "expense", amount_cents: s.suggested_amount_cents, description: `${s.billing.description} · ${m}/${y}`, category: "billing", occurred_on: s.suggested_date, paid_on: null, patient_id: null, provider_id: null, billing_id: s.billing.id, appointment_id: null, payment_method: null, notes: null, created_at: now, updated_at: now };
+  return {
+    id: "", user_id: "", type: "expense", amount_cents: s.suggested_amount_cents,
+    description: `${s.billing.description} · ${m}/${y}`, category: "billing",
+    occurred_on: s.suggested_date, paid_on: null, patient_id: null, provider_id: null,
+    billing_id: s.billing.id, appointment_id: null, payment_method: null, notes: null,
+    receipt_url: null, created_at: now, updated_at: now
+  };
 }
 
 export function Finance() {
@@ -62,14 +85,20 @@ export function Finance() {
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending">("all");
 
   const { transactions, loading, error, create, update, remove, markAsPaid, markAsPending } = useTransactions({ month, type: typeFilter, status: statusFilter });
-  
-  // Passando o 'month' para buscar sugestões do mês selecionado
   const suggestions = usePendingSuggestions(month);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [alertState, setAlertState] = useState<AlertState | null>(null);
+
+  // Estados para o fluxo de pagamento com comprovante
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [payingTarget, setPayingTarget] = useState<Transaction | null>(null);
+
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerPath, setViewerPath] = useState<string | null>(null);
+  const [viewerTransaction, setViewerTransaction] = useState<Transaction | null>(null);
 
   const [year, m] = month.split("-").map(Number);
   const monthLabel = `${MONTHS[m - 1]} ${year}`;
@@ -97,7 +126,7 @@ export function Finance() {
       paidExpense,
       balance: paidIncome - paidExpense,
       pendingCount,
-      pendingTotal: pendingIncome - pendingExpense, // Positivo = a receber, Negativo = a pagar
+      pendingTotal: pendingIncome - pendingExpense,
     };
   }, [transactions]);
 
@@ -109,14 +138,38 @@ export function Finance() {
     suggestions.reload();
   }
 
-  async function handleMarkPaid(t: Transaction) {
-    try { await markAsPaid(t.id); } 
-    catch (err) { setAlertState({ title: "Erro ao marcar como pago", message: err instanceof Error ? err.message : "Erro desconhecido.", tone: "error" }); }
+  // Abre o modal de anexo em vez de pagar direto
+  function handleMarkPaid(t: Transaction) {
+    setPayingTarget(t);
+    setReceiptModalOpen(true);
+  }
+
+  // Chamado pelo PaymentReceiptModal após subir o arquivo (ou não)
+  async function handleConfirmPayment(fileUrl: string | null) {
+    if (!payingTarget) return;
+    try {
+      await markAsPaid(payingTarget.id, fileUrl);
+      setReceiptModalOpen(false);
+      setPayingTarget(null);
+    } catch (err) {
+      setAlertState({
+        title: "Erro ao marcar como pago",
+        message: err instanceof Error ? err.message : "Erro desconhecido.",
+        tone: "error",
+      });
+    }
   }
 
   async function handleUndoPaid(t: Transaction) {
-    try { await markAsPending(t.id); } 
-    catch (err) { setAlertState({ title: "Erro ao desfazer pagamento", message: err instanceof Error ? err.message : "Erro desconhecido.", tone: "error" }); }
+    try {
+      await markAsPending(t.id);
+    } catch (err) {
+      setAlertState({
+        title: "Erro ao desfazer pagamento",
+        message: err instanceof Error ? err.message : "Erro desconhecido.",
+        tone: "error",
+      });
+    }
   }
 
   async function handleDelete() {
@@ -223,7 +276,7 @@ export function Finance() {
               const paid = !!t.paid_on;
               const isSession = t.patient_id !== null;
               const isBilling = t.billing_id !== null;
-              
+
               return (
                 <li key={t.id} className="flex items-center gap-3 px-4 py-3 text-sm">
                   <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isIncome ? "bg-green-50 text-green-600 dark:bg-green-950/50 dark:text-green-400" : "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400"}`}>
@@ -245,6 +298,25 @@ export function Finance() {
                   </span>
 
                   <div className="flex shrink-0 items-center gap-1">
+                    {/* Ícone de Anexo */}
+                    {t.receipt_url ? (
+                      <button
+                        onClick={() => {
+                          setViewerTransaction(t);
+                          setViewerPath(t.receipt_url);
+                          setViewerOpen(true);
+                        }}
+                        title="Ver comprovante"
+                        className="rounded p-1.5 text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/50"
+                      >
+                        <Paperclip size={14} />
+                      </button>
+                    ) : (
+                      <div className="p-1.5 text-gray-300 dark:text-slate-600" title="Sem comprovante">
+                        <Paperclip size={14} />
+                      </div>
+                    )}
+
                     {!paid ? (
                       <button onClick={() => handleMarkPaid(t)} title="Marcar como pago" className="rounded p-1.5 text-gray-400 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-950/50 dark:hover:text-green-400">
                         <Check size={14} />
@@ -268,9 +340,31 @@ export function Finance() {
         </div>
       )}
 
+      {/* Modais */}
       {modalOpen && (
         <TransactionModal open transactionToEdit={editing} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={handleSave} />
       )}
+
+      <ReceiptViewerModal
+        open={viewerOpen}
+        onClose={() => {
+          setViewerOpen(false);
+          setViewerPath(null);
+          setViewerTransaction(null); // <--- Adicione isso
+        }}
+        filePath={viewerPath}
+        title={`Comprovante - ${viewerTransaction?.description || ""}`} // <--- Mude aqui
+      />
+
+      <PaymentReceiptModal
+        open={receiptModalOpen}
+        transaction={payingTarget}
+        onClose={() => {
+          setReceiptModalOpen(false);
+          setPayingTarget(null);
+        }}
+        onConfirm={handleConfirmPayment}
+      />
 
       <ConfirmDialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} title="Excluir lançamento?" description={deleteTarget ? `"${deleteTarget.description}" (R$ ${centsToCurrencyBRL(deleteTarget.amount_cents)}) será removido permanentemente.` : ""} confirmLabel="Excluir" tone="danger" />
 

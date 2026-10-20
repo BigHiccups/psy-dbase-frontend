@@ -158,12 +158,12 @@ export type Transaction = {
   patient_id: string | null;
   provider_id: string | null;
   billing_id: string | null;
+  appointment_id: string | null; 
   payment_method: PaymentMethod | null;
   notes: string | null;
+  receipt_url: string | null;    
   created_at: string;
   updated_at: string;
-  appointment_id: string | null;
-
 };
 
 export type TransactionInput = {

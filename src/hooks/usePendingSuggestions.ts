@@ -32,7 +32,6 @@ export function usePendingSuggestions(targetMonth: string) {
         try {
             const [year, month] = targetMonth.split("-").map(Number);
             const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-            const nextMonth = new Date(year, month, 1); // month is 1-indexed in Date constructor logic here? No, Date is 0-indexed. 
             // Wait, targetMonth is "YYYY-MM". So nextMonth is:
             const nextMonthDate = new Date(year, month, 1); // month é 1-indexed na string, então isso gera o mês seguinte corretamente
             const monthEnd = toISODate(nextMonthDate);

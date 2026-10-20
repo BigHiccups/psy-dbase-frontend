@@ -11,6 +11,7 @@ export type TransactionFilters = {
 export type TransactionWithMeta = Transaction & {
   display_name: string;
   time_str: string | null;
+  receipt_url: string | null;
 };
 
 export function useTransactions(filters: TransactionFilters = {}) {
@@ -142,11 +143,17 @@ export function useTransactions(filters: TransactionFilters = {}) {
     await load();
   }
 
-  async function markAsPaid(id: string, paidOn?: string) {
-    const { error } = await supabase.rpc("mark_transaction_as_paid", {
-      p_transaction_id: id,
-      p_paid_on: paidOn ?? null,
-    });
+  async function markAsPaid(id: string, receiptUrl?: string | null, paidOn?: string) {
+    const updates: any = { paid_on: paidOn ?? new Date().toISOString().slice(0,10) };
+    if (receiptUrl !== undefined) {
+      updates.receipt_url = receiptUrl;
+    }
+
+    const { error } = await supabase
+      .from("transactions")
+      .update(updates)
+      .eq("id", id);
+      
     if (error) throw new Error(error.message);
     await load();
   }
