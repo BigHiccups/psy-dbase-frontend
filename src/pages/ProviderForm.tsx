@@ -2,7 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Save, AlertCircle, User, Building2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { Button, Card, Input, Spinner } from "../components/ui";
+import {
+  Button,
+  Card,
+  Input,
+  Spinner,
+  AlertDialog,
+  ConfirmDialog,
+} from "../components/ui";
 import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { BillingList, type DraftBilling } from "../components/BillingList";
 import { useProvider } from "../hooks/useProvider";
@@ -45,6 +52,12 @@ const INITIAL_FORM: FormState = {
   phone: "",
   notes: "",
   session_price: "",
+};
+
+type AlertState = {
+  title: string;
+  message: string;
+  tone: "info" | "error" | "success";
 };
 
 function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
@@ -96,10 +109,14 @@ export function ProviderForm() {
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [initialSchedules, setInitialSchedules] = useState<ScheduleInput[]>([]);
 
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
+  const [recurrenceType, setRecurrenceType] =
+    useState<RecurrenceType>("weekly");
   const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
-  const [initialRecurrenceType, setInitialRecurrenceType] = useState<RecurrenceType>("weekly");
-  const [initialRecurrenceDays, setInitialRecurrenceDays] = useState<number | null>(null);
+  const [initialRecurrenceType, setInitialRecurrenceType] =
+    useState<RecurrenceType>("weekly");
+  const [initialRecurrenceDays, setInitialRecurrenceDays] = useState<
+    number | null
+  >(null);
 
   const [draftBillings, setDraftBillings] = useState<DraftBilling[]>([]);
 
@@ -107,6 +124,12 @@ export function ProviderForm() {
   const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [alertState, setAlertState] = useState<AlertState | null>(null);
+  const [removePending, setRemovePending] = useState<{
+    id: string;
+    index: number;
+  } | null>(null);
 
   useEffect(() => {
     if (provider) {
@@ -130,18 +153,29 @@ export function ProviderForm() {
   useEffect(() => {
     if (!loadingSchedules) {
       setSchedules(sourcedSchedules);
-      setInitialSchedules((prev) => (prev.length === 0 ? sourcedSchedules : prev));
+      setInitialSchedules((prev) =>
+        prev.length === 0 ? sourcedSchedules : prev
+      );
 
       setRecurrenceType(sourcedRecurrenceType);
       setRecurrenceDays(sourcedRecurrenceDays);
       setInitialRecurrenceType((prev) =>
-        prev === "weekly" && sourcedRecurrenceType !== "weekly" ? sourcedRecurrenceType : prev
+        prev === "weekly" && sourcedRecurrenceType !== "weekly"
+          ? sourcedRecurrenceType
+          : prev
       );
       setInitialRecurrenceDays((prev) =>
-        prev === null && sourcedRecurrenceDays !== null ? sourcedRecurrenceDays : prev
+        prev === null && sourcedRecurrenceDays !== null
+          ? sourcedRecurrenceDays
+          : prev
       );
     }
-  }, [loadingSchedules, sourcedSchedules, sourcedRecurrenceType, sourcedRecurrenceDays]);
+  }, [
+    loadingSchedules,
+    sourcedSchedules,
+    sourcedRecurrenceType,
+    sourcedRecurrenceDays,
+  ]);
 
   useEffect(() => {
     if (isEdit && existingBillings) {
@@ -161,25 +195,39 @@ export function ProviderForm() {
     });
   }
 
-  function handleRecurrenceChange(nextType: RecurrenceType, nextDays: number | null) {
+  function handleRecurrenceChange(
+    nextType: RecurrenceType,
+    nextDays: number | null
+  ) {
     setRecurrenceType(nextType);
     setRecurrenceDays(nextDays);
   }
 
-  async function handleRemoveBilling(id: string, index: number) {
-    if (!confirm("Remover este vencimento?")) return;
+  function handleRemoveBilling(id: string, index: number) {
+    setRemovePending({ id, index });
+  }
 
-    // 1. Remove da memória imediatamente
-    setDraftBillings((prev) => prev.filter((_, i) => i !== index));
+  async function confirmRemoveBilling() {
+    if (!removePending) return;
+    const { id, index } = removePending;
 
-    // 2. Se tem ID (já foi salvo no banco), arquiva lá também
+    // 1. Arquiva no banco primeiro (se já existir)
     if (id) {
       try {
         await archiveBilling(id);
       } catch (err) {
-        alert("Erro ao remover do banco: " + (err instanceof Error ? err.message : ""));
+        setAlertState({
+          title: "Erro ao remover",
+          message:
+            err instanceof Error ? err.message : "Erro desconhecido.",
+          tone: "error",
+        });
+        return;
       }
     }
+
+    // 2. Remove da memória só depois de sucesso
+    setDraftBillings((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -204,7 +252,11 @@ export function ProviderForm() {
       }
     }
 
-    if (form.kind === "company" && form.document && !isValidCNPJ(form.document)) {
+    if (
+      form.kind === "company" &&
+      form.document &&
+      !isValidCNPJ(form.document)
+    ) {
       setError("CNPJ inválido.");
       return;
     }
@@ -236,7 +288,9 @@ export function ProviderForm() {
       phone: form.phone || null,
       notes: form.notes.trim() || null,
       session_price_cents:
-        form.kind === "person" ? parseCurrencyToCents(form.session_price) : null,
+        form.kind === "person"
+          ? parseCurrencyToCents(form.session_price)
+          : null,
     };
 
     const schedulesChanged = !schedulesEqual(schedules, initialSchedules);
@@ -265,12 +319,16 @@ export function ProviderForm() {
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc("set_provider_schedules", {
-          p_provider_id: id,
-          p_schedules: schedules,
-          p_recurrence_type: recurrenceType,
-          p_recurrence_days: recurrenceType === "custom_days" ? recurrenceDays : null,
-        });
+        const { error: scheduleErr } = await supabase.rpc(
+          "set_provider_schedules",
+          {
+            p_provider_id: id,
+            p_schedules: schedules,
+            p_recurrence_type: recurrenceType,
+            p_recurrence_days:
+              recurrenceType === "custom_days" ? recurrenceDays : null,
+          }
+        );
 
         if (scheduleErr) {
           setScheduleError(scheduleErr.message);
@@ -288,13 +346,18 @@ export function ProviderForm() {
               description: b.description,
               amount_cents: b.amount_cents,
               due_day: b.due_day,
+              due_month: b.due_month ?? null,
               frequency: b.frequency,
-              starts_on: toDateString(new Date()),
-
+              // Preserva starts_on original; só usa hoje se for billing novo
+              starts_on: b.starts_on ?? toDateString(new Date()),
             });
           }
         } catch (billErr) {
-          setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
+          setError(
+            billErr instanceof Error
+              ? billErr.message
+              : "Erro ao salvar vencimentos."
+          );
           setSaving(false);
           return;
         }
@@ -325,12 +388,16 @@ export function ProviderForm() {
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc("set_provider_schedules", {
-          p_provider_id: data.id,
-          p_schedules: schedules,
-          p_recurrence_type: recurrenceType,
-          p_recurrence_days: recurrenceType === "custom_days" ? recurrenceDays : null,
-        });
+        const { error: scheduleErr } = await supabase.rpc(
+          "set_provider_schedules",
+          {
+            p_provider_id: data.id,
+            p_schedules: schedules,
+            p_recurrence_type: recurrenceType,
+            p_recurrence_days:
+              recurrenceType === "custom_days" ? recurrenceDays : null,
+          }
+        );
 
         if (scheduleErr) {
           setScheduleError(scheduleErr.message);
@@ -347,13 +414,17 @@ export function ProviderForm() {
               description: b.description,
               amount_cents: b.amount_cents,
               due_day: b.due_day,
+              due_month: b.due_month ?? null,
               frequency: b.frequency,
-              starts_on: toDateString(new Date()),
-
+              starts_on: b.starts_on ?? toDateString(new Date()),
             });
           }
         } catch (billErr) {
-          setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
+          setError(
+            billErr instanceof Error
+              ? billErr.message
+              : "Erro ao salvar vencimentos."
+          );
           setSaving(false);
           return;
         }
@@ -401,10 +472,11 @@ export function ProviderForm() {
             <button
               type="button"
               onClick={() => update("kind", "person")}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person"
+              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
+                form.kind === "person"
                   ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
                   : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-                }`}
+              }`}
             >
               <User
                 size={20}
@@ -416,17 +488,20 @@ export function ProviderForm() {
               />
               <div>
                 <p className="text-sm font-medium">Profissional</p>
-                <p className="text-xs text-gray-500">Supervisor, psicólogo, etc.</p>
+                <p className="text-xs text-gray-500">
+                  Supervisor, psicólogo, etc.
+                </p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => update("kind", "company")}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company"
+              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
+                form.kind === "company"
                   ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
                   : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-                }`}
+              }`}
             >
               <Building2
                 size={20}
@@ -438,7 +513,9 @@ export function ProviderForm() {
               />
               <div>
                 <p className="text-sm font-medium">Empresa</p>
-                <p className="text-xs text-gray-500">Curso, aluguel, plataforma.</p>
+                <p className="text-xs text-gray-500">
+                  Curso, aluguel, plataforma.
+                </p>
               </div>
             </button>
           </div>
@@ -455,7 +532,9 @@ export function ProviderForm() {
             required
             value={form.display_name}
             onChange={(e) => update("display_name", e.target.value)}
-            placeholder={form.kind === "person" ? "Ex: Wlad" : "Ex: Escuta Social Psi"}
+            placeholder={
+              form.kind === "person" ? "Ex: Wlad" : "Ex: Escuta Social Psi"
+            }
           />
 
           {form.kind === "company" && (
@@ -515,7 +594,8 @@ export function ProviderForm() {
                 inputMode="numeric"
                 value={form.document}
                 onChange={(e) => {
-                  const isCnpj = form.kind === "company" || personDocType === "cnpj";
+                  const isCnpj =
+                    form.kind === "company" || personDocType === "cnpj";
                   update(
                     "document",
                     isCnpj ? maskCNPJ(e.target.value) : maskCPF(e.target.value)
@@ -589,7 +669,7 @@ export function ProviderForm() {
               <BillingList
                 billings={draftBillings}
                 onChange={setDraftBillings}
-                onRemove={handleRemoveBilling} 
+                onRemove={handleRemoveBilling}
               />
             </div>
           )}
@@ -649,10 +729,32 @@ export function ProviderForm() {
           </Link>
           <Button type="submit" disabled={saving || hasScheduleConflict}>
             <Save size={16} />
-            {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Criar prestador"}
+            {saving
+              ? "Salvando..."
+              : isEdit
+                ? "Salvar alterações"
+                : "Criar prestador"}
           </Button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={removePending !== null}
+        onClose={() => setRemovePending(null)}
+        onConfirm={confirmRemoveBilling}
+        title="Remover vencimento?"
+        description="Esta ação não pode ser desfeita."
+        confirmLabel="Remover"
+        tone="danger"
+      />
+
+      <AlertDialog
+        open={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title ?? ""}
+        message={alertState?.message}
+        tone={alertState?.tone ?? "info"}
+      />
     </div>
   );
 }

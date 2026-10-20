@@ -1,10 +1,10 @@
-
 // Verifica se um vencimento cai numa data específica (YYYY-MM-DD)
 export function billingHappensOnDate(
   starts_on: string,
   due_day: number,
   frequency: string,
-  targetDate: string
+  targetDate: string,
+  due_month: number | null = null
 ): boolean {
   const [targetY, targetM, targetD] = targetDate.split("-").map(Number);
   const [startY, startM] = starts_on.split("-").map(Number);
@@ -30,7 +30,15 @@ export function billingHappensOnDate(
   if (frequency === "monthly") return true;
   if (frequency === "bimonthly") return monthsDiff % 2 === 0;
   if (frequency === "semiannual") return monthsDiff % 6 === 0;
-  if (frequency === "yearly") return monthsDiff % 12 === 0;
+
+  if (frequency === "yearly") {
+    // Se due_month estiver definido, o mês do vencimento é ele (não o mês de starts_on)
+    if (due_month !== null) {
+      return targetM === due_month;
+    }
+    // Fallback (dados antigos sem due_month): usa o mês de starts_on
+    return monthsDiff % 12 === 0;
+  }
 
   return false;
 }

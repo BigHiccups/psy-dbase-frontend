@@ -85,6 +85,7 @@ export type ProviderBilling = {
   description: string;
   amount_cents: number;
   due_day: number;
+  due_month: number | null;
   frequency: BillingFrequency;
   starts_on: string;
   status: "active" | "archived";

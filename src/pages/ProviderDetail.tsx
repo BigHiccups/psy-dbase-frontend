@@ -19,7 +19,14 @@ import {
 import { supabase } from "../lib/supabase";
 import { useProvider } from "../hooks/useProvider";
 import { useProviderSchedules } from "../hooks/useProviderSchedules";
-import { Button, Card, Badge, ConfirmDialog, Spinner } from "../components/ui";
+import {
+  Button,
+  Card,
+  Badge,
+  ConfirmDialog,
+  AlertDialog,
+  Spinner,
+} from "../components/ui";
 import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
@@ -41,6 +48,12 @@ function documentLabel(kind: ProviderKind): string {
 type ConflictItem = {
   schedule: ScheduleInput;
   occupiedBy: string;
+};
+
+type AlertState = {
+  title: string;
+  message: string;
+  tone: "info" | "error" | "success";
 };
 
 export function ProviderDetail() {
@@ -66,6 +79,7 @@ export function ProviderDetail() {
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictDetails, setConflictDetails] = useState<ConflictItem[]>([]);
   const [working, setWorking] = useState(false);
+  const [alertState, setAlertState] = useState<AlertState | null>(null);
 
   async function handleArchive() {
     if (!provider) return;
@@ -77,7 +91,11 @@ export function ProviderDetail() {
     );
 
     if (cancelErr) {
-      alert(cancelErr.message);
+      setAlertState({
+        title: "Erro ao arquivar",
+        message: cancelErr.message,
+        tone: "error",
+      });
       setWorking(false);
       return;
     }
@@ -90,7 +108,11 @@ export function ProviderDetail() {
     setWorking(false);
 
     if (error) {
-      alert(error.message);
+      setAlertState({
+        title: "Erro ao arquivar",
+        message: error.message,
+        tone: "error",
+      });
       return;
     }
     setArchiveOpen(false);
@@ -123,9 +145,9 @@ export function ProviderDetail() {
           provider_id: string | null;
           patients: { full_name: string } | { full_name: string }[] | null;
           providers:
-          | { display_name: string }
-          | { display_name: string }[]
-          | null;
+            | { display_name: string }
+            | { display_name: string }[]
+            | null;
         };
 
         if (row.provider_id === provider.id && !row.patient_id) continue;
@@ -196,7 +218,11 @@ export function ProviderDetail() {
       .eq("id", provider.id);
 
     if (error) {
-      alert(error.message);
+      setAlertState({
+        title: "Erro ao reativar",
+        message: error.message,
+        tone: "error",
+      });
       setWorking(false);
       return;
     }
@@ -208,7 +234,11 @@ export function ProviderDetail() {
       );
 
       if (scheduleErr) {
-        alert(scheduleErr.message);
+        setAlertState({
+          title: "Erro ao reativar",
+          message: scheduleErr.message,
+          tone: "error",
+        });
         setWorking(false);
         return;
       }
@@ -232,7 +262,11 @@ export function ProviderDetail() {
     );
 
     if (validSchedules.length === 0) {
-      alert("Nenhum horário livre para reativar. Escolha novos horários.");
+      setAlertState({
+        title: "Sem horários livres",
+        message: "Nenhum horário livre para reativar. Escolha novos horários.",
+        tone: "error",
+      });
       return;
     }
 
@@ -251,7 +285,11 @@ export function ProviderDetail() {
     setWorking(false);
 
     if (error) {
-      alert(error.message);
+      setAlertState({
+        title: "Erro ao excluir",
+        message: error.message,
+        tone: "error",
+      });
       return;
     }
     setDeleteOpen(false);
@@ -626,6 +664,14 @@ export function ProviderDetail() {
           }}
         />
       )}
+
+      <AlertDialog
+        open={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title ?? ""}
+        message={alertState?.message}
+        tone={alertState?.tone ?? "info"}
+      />
     </div>
   );
 }

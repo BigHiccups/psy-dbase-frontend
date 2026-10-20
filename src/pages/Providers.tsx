@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Building2, User } from "lucide-react";
 import { useProviders, type ProviderFilter } from "../hooks/useProviders";
 import { Button, Badge, EmptyState, Spinner } from "../components/ui";
+import { supabase } from "../lib/supabase";
 import type { ProviderKind } from "../types";
 import { centsToCurrencyBRL } from "../lib/masks";
 
@@ -21,6 +22,42 @@ const FILTERS: { value: ProviderFilter; label: string }[] = [
 export function Providers() {
   const [filter, setFilter] = useState<ProviderFilter>("all");
   const { providers, loading, error } = useProviders(filter);
+
+  // Totais de vencimentos ativos por provider (só empresas)
+  const [billingTotals, setBillingTotals] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const companyIds = providers
+      .filter((p) => p.kind === "company")
+      .map((p) => p.id);
+
+    if (companyIds.length === 0) {
+      setBillingTotals({});
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const { data, error: billErr } = await supabase
+        .from("provider_billings")
+        .select("provider_id, amount_cents")
+        .eq("status", "active")
+        .in("provider_id", companyIds);
+
+      if (cancelled || billErr) return;
+
+      const totals: Record<string, number> = {};
+      for (const row of data ?? []) {
+        totals[row.provider_id] = (totals[row.provider_id] ?? 0) + row.amount_cents;
+      }
+      setBillingTotals(totals);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [providers]);
 
   return (
     <div className="space-y-8">
@@ -89,7 +126,6 @@ export function Providers() {
       {!loading && providers.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-left text-sm">
-            {/* ← MUDOU: coluna "Valor" em vez da segunda "Telefone" duplicada */}
             <thead className="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-slate-800/60 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3">Nome</th>
@@ -102,6 +138,20 @@ export function Providers() {
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
               {providers.map((p) => {
                 const isArchived = p.status === "archived";
+
+                // Valor: person = session_price_cents; company = soma dos billings ativos
+                let valueLabel = "—";
+                if (p.kind === "person") {
+                  if (p.session_price_cents !== null) {
+                    valueLabel = `R$ ${centsToCurrencyBRL(p.session_price_cents)}`;
+                  }
+                } else {
+                  const total = billingTotals[p.id];
+                  if (total !== undefined && total > 0) {
+                    valueLabel = `R$ ${centsToCurrencyBRL(total)}`;
+                  }
+                }
+
                 return (
                   <tr
                     key={p.id}
@@ -130,9 +180,7 @@ export function Providers() {
                       {KIND_LABEL[p.kind]}
                     </td>
                     <td className="hidden px-4 py-3 text-gray-600 md:table-cell dark:text-slate-400">
-                      {p.session_price_cents !== null
-                        ? `R$ ${centsToCurrencyBRL(p.session_price_cents)}`
-                        : "—"}
+                      {valueLabel}
                     </td>
                     <td className="hidden px-4 py-3 text-gray-600 lg:table-cell dark:text-slate-400">
                       {p.phone ?? "—"}
