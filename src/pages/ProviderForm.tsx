@@ -2,14 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Save, AlertCircle, User, Building2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import {
-  Button,
-  Card,
-  Input,
-  Spinner,
-  AlertDialog,
-  ConfirmDialog,
-} from "../components/ui";
+import { Button, Card, Input, Spinner, AlertDialog, ConfirmDialog } from "../components/ui";
 import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
 import { BillingList, type DraftBilling } from "../components/BillingList";
 import { useProvider } from "../hooks/useProvider";
@@ -30,7 +23,7 @@ import {
   isValidPhoneBR,
 } from "../lib/masks";
 import { validateRecurrence } from "../lib/recurrence";
-import type { ProviderKind, RecurrenceType, ScheduleInput } from "../types";
+import type { ProviderKind, RecurrenceType, ScheduleInput, PaymentFormat } from "../types";
 
 type FormState = {
   kind: ProviderKind;
@@ -41,6 +34,9 @@ type FormState = {
   phone: string;
   notes: string;
   session_price: string;
+  payment_format: PaymentFormat;
+  default_payment_method: string;
+  session_number_start: string;
 };
 
 const INITIAL_FORM: FormState = {
@@ -52,12 +48,9 @@ const INITIAL_FORM: FormState = {
   phone: "",
   notes: "",
   session_price: "",
-};
-
-type AlertState = {
-  title: string;
-  message: string;
-  tone: "info" | "error" | "success";
+  payment_format: "avulso",
+  default_payment_method: "",
+  session_number_start: "0",
 };
 
 function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
@@ -69,14 +62,15 @@ function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
   return ka === kb;
 }
 
-function recurrenceEqual(
-  aType: RecurrenceType,
-  aDays: number | null,
-  bType: RecurrenceType,
-  bDays: number | null
-): boolean {
+function recurrenceEqual(aType: RecurrenceType, aDays: number | null, bType: RecurrenceType, bDays: number | null): boolean {
   return aType === bType && aDays === bDays;
 }
+
+type AlertState = {
+  title: string;
+  message: string;
+  tone: "info" | "error" | "success";
+};
 
 export function ProviderForm() {
   const { id } = useParams<{ id: string }>();
@@ -99,9 +93,7 @@ export function ProviderForm() {
     loading: loadingBillings,
   } = useProviderBillings(id);
 
-  const { slots: occupiedSlots } = useOccupiedSlots({
-    excludeProviderId: id,
-  });
+  const { slots: occupiedSlots } = useOccupiedSlots({ excludeProviderId: id });
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [personDocType, setPersonDocType] = useState<"cpf" | "cnpj">("cpf");
@@ -109,14 +101,10 @@ export function ProviderForm() {
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [initialSchedules, setInitialSchedules] = useState<ScheduleInput[]>([]);
 
-  const [recurrenceType, setRecurrenceType] =
-    useState<RecurrenceType>("weekly");
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
   const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
-  const [initialRecurrenceType, setInitialRecurrenceType] =
-    useState<RecurrenceType>("weekly");
-  const [initialRecurrenceDays, setInitialRecurrenceDays] = useState<
-    number | null
-  >(null);
+  const [initialRecurrenceType, setInitialRecurrenceType] = useState<RecurrenceType>("weekly");
+  const [initialRecurrenceDays, setInitialRecurrenceDays] = useState<number | null>(null);
 
   const [draftBillings, setDraftBillings] = useState<DraftBilling[]>([]);
 
@@ -126,10 +114,7 @@ export function ProviderForm() {
   const [error, setError] = useState<string | null>(null);
 
   const [alertState, setAlertState] = useState<AlertState | null>(null);
-  const [removePending, setRemovePending] = useState<{
-    id: string;
-    index: number;
-  } | null>(null);
+  const [removePending, setRemovePending] = useState<{ id: string; index: number } | null>(null);
 
   useEffect(() => {
     if (provider) {
@@ -146,6 +131,9 @@ export function ProviderForm() {
         phone: provider.phone ?? "",
         notes: provider.notes ?? "",
         session_price: centsToCurrencyBRL(provider.session_price_cents),
+        payment_format: provider.payment_format ?? "avulso",
+        default_payment_method: provider.default_payment_method ?? "",
+        session_number_start: provider.session_number_start?.toString() ?? "0",
       });
     }
   }, [provider]);
@@ -153,29 +141,13 @@ export function ProviderForm() {
   useEffect(() => {
     if (!loadingSchedules) {
       setSchedules(sourcedSchedules);
-      setInitialSchedules((prev) =>
-        prev.length === 0 ? sourcedSchedules : prev
-      );
-
+      setInitialSchedules((prev) => (prev.length === 0 ? sourcedSchedules : prev));
       setRecurrenceType(sourcedRecurrenceType);
       setRecurrenceDays(sourcedRecurrenceDays);
-      setInitialRecurrenceType((prev) =>
-        prev === "weekly" && sourcedRecurrenceType !== "weekly"
-          ? sourcedRecurrenceType
-          : prev
-      );
-      setInitialRecurrenceDays((prev) =>
-        prev === null && sourcedRecurrenceDays !== null
-          ? sourcedRecurrenceDays
-          : prev
-      );
+      setInitialRecurrenceType((prev) => (prev === "weekly" && sourcedRecurrenceType !== "weekly" ? sourcedRecurrenceType : prev));
+      setInitialRecurrenceDays((prev) => (prev === null && sourcedRecurrenceDays !== null ? sourcedRecurrenceDays : prev));
     }
-  }, [
-    loadingSchedules,
-    sourcedSchedules,
-    sourcedRecurrenceType,
-    sourcedRecurrenceDays,
-  ]);
+  }, [loadingSchedules, sourcedSchedules, sourcedRecurrenceType, sourcedRecurrenceDays]);
 
   useEffect(() => {
     if (isEdit && existingBillings) {
@@ -189,16 +161,13 @@ export function ProviderForm() {
       if (key === "kind" && value !== prev.kind) {
         next.document = "";
         if (value === "company") next.session_price = "";
-        if (value === "person") setDraftBillings([]); // limpa os vencimentos ao trocar pra pessoa
+        if (value === "person") setDraftBillings([]); 
       }
       return next;
     });
   }
 
-  function handleRecurrenceChange(
-    nextType: RecurrenceType,
-    nextDays: number | null
-  ) {
+  function handleRecurrenceChange(nextType: RecurrenceType, nextDays: number | null) {
     setRecurrenceType(nextType);
     setRecurrenceDays(nextDays);
   }
@@ -211,23 +180,20 @@ export function ProviderForm() {
     if (!removePending) return;
     const { id, index } = removePending;
 
-    // 1. Arquiva no banco primeiro (se já existir)
     if (id) {
       try {
         await archiveBilling(id);
       } catch (err) {
         setAlertState({
           title: "Erro ao remover",
-          message:
-            err instanceof Error ? err.message : "Erro desconhecido.",
+          message: err instanceof Error ? err.message : "Erro desconhecido.",
           tone: "error",
         });
         return;
       }
     }
-
-    // 2. Remove da memória só depois de sucesso
     setDraftBillings((prev) => prev.filter((_, i) => i !== index));
+    setRemovePending(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -242,28 +208,16 @@ export function ProviderForm() {
 
     if (form.kind === "person") {
       const isCnpj = personDocType === "cnpj";
-      if (form.document && isCnpj && !isValidCNPJ(form.document)) {
-        setError("CNPJ inválido.");
-        return;
-      }
-      if (form.document && !isCnpj && !isValidCPF(form.document)) {
-        setError("CPF inválido.");
-        return;
-      }
+      if (form.document && isCnpj && !isValidCNPJ(form.document)) return setError("CNPJ inválido.");
+      if (form.document && !isCnpj && !isValidCPF(form.document)) return setError("CPF inválido.");
     }
 
-    if (
-      form.kind === "company" &&
-      form.document &&
-      !isValidCNPJ(form.document)
-    ) {
-      setError("CNPJ inválido.");
-      return;
+    if (form.kind === "company" && form.document && !isValidCNPJ(form.document)) {
+      return setError("CNPJ inválido.");
     }
 
     if (form.phone && !isValidPhoneBR(form.phone)) {
-      setError("Telefone inválido. Use DDD + número.");
-      return;
+      return setError("Telefone inválido. Use DDD + número.");
     }
 
     if (hasScheduleConflict) {
@@ -287,31 +241,19 @@ export function ProviderForm() {
       email: form.email.trim() || null,
       phone: form.phone || null,
       notes: form.notes.trim() || null,
-      session_price_cents:
-        form.kind === "person"
-          ? parseCurrencyToCents(form.session_price)
-          : null,
+      session_price_cents: form.kind === "person" ? parseCurrencyToCents(form.session_price) : null,
+      payment_format: form.payment_format,
+      default_payment_method: form.default_payment_method || null,
+      session_number_start: parseInt(form.session_number_start, 10) || 0,
     };
 
     const schedulesChanged = !schedulesEqual(schedules, initialSchedules);
-    const recurrenceChanged = !recurrenceEqual(
-      recurrenceType,
-      recurrenceDays,
-      initialRecurrenceType,
-      initialRecurrenceDays
-    );
+    const recurrenceChanged = !recurrenceEqual(recurrenceType, recurrenceDays, initialRecurrenceType, initialRecurrenceDays);
 
-    const shouldSyncSchedules =
-      form.kind === "person" &&
-      schedules.length > 0 &&
-      (isEdit ? schedulesChanged || recurrenceChanged : true);
+    const shouldSyncSchedules = form.kind === "person" && schedules.length > 0 && (isEdit ? schedulesChanged || recurrenceChanged : true);
 
     if (isEdit) {
-      const { error: updateErr } = await supabase
-        .from("providers")
-        .update(payload)
-        .eq("id", id);
-
+      const { error: updateErr } = await supabase.from("providers").update(payload).eq("id", id);
       if (updateErr) {
         setError(updateErr.message);
         setSaving(false);
@@ -319,17 +261,12 @@ export function ProviderForm() {
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc(
-          "set_provider_schedules",
-          {
-            p_provider_id: id,
-            p_schedules: schedules,
-            p_recurrence_type: recurrenceType,
-            p_recurrence_days:
-              recurrenceType === "custom_days" ? recurrenceDays : null,
-          }
-        );
-
+        const { error: scheduleErr } = await supabase.rpc("set_provider_schedules", {
+          p_provider_id: id,
+          p_schedules: schedules,
+          p_recurrence_type: recurrenceType,
+          p_recurrence_days: recurrenceType === "custom_days" ? recurrenceDays : null,
+        });
         if (scheduleErr) {
           setScheduleError(scheduleErr.message);
           setSaving(false);
@@ -348,39 +285,25 @@ export function ProviderForm() {
               due_day: b.due_day,
               due_month: b.due_month ?? null,
               frequency: b.frequency,
-              // Preserva starts_on original; só usa hoje se for billing novo
               starts_on: b.starts_on ?? toDateString(new Date()),
             });
           }
         } catch (billErr) {
-          setError(
-            billErr instanceof Error
-              ? billErr.message
-              : "Erro ao salvar vencimentos."
-          );
+          setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
           setSaving(false);
           return;
         }
       }
-
       navigate(`/providers/${id}`);
     } else {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setError("Sessão expirada. Faça login novamente.");
         setSaving(false);
         return;
       }
 
-      const { data, error: insertErr } = await supabase
-        .from("providers")
-        .insert({ ...payload, user_id: user.id })
-        .select()
-        .single();
-
+      const { data, error: insertErr } = await supabase.from("providers").insert({ ...payload, user_id: user.id }).select().single();
       if (insertErr || !data) {
         setError(insertErr?.message ?? "Erro ao criar prestador.");
         setSaving(false);
@@ -388,17 +311,12 @@ export function ProviderForm() {
       }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc(
-          "set_provider_schedules",
-          {
-            p_provider_id: data.id,
-            p_schedules: schedules,
-            p_recurrence_type: recurrenceType,
-            p_recurrence_days:
-              recurrenceType === "custom_days" ? recurrenceDays : null,
-          }
-        );
-
+        const { error: scheduleErr } = await supabase.rpc("set_provider_schedules", {
+          p_provider_id: data.id,
+          p_schedules: schedules,
+          p_recurrence_type: recurrenceType,
+          p_recurrence_days: recurrenceType === "custom_days" ? recurrenceDays : null,
+        });
         if (scheduleErr) {
           setScheduleError(scheduleErr.message);
           setSaving(false);
@@ -420,16 +338,11 @@ export function ProviderForm() {
             });
           }
         } catch (billErr) {
-          setError(
-            billErr instanceof Error
-              ? billErr.message
-              : "Erro ao salvar vencimentos."
-          );
+          setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
           setSaving(false);
           return;
         }
       }
-
       navigate(`/providers/${data.id}`);
     }
   }
@@ -456,216 +369,138 @@ export function ProviderForm() {
           {isEdit ? "Editar prestador" : "Novo prestador"}
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-          Prestadores de serviço (pessoa) ou instituições (empresa) com quem
-          você tem relação.
+          Prestadores de serviço (pessoa) ou instituições (empresa) com quem você tem relação.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Tipo */}
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-            Tipo
-          </h2>
-
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Tipo</h2>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => update("kind", "person")}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
-                form.kind === "person"
-                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-              }`}
+              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}
             >
-              <User
-                size={20}
-                className={
-                  form.kind === "person"
-                    ? "text-brand-600 dark:text-brand-400"
-                    : "text-gray-400 dark:text-slate-500"
-                }
-              />
+              <User size={20} className={form.kind === "person" ? "text-brand-600 dark:text-brand-400" : "text-gray-400 dark:text-slate-500"} />
               <div>
                 <p className="text-sm font-medium">Profissional</p>
-                <p className="text-xs text-gray-500">
-                  Supervisor, psicólogo, etc.
-                </p>
+                <p className="text-xs text-gray-500">Supervisor, psicólogo, etc.</p>
               </div>
             </button>
-
             <button
               type="button"
               onClick={() => update("kind", "company")}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
-                form.kind === "company"
-                  ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30"
-                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-              }`}
+              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}
             >
-              <Building2
-                size={20}
-                className={
-                  form.kind === "company"
-                    ? "text-brand-600 dark:text-brand-400"
-                    : "text-gray-400 dark:text-slate-500"
-                }
-              />
+              <Building2 size={20} className={form.kind === "company" ? "text-brand-600 dark:text-brand-400" : "text-gray-400 dark:text-slate-500"} />
               <div>
                 <p className="text-sm font-medium">Empresa</p>
-                <p className="text-xs text-gray-500">
-                  Curso, aluguel, plataforma.
-                </p>
+                <p className="text-xs text-gray-500">Curso, aluguel, plataforma.</p>
               </div>
             </button>
           </div>
         </Card>
 
-        {/* Dados */}
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-            Dados do prestador
-          </h2>
-
-          <Input
-            label="Nome de exibição"
-            required
-            value={form.display_name}
-            onChange={(e) => update("display_name", e.target.value)}
-            placeholder={
-              form.kind === "person" ? "Ex: Wlad" : "Ex: Escuta Social Psi"
-            }
-          />
-
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Dados do prestador</h2>
+          <Input label="Nome de exibição" required value={form.display_name} onChange={(e) => update("display_name", e.target.value)} placeholder={form.kind === "person" ? "Ex: Wlad" : "Ex: Escuta Social Psi"} />
           {form.kind === "company" && (
-            <Input
-              label="Razão social"
-              value={form.legal_name}
-              onChange={(e) => update("legal_name", e.target.value)}
-              placeholder="Nome jurídico completo"
-            />
+            <Input label="Razão social" value={form.legal_name} onChange={(e) => update("legal_name", e.target.value)} placeholder="Nome jurídico completo" />
           )}
-
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              {/* Mini-seletor CPF/CNPJ para pessoa */}
               {form.kind === "person" ? (
                 <div className="mb-2 flex h-[22px] items-end gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPersonDocType("cpf");
-                      update("document", "");
-                    }}
-                    className={
-                      personDocType === "cpf"
-                        ? "font-medium text-brand-600"
-                        : "text-gray-500"
-                    }
-                  >
-                    CPF
-                  </button>
+                  <button type="button" onClick={() => { setPersonDocType("cpf"); update("document", ""); }} className={personDocType === "cpf" ? "font-medium text-brand-600" : "text-gray-500"}>CPF</button>
                   <span className="text-gray-300">|</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPersonDocType("cnpj");
-                      update("document", "");
-                    }}
-                    className={
-                      personDocType === "cnpj"
-                        ? "font-medium text-brand-600"
-                        : "text-gray-500"
-                    }
-                  >
-                    CNPJ
-                  </button>
+                  <button type="button" onClick={() => { setPersonDocType("cnpj"); update("document", ""); }} className={personDocType === "cnpj" ? "font-medium text-brand-600" : "text-gray-500"}>CNPJ</button>
                 </div>
               ) : (
                 <div className="mb-2 h-[22px]" />
               )}
-
               <Input
-                label={
-                  form.kind === "company" || personDocType === "cnpj"
-                    ? "CNPJ"
-                    : "CPF"
-                }
+                label={form.kind === "company" || personDocType === "cnpj" ? "CNPJ" : "CPF"}
                 inputMode="numeric"
                 value={form.document}
                 onChange={(e) => {
-                  const isCnpj =
-                    form.kind === "company" || personDocType === "cnpj";
-                  update(
-                    "document",
-                    isCnpj ? maskCNPJ(e.target.value) : maskCPF(e.target.value)
-                  );
+                  const isCnpj = form.kind === "company" || personDocType === "cnpj";
+                  update("document", isCnpj ? maskCNPJ(e.target.value) : maskCPF(e.target.value));
                 }}
-                placeholder={
-                  form.kind === "company" || personDocType === "cnpj"
-                    ? "00.000.000/0000-00"
-                    : "000.000.000-00"
-                }
+                placeholder={form.kind === "company" || personDocType === "cnpj" ? "00.000.000/0000-00" : "000.000.000-00"}
               />
             </div>
-
             <div>
-              {/* Espaçador invisível para alinhar o Telefone com o CPF */}
               <div className="mb-2 h-[22px]" />
-              <Input
-                label="Telefone"
-                type="tel"
-                inputMode="tel"
-                value={form.phone}
-                onChange={(e) => update("phone", maskPhone(e.target.value))}
-                placeholder="(00) 00000-0000"
-              />
+              <Input label="Telefone" type="tel" inputMode="tel" value={form.phone} onChange={(e) => update("phone", maskPhone(e.target.value))} placeholder="(00) 00000-0000" />
             </div>
           </div>
-
-          <Input
-            label="E-mail"
-            type="email"
-            value={form.email}
-            onChange={(e) => update("email", e.target.value)}
-            placeholder="contato@exemplo.com"
-          />
+          <Input label="E-mail" type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="contato@exemplo.com" />
         </Card>
 
-        {/* Financeiro */}
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-            Financeiro
-          </h2>
-
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Financeiro</h2>
           {form.kind === "person" && (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-                Valor da sessão
-              </label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Valor da sessão</label>
               <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">
-                  R$
-                </span>
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">R$</span>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={form.session_price}
-                  onChange={(e) =>
-                    update("session_price", maskCurrencyBRL(e.target.value))
-                  }
+                  onChange={(e) => update("session_price", maskCurrencyBRL(e.target.value))}
                   placeholder="0,00"
                   className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                Valor pago por sessão a este prestador.
-              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">Valor pago por sessão a este prestador.</p>
             </div>
           )}
 
+          <div className="grid gap-4 sm:grid-cols-2 mt-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Forma de Pagamento</label>
+              <select
+                value={form.payment_format}
+                onChange={(e) => update("payment_format", e.target.value as any)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="vencimento">Vencimento</option>
+                <option value="antecipado">Antecipado</option>
+                <option value="avulso">Avulso</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Meio de Pagamento Padrão</label>
+              <select
+                value={form.default_payment_method}
+                onChange={(e) => update("default_payment_method", e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="">—</option>
+                <option value="pix">PIX</option>
+                <option value="debito">Débito</option>
+                <option value="credito">Crédito</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="transferencia">Transferência</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <Input
+              label="Iniciar contagem de sessões em"
+              type="number"
+              min={0}
+              value={form.session_number_start}
+              onChange={(e) => update("session_number_start", e.target.value)}
+              hint="Se o prestador já realizou sessões antes, coloque o número da última sessão aqui."
+            />
+          </div>
+
           {form.kind === "company" && (
-            <div className="pt-2">
+            <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
               <BillingList
                 billings={draftBillings}
                 onChange={setDraftBillings}
@@ -675,7 +510,6 @@ export function ProviderForm() {
           )}
         </Card>
 
-        {/* Horários (só pessoa física) */}
         {form.kind === "person" && (
           <Card className="space-y-4 p-6">
             <ScheduleEditor
@@ -697,11 +531,8 @@ export function ProviderForm() {
           </Card>
         )}
 
-        {/* Notas */}
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-            Observações internas
-          </h2>
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Observações internas</h2>
           <textarea
             value={form.notes}
             onChange={(e) => update("notes", e.target.value)}
@@ -713,27 +544,18 @@ export function ProviderForm() {
 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
-            <AlertCircle
-              size={16}
-              className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
-            />
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
             <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 
         <div className="flex justify-end gap-2 pb-12 sm:pb-4">
           <Link to={isEdit ? `/providers/${id}` : "/providers"}>
-            <Button type="button" variant="secondary">
-              Cancelar
-            </Button>
+            <Button type="button" variant="secondary">Cancelar</Button>
           </Link>
           <Button type="submit" disabled={saving || hasScheduleConflict}>
             <Save size={16} />
-            {saving
-              ? "Salvando..."
-              : isEdit
-                ? "Salvar alterações"
-                : "Criar prestador"}
+            {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Criar prestador"}
           </Button>
         </div>
       </form>

@@ -1,4 +1,5 @@
 export type PatientStatus = "prospect" | "active" | "inactive" | "discharged";
+export type PaymentFormat = "vencimento" | "antecipado" | "avulso";
 
 export type Patient = {
   id: string;
@@ -15,6 +16,9 @@ export type Patient = {
   session_price_cents: number | null;
   created_at: string;
   updated_at: string;
+  payment_format: PaymentFormat | null;
+  default_payment_method: string | null;
+  session_number_start: number | null;
 };
 
 // =========================================================
@@ -71,6 +75,9 @@ export type Provider = {
   session_price_cents: number | null;
   created_at: string;
   updated_at: string;
+  payment_format: PaymentFormat | null;
+  default_payment_method: string | null;
+  session_number_start: number | null;
 };
 
 // =========================================================
@@ -94,7 +101,12 @@ export type ProviderBilling = {
 };
 
 export type AppointmentType = "session" | "personal" | "blocked" | "due";
-export type AppointmentStatus = "active" | "cancelled" | "completed";
+export type AppointmentStatus =
+  | "active"
+  | "cancelled"
+  | "completed"
+  | "no_show_justified"
+  | "no_show_unjustified";
 
 export type Appointment = {
   id: string;
@@ -128,3 +140,42 @@ export type AppointmentWithRelations = Appointment & {
   } | null;
 };
 
+// =========================================================
+// Financeiro (transactions)
+// =========================================================
+export type TransactionType = "income" | "expense";
+export type PaymentMethod = "pix" | "cash" | "card" | "transfer" | "other";
+
+export type Transaction = {
+  id: string;
+  user_id: string;
+  type: TransactionType;
+  amount_cents: number;
+  description: string;
+  category: string;
+  occurred_on: string;
+  paid_on: string | null;
+  patient_id: string | null;
+  provider_id: string | null;
+  billing_id: string | null;
+  appointment_id: string | null; 
+  payment_method: PaymentMethod | null;
+  notes: string | null;
+  receipt_url: string | null;    
+  created_at: string;
+  updated_at: string;
+};
+
+export type TransactionInput = {
+  type: TransactionType;
+  amount_cents: number;
+  description: string;
+  category: string;
+  occurred_on: string;
+  paid_on: string | null;
+  patient_id: string | null;
+  provider_id: string | null;
+  billing_id: string | null;
+  payment_method: PaymentMethod | null;
+  notes: string | null;
+};
