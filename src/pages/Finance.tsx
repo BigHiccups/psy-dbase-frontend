@@ -21,13 +21,32 @@ import {
   ConfirmDialog,
 } from "../components/ui";
 import { TransactionModal } from "../components/TransactionModal";
+import { PendingSuggestionsCard } from "../components/PendingSuggestionsCard";
 import { useTransactions } from "../hooks/useTransactions";
+import {
+  usePendingSuggestions,
+  type Suggestion,
+} from "../hooks/usePendingSuggestions";
 import { centsToCurrencyBRL } from "../lib/masks";
-import type { Transaction, TransactionType } from "../types";
+import type {
+  Transaction,
+  TransactionInput,
+  TransactionType,
+} from "../types";
 
 const MONTHS = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -49,13 +68,90 @@ type AlertState = {
   tone: "info" | "error" | "success";
 };
 
+// Cria um objeto "fake Transaction" pré-preenchido para abrir no TransactionModal.
+function suggestionToFakeTransaction(s: Suggestion): Transaction {
+  const now = new Date().toISOString();
+
+  if (s.kind === "session") {
+    const [y, m, d] = s.suggested_date.split("-");
+    return {
+      id: "",
+      user_id: "",
+      type: "income",
+      amount_cents: s.suggested_amount_cents ?? 0,
+      description: `Sessão ${d}/${m}/${y}`,
+      category: "session",
+      occurred_on: s.suggested_date,
+      paid_on: null,
+      patient_id: s.appointment.patient_id,
+      provider_id: null,
+      billing_id: null,
+      payment_method: null,
+      notes: null,
+      created_at: now,
+      updated_at: now,
+    };
+  }
+
+  if (s.kind === "personal") {
+    const [y, m, d] = s.suggested_date.split("-");
+    const providerName =
+      s.appointment.provider?.display_name ?? "Prestador";
+    return {
+      id: "",
+      user_id: "",
+      type: "expense",
+      amount_cents: s.suggested_amount_cents ?? 0,
+      description: `${providerName} · ${d}/${m}/${y}`,
+      category: "supervision",
+      occurred_on: s.suggested_date,
+      paid_on: null,
+      patient_id: null,
+      provider_id: s.appointment.provider_id,
+      billing_id: null,
+      payment_method: null,
+      notes: null,
+      created_at: now,
+      updated_at: now,
+    };
+  }
+
+  // billing
+  const [y, m] = s.suggested_date.split("-");
+  return {
+    id: "",
+    user_id: "",
+    type: "expense",
+    amount_cents: s.suggested_amount_cents,
+    description: `${s.billing.description} · ${m}/${y}`,
+    category: "billing",
+    occurred_on: s.suggested_date,
+    paid_on: null,
+    patient_id: null,
+    provider_id: null,
+    billing_id: s.billing.id,
+    payment_method: null,
+    notes: null,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 export function Finance() {
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [typeFilter, setTypeFilter] = useState<TransactionType | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending">("all");
+  const [month, setMonth] = useState(() =>
+    new Date().toISOString().slice(0, 7)
+  );
+  const [typeFilter, setTypeFilter] = useState<TransactionType | "all">(
+    "all"
+  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "paid" | "pending"
+  >("all");
 
   const { transactions, loading, error, create, update, remove, markAsPaid } =
     useTransactions({ month, type: typeFilter, status: statusFilter });
+
+  const suggestions = usePendingSuggestions();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -67,7 +163,9 @@ export function Finance() {
 
   function shiftMonth(delta: number) {
     const d = new Date(year, m - 1 + delta, 1);
-    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    setMonth(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+    );
   }
 
   const totals = useMemo(() => {
@@ -94,14 +192,16 @@ export function Finance() {
     };
   }, [transactions]);
 
-  async function handleSave(input: Parameters<typeof create>[0]) {
-    if (editing) {
+  async function handleSave(input: TransactionInput) {
+    if (editing && editing.id) {
       await update(editing.id, input);
     } else {
       await create(input);
     }
     setEditing(null);
     setModalOpen(false);
+    // Recarrega sugestões porque a transação recém-criada remove a pendência
+    suggestions.reload();
   }
 
   async function handleMarkPaid(t: Transaction) {
@@ -130,6 +230,11 @@ export function Finance() {
     }
   }
 
+  function handleEditSuggestion(s: Suggestion) {
+    setEditing(suggestionToFakeTransaction(s));
+    setModalOpen(true);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -151,6 +256,16 @@ export function Finance() {
           Novo lançamento
         </Button>
       </div>
+
+      {/* Bloco de aprovação (aparece só quando há pendências) */}
+      <PendingSuggestionsCard
+        suggestions={suggestions.suggestions}
+        loading={suggestions.loading}
+        onApprove={suggestions.approveSingle}
+        onApproveAll={suggestions.approveAll}
+        onEdit={handleEditSuggestion}
+        onDismiss={suggestions.dismiss}
+      />
 
       {/* Resumo */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -211,11 +326,10 @@ export function Finance() {
             <button
               key={f.v}
               onClick={() => setTypeFilter(f.v)}
-              className={`rounded-md px-3 py-1 text-sm font-medium transition ${
-                typeFilter === f.v
+              className={`rounded-md px-3 py-1 text-sm font-medium transition ${typeFilter === f.v
                   ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
                   : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
-              }`}
+                }`}
             >
               {f.label}
             </button>
@@ -233,11 +347,10 @@ export function Finance() {
             <button
               key={f.v}
               onClick={() => setStatusFilter(f.v)}
-              className={`rounded-md px-3 py-1 text-sm font-medium transition ${
-                statusFilter === f.v
+              className={`rounded-md px-3 py-1 text-sm font-medium transition ${statusFilter === f.v
                   ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
                   : "text-gray-600 hover:bg-gray-50 dark:text-slate-400 dark:hover:bg-slate-800"
-              }`}
+                }`}
             >
               {f.label}
             </button>
@@ -275,11 +388,10 @@ export function Finance() {
                   className="flex items-center gap-3 px-4 py-3 text-sm"
                 >
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                      isIncome
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isIncome
                         ? "bg-green-50 text-green-600 dark:bg-green-950/50 dark:text-green-400"
                         : "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400"
-                    }`}
+                      }`}
                   >
                     {isIncome ? (
                       <TrendingUp size={14} />
@@ -309,13 +421,13 @@ export function Finance() {
                   </div>
 
                   <span
-                    className={`shrink-0 font-medium ${
-                      isIncome
+                    className={`shrink-0 font-medium ${isIncome
                         ? "text-green-600 dark:text-green-400"
                         : "text-red-600 dark:text-red-400"
-                    }`}
+                      }`}
                   >
-                    {isIncome ? "+" : "−"} R$ {centsToCurrencyBRL(t.amount_cents)}
+                    {isIncome ? "+" : "−"} R${" "}
+                    {centsToCurrencyBRL(t.amount_cents)}
                   </span>
 
                   <div className="flex shrink-0 items-center gap-1">
@@ -371,7 +483,9 @@ export function Finance() {
         title="Excluir lançamento?"
         description={
           deleteTarget
-            ? `"${deleteTarget.description}" (R$ ${centsToCurrencyBRL(deleteTarget.amount_cents)}) será removido permanentemente.`
+            ? `"${deleteTarget.description}" (R$ ${centsToCurrencyBRL(
+              deleteTarget.amount_cents
+            )}) será removido permanentemente.`
             : ""
         }
         confirmLabel="Excluir"
