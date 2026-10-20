@@ -1,112 +1,83 @@
-import { isToday, isInMonth, formatTime } from "../../lib/agenda-date";
+import { isToday, isInMonth, parseDateString } from "../../lib/agenda-date";
 import { TYPE_STYLES } from "../../lib/appointment-colors";
 import type { AppointmentWithRelations } from "../../types";
-
-const MAX_VISIBLE = 2;
+import type { BillingWithProvider } from "../../hooks/useAllUpcomingBillings";
 
 type Props = {
   date: string;
   monthStr: string;
   appointments: AppointmentWithRelations[];
-  cancelledCount: number;
-  onDayClick: (date: string) => void;
-  onCancelledClick: (date: string) => void;
-  onAppointmentClick: (appointment: AppointmentWithRelations) => void;
+  billings?: BillingWithProvider[];
+  onClick: () => void;
 };
 
 export function MonthDayCell({
   date,
   monthStr,
   appointments,
-  cancelledCount,
-  onDayClick,
-  onCancelledClick,
-  onAppointmentClick,
+  billings = [],
+  onClick,
 }: Props) {
-  const dayNumber = Number(date.slice(8, 10));
+  const d = parseDateString(date);
   const inMonth = isInMonth(date, monthStr);
   const today = isToday(date);
 
-  const visible = appointments.filter((a) => a.type !== "due");
-  const shown = visible.slice(0, MAX_VISIBLE);
-  const remaining = visible.length - shown.length;
+  const active = appointments.filter(
+    (a) => a.starts_on === date && a.status === "active"
+  );
+
+  const visibleAppointments = active.slice(0, 2);
+  const hiddenCount = active.length - visibleAppointments.length + billings.length;
 
   return (
     <div
-      onClick={() => onDayClick(date)}
-      className={`
-        group relative flex min-h-[100px] cursor-pointer flex-col border-b border-r
-        border-gray-100 p-1.5 transition hover:bg-gray-50
-        dark:border-slate-800 dark:hover:bg-slate-800/40
-        ${inMonth ? "bg-white dark:bg-slate-900" : "bg-gray-50/60 dark:bg-slate-900/40"}
-      `}
+      onClick={onClick}
+      // h-full, w-full, overflow-hidden. Isso impede que o conteúdo vaze da célula.
+      className={`flex h-full min-h-[80px] sm:min-h-[110px] w-full cursor-pointer flex-col overflow-hidden p-1 transition hover:bg-gray-50 dark:hover:bg-slate-800/40 ${
+        !inMonth ? "bg-gray-50/50 opacity-40 dark:bg-slate-900/50" : ""
+      }`}
     >
-      <div className="mb-1 flex items-center justify-between">
+      <div className="mb-1 flex w-full items-start justify-between">
         <span
-          className={`
-            flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium
-            ${
-              today
-                ? "bg-brand-600 text-white"
-                : inMonth
-                  ? "text-gray-900 dark:text-slate-100"
-                  : "text-gray-400 dark:text-slate-600"
-            }
-          `}
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
+            today
+              ? "bg-brand-600 text-white"
+              : "text-gray-700 dark:text-slate-300"
+          }`}
         >
-          {dayNumber}
+          {d.getDate()}
         </span>
 
-        {cancelledCount > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancelledClick(date);
-            }}
-            className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
-            title={`${cancelledCount} cancelado(s)`}
-          >
-            {cancelledCount} ✕
-          </button>
+        {billings.length > 0 && (
+          <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
         )}
       </div>
 
-      <div className="flex-1 space-y-0.5">
-        {shown.map((appt) => {
-          const style = TYPE_STYLES[appt.type];
+      {/* Aqui a mágica acontece: max-w-full e overflow-hidden */}
+      <div className="flex flex-col gap-0.5 w-full max-w-full overflow-hidden">
+        {visibleAppointments.map((a) => {
+          const style = TYPE_STYLES[a.type];
           const name =
-            appt.patient?.full_name ??
-            appt.provider?.display_name ??
-            "(sem nome)";
+            a.patient?.full_name ??
+            a.provider?.display_name ??
+            (a.type === "blocked" ? "Bloqueio" : "Sessão");
+
           return (
-            <button
-              key={appt.id}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAppointmentClick(appt);
-              }}
-              className={`
-                block w-full truncate rounded border-l-2 px-1 py-0.5 text-left text-[10px]
-                font-medium transition hover:brightness-95
-                ${style.bg} ${style.border} ${style.text}
-              `}
-              title={`${formatTime(appt.start_time)} · ${name}`}
+            <div
+              key={a.id}
+              // truncate vai colocar a elipse (…)
+              className={`block w-full max-w-full truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight ${style.bg} ${style.text}`}
+              title={name}
             >
-              {formatTime(appt.start_time)} {name}
-            </button>
+              {name}
+            </div>
           );
         })}
 
-        {remaining > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDayClick(date);
-            }}
-            className="block w-full text-left text-[10px] text-gray-500 hover:text-gray-900 hover:underline dark:text-slate-400 dark:hover:text-slate-100"
-          >
-            +{remaining} mais
-          </button>
+        {hiddenCount > 0 && (
+          <div className="w-full truncate pl-1 text-[9px] font-medium text-gray-500 dark:text-slate-400">
+            + {hiddenCount}
+          </div>
         )}
       </div>
     </div>

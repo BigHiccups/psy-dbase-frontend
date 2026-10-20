@@ -641,7 +641,7 @@ export function ProviderForm() {
           </div>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 pb-12 sm:pb-4">
           <Link to={isEdit ? `/providers/${id}` : "/providers"}>
             <Button type="button" variant="secondary">
               Cancelar

@@ -1,52 +1,62 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
 import { X } from "lucide-react";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   title?: string;
-  children: ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
+  children: React.ReactNode;
 };
 
 const SIZES = {
   sm: "max-w-sm",
   md: "max-w-md",
   lg: "max-w-lg",
+  xl: "max-w-2xl",
 };
 
-export function Modal({ open, onClose, title, children, size = "md" }: Props) {
+export function Modal({ open, onClose, title, size = "md", children }: Props) {
   useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
+    const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+    };
+    if (open) {
+      document.addEventListener("keydown", handleEsc);
+      document.body.style.overflow = "hidden";
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = "";
+    };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4 backdrop-blur-sm dark:bg-black/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:p-6">
       <div
-        className={`w-full ${SIZES[size]} rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900`}
+        className={`relative flex max-h-[90vh] w-full flex-col rounded-2xl bg-white shadow-xl dark:bg-slate-900 ${SIZES[size]}`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-slate-800">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-slate-800">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
               {title}
             </h2>
             <button
               onClick={onClose}
-              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               <X size={18} />
             </button>
           </div>
         )}
-        <div className="p-6">{children}</div>
+
+        {/* Corpo rolável, com padding extra no fundo para mobile */}
+        <div className="overflow-y-auto p-6 pb-20 sm:pb-6">
+          {children}
+        </div>
       </div>
     </div>
   );
