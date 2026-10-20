@@ -13,9 +13,33 @@
 
 ## 🎯 Próximos 3 passos
 
-1. **`provider_billings`** (Fase B) — vencimentos de prestadores `company`
-2. **Drag and drop (Fase 3)** — criar bloco arrastando de um slot vazio
-3. **Ajustes finos** — 404, favicon, `AlertDialog`, busca, `postMessage`
+1. **Sprint de Polimento e Mobile (Hotfixes)** — resolver bugs de layout no mobile, vencimentos e revisão de modais de confirmação.
+2. **Ajustes Finos** — 404, busca, perfil em `/settings`.
+3. **Fase 5 (Financeiro)** — entradas, saídas e recibos.
+
+---
+
+## Sprint de Polimento e Mobile (Hotfixes) 🚨
+
+**Contexto:** Ajustes urgentes de UX/UI e correções de bugs identificados após a entrega do Drag and Drop e Provider Billings.
+
+### 1. Correções na Empresa (Provider Billings)
+- [ ] **Falta campo de Mês no Pagamento Anual:** No `BillingEditorModal`, quando a frequência for `yearly`, exibir um campo para o usuário escolher o mês do pagamento (ex: todo mês de Março). O modelo de dados `due_day` precisa ser complementado com um `due_month` (ou calcular a partir do `starts_on`).
+- [ ] **Valor não aparece na tabela de Prestadores:** A coluna "Valor" na listagem de prestadores (`Providers.tsx`) está buscando `session_price_cents`, mas empresas agora usam `provider_billings`. Exibir a soma dos vencimentos ou o valor do primeiro vencimento para empresas.
+- [ ] **Badge na visão Mês:** O `MonthView` (visão de mês) não está exibindo o badge de vencimentos. Adicionar o cálculo de `billingHappensOnDate` e o ícone/contador no `MonthDayCell`.
+
+### 2. Responsividade e Mobile (Crítico)
+- [ ] **Bloquear Drag and Drop no Mobile (Scroll vs Draw):** Ao tentar clicar e arrastar em um slot vazio no celular para criar um agendamento, o navegador está entendendo como scroll/refresh da página. 
+  - *Solução:* Adicionar CSS `touch-action: none;` no `DroppableSlot` ou no `ResizeHandle` para que o navegador não roube o gesto de arrasto.
+- [ ] **Posicionamento de Botões no Mobile:** No `CreateAppointmentModal` e `ScheduleEditor`, os botões de ação (Salvar, Criar agendamento) estão sendo escondidos pela barra inferior do navegador (Safari/Chrome mobile).
+  - *Solução:* Adicionar `pb-safe` (padding-bottom safe-area) ou `max-h-[90vh] overflow-y-auto` nos modais para garantir que os botões fiquem visíveis e roláveis.
+- [ ] **Quebra de Layout no `ScheduleEditor`:** No card de horários, o campo de horário, duração e a lixeira estão "estourando" a largura da tela em dispositivos móveis.
+  - *Solução:* Empilhar os campos via Flexbox (`flex-col` para telas pequenas, `flex-row` para desktop) ou reduzir as larguras fixas.
+
+### 3. Revisão Global de Modais e Alertas
+- [ ] **Criar `AlertDialog` no Design System:** Substituir todos os `alert()` e `confirm()` nativos (que travam a tela no iOS/Android e parecem amadores) pelo novo componente.
+- [ ] **Substituir alerts antigos:** Trocar os `alert()` em `PatientDetail.tsx`, `ProviderDetail.tsx` e `ProviderForm.tsx`.
+- [ ] **Consistência nos Modais:** Revisar se todos os modais têm a estrutura correta (título, corpo rolável, rodapé fixo com botões) em telas pequenas.
 
 ---
 
@@ -211,10 +235,25 @@
 - Motivo: empresa não tem "sessão com hora", tem "vencimento mensal"
 
 
-### Fase B — `provider_billings` (próxima rodada)
+## Agenda Premium ✅ (Concluída)
 
-Ver seção "Fase B — provider_billings" mais abaixo.
+- [x] Frequência configurável (`weekly`, `monthly`, `custom_days`, etc.) + `anchor_date`
+- [x] Refatoração do `CreateAppointmentModal` em sub-componentes
+- [x] Cadastro rápido de paciente e prestador direto na agenda
+- [x] Bloqueio com 3 modos: range num dia, dia inteiro, vários dias
+- [x] Cancelamento e reativação automática de agendamentos afetados por bloqueio
+- [x] Drag and Drop: mover blocos
+- [x] Drag and Drop: redimensionar com preview em tempo real
+- [x] Drag and Drop: criar arrastando de um slot vazio
+- [x] **Fase B:** Provider Billings (Vencimentos de empresas)
+  - Tabela e RPCs de CRUD
+  - `BillingList` no `ProviderForm`
+  - Badge na agenda (`DayBillingsBadge`)
+  - Modal de visualização (`DayBillingsModal`)
+- [x] Pessoa Física com CPF ou CNPJ (para supervisores MEI)
+- [x] Máscara de data BR (`MaskedDateInput`) com setas ↑↓
 
+---
 ---
 
 ## Fase B — `provider_billings`
@@ -311,7 +350,8 @@ o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
 
 ---
 
-## Ajustes finos
+## Ajustes finos 
+
 
 - [ ] Página 404 customizada
 - [ ] Favicon + metadados (adiado com re-branding)
@@ -324,6 +364,7 @@ o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
 - [ ] Paginação quando a lista crescer
 - [ ] Substituir `MaskedDateInput` por `<input type="date">` quando o browser
       suportar locale BR universalmente (não urgente)
+
 
 ---
 
@@ -437,8 +478,7 @@ o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
   dashboard reformulado, valor da sessão
 - **Fase 3 estendida (parcial):** migrations 1/2/2.6, tipos, `ScheduleEditor`
   dinâmico, `MaskedDateInput`, badges, `callRpcWithFallback`
-- **Design system:** Button, Input, Card, Badge, Modal, ConfirmDialog,
-  EmptyState, Spinner, MaskedDateInput + Sidebar, Header, AppLayout, ThemeToggle
+- **Fase 3 estendida (Agenda Premium):** frequência configurável, drag and drop (mover, redimensionar, criar), bloqueios inteligentes, provider billings, refatorações de modal.
 - **Migração Tailwind v3 → v4**
 ```
 
