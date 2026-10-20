@@ -107,7 +107,7 @@ export function WeekView({
                 style={{ height: HEADER_HEIGHT }}
               />
               {dates.map((d) => (
-                <div key={d} className="min-w-0 flex-1">
+                <div key={d} className="min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800">
                   <DayHeader
                     date={d}
                     billingsCount={billingsByDate[d]?.length}
@@ -122,7 +122,7 @@ export function WeekView({
               ))}
             </div>
 
-            <div className="flex">
+            <div className="flex pt-4">
               <TimeColumn headerHeight={0} />
               <div className="flex flex-1">
                 {dates.map((d) => {

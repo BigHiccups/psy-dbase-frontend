@@ -1,72 +1,72 @@
-import { useMemo } from "react";
+import { monthGridDates } from "../../lib/agenda-date";
 import { MonthDayCell } from "./MonthDayCell";
-import { monthGridDates, WEEKDAY_SHORT } from "../../lib/agenda-date";
+import { billingHappensOnDate } from "../../lib/billings-date";
 import type { AppointmentWithRelations } from "../../types";
+import type { BillingWithProvider } from "../../hooks/useAllUpcomingBillings";
 
 type Props = {
   monthStr: string;
   appointments: AppointmentWithRelations[];
+  billings?: BillingWithProvider[];
   onDayClick: (date: string) => void;
-  onCancelledClick: (date: string) => void;
-  onAppointmentClick: (appointment: AppointmentWithRelations) => void;
+  // onCancelledClick: (date: string) => void;
+  // onBillingsClick?: (date: string, billings: BillingWithProvider[]) => void;
 };
+
+const WEEKDAYS = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
 
 export function MonthView({
   monthStr,
   appointments,
+  billings = [],
   onDayClick,
-  onCancelledClick,
-  onAppointmentClick,
+  // onCancelledClick,
+  // onBillingsClick,
 }: Props) {
-  const gridDates = useMemo(() => monthGridDates(monthStr), [monthStr]);
-
-  const { activeByDate, cancelledCountByDate } = useMemo(() => {
-    const active: Record<string, AppointmentWithRelations[]> = {};
-    const cancelled: Record<string, number> = {};
-
-    for (const appt of appointments) {
-      if (appt.status === "cancelled") {
-        cancelled[appt.starts_on] = (cancelled[appt.starts_on] ?? 0) + 1;
-      } else {
-        if (!active[appt.starts_on]) active[appt.starts_on] = [];
-        active[appt.starts_on].push(appt);
-      }
-    }
-
-    return { activeByDate: active, cancelledCountByDate: cancelled };
-  }, [appointments]);
-
-  const rows = Math.ceil(gridDates.length / 7);
+  const dates = monthGridDates(monthStr);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-900/60">
-        {WEEKDAY_SHORT.map((d) => (
+    // Adicionamos o w-full e overflow-hidden no container externo
+    <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      {/* Cabeçalho fixo de 7 colunas */}
+      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50 dark:border-slate-800 dark:bg-slate-900/50">
+        {WEEKDAYS.map((day) => (
           <div
-            key={d}
-            className="px-2 py-2 text-center text-xs font-medium uppercase text-gray-500 dark:text-slate-400"
+            key={day}
+            className="py-2 text-center text-[10px] font-medium text-gray-500 dark:text-slate-400"
           >
-            {d}
+            {day}
           </div>
         ))}
       </div>
 
-      <div
-        className="grid grid-cols-7"
-        style={{ gridTemplateRows: `repeat(${rows}, minmax(100px, 1fr))` }}
-      >
-        {gridDates.map((date) => (
-          <MonthDayCell
-            key={date}
-            date={date}
-            monthStr={monthStr}
-            appointments={activeByDate[date] ?? []}
-            cancelledCount={cancelledCountByDate[date] ?? 0}
-            onDayClick={onDayClick}
-            onCancelledClick={onCancelledClick}
-            onAppointmentClick={onAppointmentClick}
-          />
-        ))}
+      {/* Grid de dias: O Grid nativo força exatamente 7 colunas iguais */}
+      <div className="grid grid-cols-7">
+        {dates.map((dateStr, index) => {
+          const dayBillings = billings.filter((b) =>
+            billingHappensOnDate(b.starts_on, b.due_day, b.frequency, dateStr)
+          );
+
+          // Adiciona bordas verticais (direita) e horizontais (fundo)
+          const isLastColumn = (index + 1) % 7 === 0;
+
+          return (
+            <div
+              key={dateStr}
+              className={`border-b border-gray-100 dark:border-slate-800 ${
+                !isLastColumn ? "border-r" : ""
+              }`}
+            >
+              <MonthDayCell
+                date={dateStr}
+                monthStr={monthStr}
+                appointments={appointments}
+                billings={dayBillings}
+                onClick={() => onDayClick(dateStr)}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

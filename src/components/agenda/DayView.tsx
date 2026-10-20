@@ -24,7 +24,6 @@ type Props = {
   previewBlock?: (date: string) => React.ReactNode;
   billings?: BillingWithProvider[];
   onBillingsClick?: (date: string, billings: BillingWithProvider[]) => void;
-
 };
 
 export function DayView({
@@ -71,6 +70,10 @@ export function DayView({
   const layouts = computeLayout(active, HOUR_HEIGHT, START_HOUR);
   const hiddenByStack = countHiddenByStack(layouts);
 
+  const dayBillings = billings.filter((b) =>
+    billingHappensOnDate(b.starts_on, b.due_day, b.frequency, date)
+  );
+
   const hours = Array.from(
     { length: END_HOUR - START_HOUR + 1 },
     (_, i) => START_HOUR + i
@@ -80,9 +83,11 @@ export function DayView({
     <>
       <div className="space-y-4">
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          <DayHeader date={date}
-            large billingsCount={billings.filter(b => billingHappensOnDate(b.starts_on, b.due_day, b.frequency, date)).length}
-            onBillingsClick={() => onBillingsClick?.(date, billings.filter(b => billingHappensOnDate(b.starts_on, b.due_day, b.frequency, date)))}
+          <DayHeader
+            date={date}
+            large
+            billingsCount={dayBillings.length}
+            onBillingsClick={() => onBillingsClick?.(date, dayBillings)}
           />
           <div className="px-4 py-3">
             <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
@@ -114,14 +119,15 @@ export function DayView({
         </div>
 
         <div
-          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${isToday(date)
-            ? "ring-1 ring-brand-200 dark:ring-brand-800"
-            : ""
-            }`}
+          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${
+            isToday(date)
+              ? "ring-1 ring-brand-200 dark:ring-brand-800"
+              : ""
+          }`}
         >
-          <div className="flex">
+          <div className="flex pt-4">
             <TimeColumn headerHeight={0} />
-            <div className="relative flex-1">
+            <div className="relative flex-1 border-l border-gray-100 dark:border-slate-800">
               {hours.map((h) => {
                 const startTime = `${String(h).padStart(2, "0")}:00`;
                 const cancelledHere = cancelledBySlot[startTime];
@@ -129,8 +135,8 @@ export function DayView({
                 return (
                   <DroppableSlot
                     key={h}
-                    id={`${date}|${h}`} // <--- MUDOU DE 'd' PARA 'date'
-                    onClick={() => onSlotClick(date, h)} // <--- MUDOU DE 'd' PARA 'date'
+                    id={`${date}|${h}`}
+                    onClick={() => onSlotClick(date, h)}
                     onDrawStart={onDrawStart}
                     onDrawMove={onDrawMove}
                     onDrawEnd={onDrawEnd}
@@ -162,7 +168,7 @@ export function DayView({
                     key={l.appointment.id}
                     appointment={l.appointment}
                     onClick={onAppointmentClick}
-                    onResize={onResize} // <--- ADICIONADO AQUI
+                    onResize={onResize}
                     top={l.top}
                     height={l.height}
                     leftPercent={l.leftPercent}
@@ -195,6 +201,7 @@ export function DayView({
                   </button>
                 );
               })}
+
               {previewBlock && previewBlock(date)}
             </div>
           </div>
