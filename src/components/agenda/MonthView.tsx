@@ -9,8 +9,8 @@ type Props = {
   appointments: AppointmentWithRelations[];
   billings?: BillingWithProvider[];
   onDayClick: (date: string) => void;
-  onCancelledClick: (date: string) => void;
-  onBillingsClick?: (date: string, billings: BillingWithProvider[]) => void;
+  // onCancelledClick: (date: string) => void;
+  // onBillingsClick?: (date: string, billings: BillingWithProvider[]) => void;
 };
 
 const WEEKDAYS = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
@@ -20,8 +20,8 @@ export function MonthView({
   appointments,
   billings = [],
   onDayClick,
-  onCancelledClick,
-  onBillingsClick,
+  // onCancelledClick,
+  // onBillingsClick,
 }: Props) {
   const dates = monthGridDates(monthStr);
 

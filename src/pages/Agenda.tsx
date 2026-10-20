@@ -210,12 +210,6 @@ export function Agenda() {
     setDayOverviewDate(date);
   }
 
-  function handleMonthCancelledClick(date: string) {
-    const cancelled = appointments.filter(
-      (a) => a.starts_on === date && a.status === "cancelled"
-    );
-    setMonthCancelledModal({ date, appointments: cancelled });
-  }
 
   const title =
     agenda.view === "month"
@@ -331,8 +325,6 @@ export function Agenda() {
                 monthStr={toMonthString(agenda.date)}
                 appointments={appointments}
                 onDayClick={handleDayClick}
-                onCancelledClick={handleMonthCancelledClick}
-                onAppointmentClick={handleAppointmentClick}
               />
             )}
           </>
