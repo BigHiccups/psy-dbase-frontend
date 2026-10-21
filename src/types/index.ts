@@ -158,12 +158,14 @@ export type Transaction = {
   patient_id: string | null;
   provider_id: string | null;
   billing_id: string | null;
-  appointment_id: string | null; 
+  appointment_id: string | null;
   payment_method: PaymentMethod | null;
   notes: string | null;
-  receipt_url: string | null;    
+  receipt_url: string | null;
   created_at: string;
   updated_at: string;
+  payment_format: PaymentFormat | null;
+
 };
 
 export type TransactionInput = {
@@ -177,5 +179,6 @@ export type TransactionInput = {
   provider_id: string | null;
   billing_id: string | null;
   payment_method: PaymentMethod | null;
+  payment_format: PaymentFormat | null; // <-- Adicione essa linha
   notes: string | null;
 };

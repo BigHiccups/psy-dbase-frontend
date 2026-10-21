@@ -55,7 +55,9 @@ function suggestionToFakeTransaction(s: any): Transaction {
       id: "", user_id: "", type: "income", amount_cents: s.suggested_amount_cents ?? 0,
       description: `Sessão ${d}/${m}/${y}`, category: "session", occurred_on: s.suggested_date,
       paid_on: null, patient_id: s.appointment.patient_id, provider_id: null, billing_id: null,
-      appointment_id: s.appointment.id, payment_method: null, notes: null, receipt_url: null,
+      appointment_id: s.appointment.id, payment_method: null, 
+      payment_format: "avulso", // <-- Adicionado aqui
+      notes: null, receipt_url: null,
       created_at: now, updated_at: now
     };
   }
@@ -66,7 +68,9 @@ function suggestionToFakeTransaction(s: any): Transaction {
       description: `${s.appointment.provider?.display_name ?? "Prestador"} · ${d}/${m}/${y}`,
       category: "supervision", occurred_on: s.suggested_date, paid_on: null, patient_id: null,
       provider_id: s.appointment.provider_id, billing_id: null, appointment_id: s.appointment.id,
-      payment_method: null, notes: null, receipt_url: null, created_at: now, updated_at: now
+      payment_method: null, 
+      payment_format: "avulso", // <-- Adicionado aqui
+      notes: null, receipt_url: null, created_at: now, updated_at: now
     };
   }
   const [y, m] = s.suggested_date.split("-");
@@ -74,8 +78,9 @@ function suggestionToFakeTransaction(s: any): Transaction {
     id: "", user_id: "", type: "expense", amount_cents: s.suggested_amount_cents,
     description: `${s.billing.description} · ${m}/${y}`, category: "billing",
     occurred_on: s.suggested_date, paid_on: null, patient_id: null, provider_id: null,
-    billing_id: s.billing.id, appointment_id: null, payment_method: null, notes: null,
-    receipt_url: null, created_at: now, updated_at: now
+    billing_id: s.billing.id, appointment_id: null, payment_method: null, 
+    payment_format: "vencimento", // <-- Adicionado aqui (billing geralmente é vencimento)
+    notes: null, receipt_url: null, created_at: now, updated_at: now
   };
 }
 
