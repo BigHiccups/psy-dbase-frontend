@@ -13,9 +13,10 @@ import type {
   Transaction,
   TransactionInput,
   TransactionType,
+  PaymentFormat,
 } from "../types";
 
-const INCOME_CATEGORIES: { value: string; label: string }[] = [
+const INCOME_CATEGORIES = [
   { value: "session", label: "Sessão" },
   { value: "package", label: "Pacote" },
   { value: "workshop", label: "Workshop" },
@@ -23,7 +24,7 @@ const INCOME_CATEGORIES: { value: string; label: string }[] = [
   { value: "other", label: "Outro" },
 ];
 
-const EXPENSE_CATEGORIES: { value: string; label: string }[] = [
+const EXPENSE_CATEGORIES = [
   { value: "supervision", label: "Supervisão" },
   { value: "course", label: "Curso" },
   { value: "rent", label: "Aluguel" },
@@ -39,6 +40,12 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   transfer: "Transferência",
   other: "Outro",
 };
+
+const FORMAT_LABELS = [
+  { value: "avulso", label: "Avulso" },
+  { value: "vencimento", label: "Vencimento" },
+  { value: "antecipado", label: "Antecipado" },
+];
 
 type Props = {
   open: boolean;
@@ -69,9 +76,15 @@ export function TransactionModal({
     transactionToEdit?.occurred_on ?? toDateString(new Date())
   );
   const [paidOn, setPaidOn] = useState(transactionToEdit?.paid_on ?? "");
+
+  const [paymentFormat, setPaymentFormat] = useState<PaymentFormat>(
+    transactionToEdit?.payment_format ?? "avulso"
+  );
+
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">(
     transactionToEdit?.payment_method ?? ""
   );
+
   const [notes, setNotes] = useState(transactionToEdit?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -97,9 +110,9 @@ export function TransactionModal({
   );
   const [linkedId, setLinkedId] = useState<string>(
     transactionToEdit?.patient_id ??
-      transactionToEdit?.provider_id ??
-      transactionToEdit?.billing_id ??
-      ""
+    transactionToEdit?.provider_id ??
+    transactionToEdit?.billing_id ??
+    ""
   );
 
   useEffect(() => {
@@ -145,9 +158,6 @@ export function TransactionModal({
     if (!description.trim()) return setError("Informe a descrição.");
     if (amountCents === null || amountCents <= 0) return setError("Valor inválido.");
     if (!occurredOn) return setError("Data de ocorrência é obrigatória.");
-    if (paidOn && paymentMethod === "") {
-      // método é opcional; sem erro
-    }
 
     const payload: TransactionInput = {
       type,
@@ -157,6 +167,7 @@ export function TransactionModal({
       occurred_on: occurredOn,
       paid_on: paidOn || null,
       payment_method: paidOn && paymentMethod ? paymentMethod : null,
+      payment_format: paymentFormat,
       patient_id: linkTarget === "patient" ? linkedId || null : null,
       provider_id: linkTarget === "provider" ? linkedId || null : null,
       billing_id: linkTarget === "billing" ? linkedId || null : null,
@@ -188,11 +199,10 @@ export function TransactionModal({
           <button
             type="button"
             onClick={() => handleTypeChange("income")}
-            className={`rounded-xl border p-3 text-left transition ${
-              type === "income"
-                ? "border-green-300 bg-green-50/50 dark:border-green-700 dark:bg-green-950/30"
-                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-            }`}
+            className={`rounded-xl border p-3 text-left transition ${type === "income"
+              ? "border-green-300 bg-green-50/50 dark:border-green-700 dark:bg-green-950/30"
+              : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+              }`}
           >
             <p className="text-sm font-medium">Entrada</p>
             <p className="text-xs text-gray-500">Recebi de paciente</p>
@@ -200,11 +210,10 @@ export function TransactionModal({
           <button
             type="button"
             onClick={() => handleTypeChange("expense")}
-            className={`rounded-xl border p-3 text-left transition ${
-              type === "expense"
-                ? "border-red-300 bg-red-50/50 dark:border-red-700 dark:bg-red-950/30"
-                : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-            }`}
+            className={`rounded-xl border p-3 text-left transition ${type === "expense"
+              ? "border-red-300 bg-red-50/50 dark:border-red-700 dark:bg-red-950/30"
+              : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+              }`}
           >
             <p className="text-sm font-medium">Saída</p>
             <p className="text-xs text-gray-500">Paguei a prestador</p>
@@ -272,27 +281,46 @@ export function TransactionModal({
           />
         </div>
 
-        {paidOn && (
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-              Forma de pagamento
+              Forma de Pagamento
             </label>
             <select
-              value={paymentMethod}
-              onChange={(e) =>
-                setPaymentMethod(e.target.value as PaymentMethod | "")
-              }
+              value={paymentFormat}
+              onChange={(e) => setPaymentFormat(e.target.value as PaymentFormat)}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
-              <option value="">—</option>
-              {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((pm) => (
-                <option key={pm} value={pm}>
-                  {PAYMENT_LABELS[pm]}
+              {FORMAT_LABELS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
                 </option>
               ))}
             </select>
           </div>
-        )}
+
+          {paidOn && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+                Meio de Pagamento
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(e) =>
+                  setPaymentMethod(e.target.value as PaymentMethod | "")
+                }
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="">—</option>
+                {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((pm) => (
+                  <option key={pm} value={pm}>
+                    {PAYMENT_LABELS[pm]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
 
         {/* Vínculo opcional */}
         <div>
@@ -328,11 +356,10 @@ export function TransactionModal({
                         setLinkTarget(opt.v);
                         setLinkedId("");
                       }}
-                      className={`rounded-lg border px-3 py-1 text-xs font-medium transition ${
-                        linkTarget === opt.v
-                          ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-200"
-                          : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-slate-700 dark:text-slate-400"
-                      }`}
+                      className={`rounded-lg border px-3 py-1 text-xs font-medium transition ${linkTarget === opt.v
+                        ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-200"
+                        : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-slate-700 dark:text-slate-400"
+                        }`}
                     >
                       {opt.label}
                     </button>

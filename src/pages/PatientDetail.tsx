@@ -10,8 +10,6 @@ import {
   Cake,
   IdCard,
   AlertTriangle,
-  FileText,
-  Clock,
   Trash2,
   PauseCircle,
   CalendarClock,
@@ -32,6 +30,7 @@ import {
 import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
+import { SessionLedger } from "../components/SessionLedger"; // <--- IMPORTANTE
 import { WEEKDAY_LONG, isoWeekday } from "../lib/agenda-date";
 import { centsToCurrencyBRL } from "../lib/masks";
 import { getRecurrenceShortLabel } from "../lib/recurrence";
@@ -83,6 +82,9 @@ export function PatientDetail() {
     recurrenceDays,
     reload: reloadSchedules,
   } = usePatientSchedules(id);
+
+  // Estado das Abas
+  const [activeTab, setActiveTab] = useState<"perfil" | "extrato">("perfil");
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -393,163 +395,181 @@ export function PatientDetail() {
         </Button>
       </div>
 
-      {/* Dados cadastrais */}
-      <Card className="p-6">
-        <h2 className="mb-4 text-sm font-medium text-gray-900 dark:text-slate-100">
-          Dados cadastrais
-        </h2>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <InfoItem
-            icon={<IdCard size={14} />}
-            label="CPF"
-            value={patient.cpf}
-          />
-          <InfoItem
-            icon={<Cake size={14} />}
-            label="Nascimento"
-            value={formatDate(patient.birth_date)}
-          />
-          <InfoItem
-            icon={<MapPin size={14} />}
-            label="Cidade"
-            value={patient.city}
-          />
-          <InfoItem
-            icon={<Phone size={14} />}
-            label="Telefone"
-            value={patient.phone}
-          />
-          {patient.session_price_cents !== null && (
-            <InfoItem
-              icon={<Wallet size={14} />}
-              label="Valor da sessão"
-              value={`R$ ${centsToCurrencyBRL(patient.session_price_cents)}`}
-            />
-          )}
-        </div>
-      </Card>
+      {/* Navegação de Abas (Abaixo dos botões) */}
+      <div className="flex border-b border-gray-200 dark:border-slate-800">
+        <button
+          onClick={() => setActiveTab("perfil")}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+            activeTab === "perfil"
+              ? "border-brand-500 text-brand-600 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"
+          }`}
+        >
+          Perfil do Paciente
+        </button>
+        <button
+          onClick={() => setActiveTab("extrato")}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+            activeTab === "extrato"
+              ? "border-brand-500 text-brand-600 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"
+          }`}
+        >
+          Extrato Financeiro
+        </button>
+      </div>
 
-      {/* Contato de urgência */}
-      <Card className="p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <AlertTriangle
-            size={14}
-            className="text-amber-600 dark:text-amber-400"
-          />
-          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-            Contato de urgência
-          </h2>
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <InfoItem label="Nome" value={patient.emergency_contact_name} />
-          <InfoItem
-            label="Telefone"
-            value={patient.emergency_contact_phone}
-          />
-        </div>
-      </Card>
-
-      {/* Horários das sessões */}
-      <Card className="p-6">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <CalendarClock
-              size={14}
-              className="text-brand-600 dark:text-brand-400"
-            />
-            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-              Horários das sessões
+      {/* Conteúdo das Abas */}
+      {activeTab === "perfil" ? (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {/* Dados cadastrais */}
+          <Card className="p-6">
+            <h2 className="mb-4 text-sm font-medium text-gray-900 dark:text-slate-100">
+              Dados cadastrais
             </h2>
-            {patientSchedules.length > 0 && (
-              <Badge
-                variant={recurrenceType === "weekly" ? "neutral" : "brand"}
-              >
-                {recurrenceType === "custom_days" && recurrenceDays
-                  ? `A cada ${recurrenceDays} dias`
-                  : getRecurrenceShortLabel(recurrenceType)}
-              </Badge>
-            )}
-          </div>
-          {hasActiveSchedules && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSuspendOpen(true)}
-              disabled={working}
-              className="text-gray-600 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              <PauseCircle size={14} />
-              Suspender agendamentos
-            </Button>
-          )}
-        </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <InfoItem
+                icon={<IdCard size={14} />}
+                label="CPF"
+                value={patient.cpf}
+              />
+              <InfoItem
+                icon={<Cake size={14} />}
+                label="Nascimento"
+                value={formatDate(patient.birth_date)}
+              />
+              <InfoItem
+                icon={<MapPin size={14} />}
+                label="Cidade"
+                value={patient.city}
+              />
+              <InfoItem
+                icon={<Phone size={14} />}
+                label="Telefone"
+                value={patient.phone}
+              />
+              {patient.session_price_cents !== null && (
+                <InfoItem
+                  icon={<Wallet size={14} />}
+                  label="Valor da sessão"
+                  value={`R$ ${centsToCurrencyBRL(patient.session_price_cents)}`}
+                />
+              )}
+            </div>
+          </Card>
 
-        {patientSchedules.length > 0 ? (
-          <ul className="space-y-2">
-            {patientSchedules.map((s, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
-              >
-                <span className="font-medium text-gray-900 dark:text-slate-100">
-                  {WEEKDAY_LONG[isoWeekday(s.weekday)]}
-                </span>
-                <span className="text-gray-500 dark:text-slate-400">
-                  {s.startTime} · {s.durationMin} min
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
-            <p className="text-sm text-gray-500 dark:text-slate-400">
-              Nenhum horário definido ainda.
-            </p>
-            {!isArchived && (
-              <Link to={`/patients/${patient.id}/edit`}>
-                <Button variant="secondary" size="sm" className="mt-3">
-                  <Plus size={14} />
-                  Definir horários
+          {/* Contato de urgência */}
+          <Card className="p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <AlertTriangle
+                size={14}
+                className="text-amber-600 dark:text-amber-400"
+              />
+              <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                Contato de urgência
+              </h2>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <InfoItem label="Nome" value={patient.emergency_contact_name} />
+              <InfoItem
+                label="Telefone"
+                value={patient.emergency_contact_phone}
+              />
+            </div>
+          </Card>
+
+          {/* Horários das sessões */}
+          <Card className="p-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <CalendarClock
+                  size={14}
+                  className="text-brand-600 dark:text-brand-400"
+                />
+                <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                  Horários das sessões
+                </h2>
+                {patientSchedules.length > 0 && (
+                  <Badge
+                    variant={recurrenceType === "weekly" ? "neutral" : "brand"}
+                  >
+                    {recurrenceType === "custom_days" && recurrenceDays
+                      ? `A cada ${recurrenceDays} dias`
+                      : getRecurrenceShortLabel(recurrenceType)}
+                  </Badge>
+                )}
+              </div>
+              {hasActiveSchedules && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSuspendOpen(true)}
+                  disabled={working}
+                  className="text-gray-600 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                >
+                  <PauseCircle size={14} />
+                  Suspender agendamentos
                 </Button>
-              </Link>
+              )}
+            </div>
+
+            {patientSchedules.length > 0 ? (
+              <ul className="space-y-2">
+                {patientSchedules.map((s, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
+                  >
+                    <span className="font-medium text-gray-900 dark:text-slate-100">
+                      {WEEKDAY_LONG[isoWeekday(s.weekday)]}
+                    </span>
+                    <span className="text-gray-500 dark:text-slate-400">
+                      {s.startTime} · {s.durationMin} min
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
+                <p className="text-sm text-gray-500 dark:text-slate-400">
+                  Nenhum horário definido ainda.
+                </p>
+                {!isArchived && (
+                  <Link to={`/patients/${patient.id}/edit`}>
+                    <Button variant="secondary" size="sm" className="mt-3">
+                      <Plus size={14} />
+                      Definir horários
+                    </Button>
+                  </Link>
+                )}
+              </div>
             )}
-          </div>
-        )}
-      </Card>
+          </Card>
 
-      {/* Notas */}
-      {patient.notes && (
-        <Card className="p-6">
-          <h2 className="mb-3 text-sm font-medium text-gray-900 dark:text-slate-100">
-            Observações internas
-          </h2>
-          <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-slate-300">
-            {patient.notes}
-          </p>
-        </Card>
-      )}
-
-      {/* Placeholder do prontuário */}
-      <Card className="p-6">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400">
-            <FileText size={16} />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-              Prontuário e evoluções
-            </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-              O registro clínico (anamnese, evolução SOAP, áudio) estará
-              disponível em uma próxima versão.
-            </p>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500">
-            <Clock size={12} />
-            Em breve
-          </div>
+          {/* Notas */}
+          {patient.notes && (
+            <Card className="p-6">
+              <h2 className="mb-3 text-sm font-medium text-gray-900 dark:text-slate-100">
+                Observações internas
+              </h2>
+              <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-slate-300">
+                {patient.notes}
+              </p>
+            </Card>
+          )}
         </div>
-      </Card>
+      ) : (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <Card className="p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                Extrato de Sessões
+              </h2>
+            </div>
+            <SessionLedger subjectId={patient.id} subjectType="patient" />
+          </Card>
+        </div>
+      )}
 
       {/* Modais */}
       <ConfirmDialog

@@ -30,6 +30,7 @@ import {
 import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
+import { SessionLedger } from "../components/SessionLedger"; // <--- IMPORTANTE
 import { WEEKDAY_LONG, isoWeekday, toDateString } from "../lib/agenda-date";
 import { centsToCurrencyBRL } from "../lib/masks";
 import { getRecurrenceShortLabel } from "../lib/recurrence";
@@ -78,6 +79,9 @@ export function ProviderDetail() {
     provider?.kind === "company" ? id : undefined
   );
 
+  // Estado das Abas
+  const [activeTab, setActiveTab] = useState<"perfil" | "extrato">("perfil");
+
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [suspendOpen, setSuspendOpen] = useState(false);
@@ -91,7 +95,6 @@ export function ProviderDetail() {
     string | null
   >(null);
 
-  // Carrega status de pagamento (transactions com paid_on) do mês corrente
   useEffect(() => {
     if (!provider || provider.kind !== "company" || billings.length === 0) {
       setBillingPaid({});
@@ -491,211 +494,258 @@ export function ProviderDetail() {
         </Button>
       </div>
 
-      {/* Dados do prestador */}
-      <Card className="p-6">
-        <h2 className="mb-4 text-sm font-medium text-gray-900 dark:text-slate-100">
-          Dados do prestador
-        </h2>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <InfoItem
-            icon={<IdCard size={14} />}
-            label={documentLabel(provider.kind)}
-            value={provider.document}
-          />
-          {isCompany && (
-            <InfoItem
-              icon={<Building2 size={14} />}
-              label="Razão social"
-              value={provider.legal_name}
-            />
+      {/* Navegação de Abas (Abaixo dos botões) */}
+      <div className="flex border-b border-gray-200 dark:border-slate-800">
+        <button
+          onClick={() => setActiveTab("perfil")}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+            activeTab === "perfil"
+              ? "border-brand-500 text-brand-600 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"
+          }`}
+        >
+          Perfil do Prestador
+        </button>
+        {/* Se for empresa, não faz sentido extrato financeiro de sessões, apenas o de vencimentos (que já fica no perfil) */}
+        {!isCompany && (
+          <button
+            onClick={() => setActiveTab("extrato")}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+              activeTab === "extrato"
+                ? "border-brand-500 text-brand-600 dark:text-brand-400"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"
+            }`}
+          >
+            Extrato Financeiro
+          </button>
+        )}
+      </div>
+
+      {/* Conteúdo das Abas */}
+      {activeTab === "perfil" ? (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {/* Dados do prestador */}
+          <Card className="p-6">
+            <h2 className="mb-4 text-sm font-medium text-gray-900 dark:text-slate-100">
+              Dados do prestador
+            </h2>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <InfoItem
+                icon={<IdCard size={14} />}
+                label={documentLabel(provider.kind)}
+                value={provider.document}
+              />
+              {isCompany && (
+                <InfoItem
+                  icon={<Building2 size={14} />}
+                  label="Razão social"
+                  value={provider.legal_name}
+                />
+              )}
+              <InfoItem
+                icon={<Mail size={14} />}
+                label="E-mail"
+                value={provider.email}
+              />
+              <InfoItem
+                icon={<Phone size={14} />}
+                label="Telefone"
+                value={provider.phone}
+              />
+              {provider.session_price_cents !== null && (
+                <InfoItem
+                  icon={<Wallet size={14} />}
+                  label={
+                    isCompany
+                      ? "Valor recorrente (referência)"
+                      : "Valor da sessão"
+                  }
+                  value={`R$ ${centsToCurrencyBRL(provider.session_price_cents)}`}
+                />
+              )}
+            </div>
+          </Card>
+
+          {/* Pessoa física: horários recorrentes */}
+          {!isCompany && (
+            <Card className="p-6">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <CalendarClock
+                    size={14}
+                    className="text-brand-600 dark:text-brand-400"
+                  />
+                  <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                    Horários
+                  </h2>
+                  {providerSchedules.length > 0 && (
+                    <Badge
+                      variant={recurrenceType === "weekly" ? "neutral" : "brand"}
+                    >
+                      {recurrenceType === "custom_days" && recurrenceDays
+                        ? `A cada ${recurrenceDays} dias`
+                        : getRecurrenceShortLabel(recurrenceType)}
+                    </Badge>
+                  )}
+                </div>
+                {hasActiveSchedules && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSuspendOpen(true)}
+                    disabled={working}
+                    className="text-gray-600 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  >
+                    <PauseCircle size={14} />
+                    Suspender agendamentos
+                  </Button>
+                )}
+              </div>
+
+              {providerSchedules.length > 0 ? (
+                <ul className="space-y-2">
+                  {providerSchedules.map((s, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
+                    >
+                      <span className="font-medium text-gray-900 dark:text-slate-100">
+                        {WEEKDAY_LONG[isoWeekday(s.weekday)]}
+                      </span>
+                      <span className="text-gray-500 dark:text-slate-400">
+                        {s.startTime} · {s.durationMin} min
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
+                  <p className="text-sm text-gray-500 dark:text-slate-400">
+                    Nenhum horário definido ainda.
+                  </p>
+                  {!isArchived && (
+                    <Link to={`/providers/${provider.id}/edit`}>
+                      <Button variant="secondary" size="sm" className="mt-3">
+                        <Plus size={14} />
+                        Definir horários
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
+            </Card>
           )}
-          <InfoItem
-            icon={<Mail size={14} />}
-            label="E-mail"
-            value={provider.email}
-          />
-          <InfoItem
-            icon={<Phone size={14} />}
-            label="Telefone"
-            value={provider.phone}
-          />
-          {provider.session_price_cents !== null && (
-            <InfoItem
-              icon={<Wallet size={14} />}
-              label={
-                isCompany ? "Valor recorrente (referência)" : "Valor da sessão"
-              }
-              value={`R$ ${centsToCurrencyBRL(provider.session_price_cents)}`}
-            />
+
+          {/* Empresa: vencimentos */}
+          {isCompany && (
+            <Card className="p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <CalendarClock
+                    size={14}
+                    className="text-brand-600 dark:text-brand-400"
+                  />
+                  <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                    Vencimentos recorrentes
+                  </h2>
+                </div>
+              </div>
+
+              {loadingBillings ? (
+                <div className="flex justify-center py-4">
+                  <Spinner size={20} />
+                </div>
+              ) : billings.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
+                  <p className="text-sm text-gray-500 dark:text-slate-400">
+                    Nenhum vencimento cadastrado.
+                  </p>
+                  <Link to={`/providers/${provider.id}/edit`}>
+                    <Button variant="secondary" size="sm" className="mt-3">
+                      <Plus size={14} />
+                      Configurar vencimentos
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {billings.map((b) => {
+                    const paidOn = billingPaid[b.id];
+                    return (
+                      <li
+                        key={b.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 dark:text-slate-100">
+                            {b.description}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-slate-400">
+                            Todo dia {b.due_day} ·{" "}
+                            {centsToCurrencyBRL(b.amount_cents)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {paidOn ? (
+                            <Badge variant="success">
+                              Pago {formatBR(paidOn)}
+                            </Badge>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                handleRegisterPayment(
+                                  b.id,
+                                  b.description,
+                                  b.amount_cents
+                                )
+                              }
+                              disabled={registeringBillingId === b.id}
+                            >
+                              {registeringBillingId === b.id
+                                ? "Registrando..."
+                                : "Registrar pagamento"}
+                            </Button>
+                          )}
+                          <Link
+                            to={`/providers/${provider.id}/edit`}
+                            className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                          >
+                            Editar
+                          </Link>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          )}
+
+          {/* Notas */}
+          {provider.notes && (
+            <Card className="p-6">
+              <h2 className="mb-3 text-sm font-medium text-gray-900 dark:text-slate-100">
+                Observações internas
+              </h2>
+              <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-slate-300">
+                {provider.notes}
+              </p>
+            </Card>
           )}
         </div>
-      </Card>
-
-      {/* Pessoa física: horários recorrentes */}
-      {!isCompany && (
-        <Card className="p-6">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CalendarClock
-                size={14}
-                className="text-brand-600 dark:text-brand-400"
-              />
+      ) : (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <Card className="p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                Horários
-              </h2>
-              {providerSchedules.length > 0 && (
-                <Badge
-                  variant={recurrenceType === "weekly" ? "neutral" : "brand"}
-                >
-                  {recurrenceType === "custom_days" && recurrenceDays
-                    ? `A cada ${recurrenceDays} dias`
-                    : getRecurrenceShortLabel(recurrenceType)}
-                </Badge>
-              )}
-            </div>
-            {hasActiveSchedules && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSuspendOpen(true)}
-                disabled={working}
-                className="text-gray-600 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
-              >
-                <PauseCircle size={14} />
-                Suspender agendamentos
-              </Button>
-            )}
-          </div>
-
-          {providerSchedules.length > 0 ? (
-            <ul className="space-y-2">
-              {providerSchedules.map((s, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
-                >
-                  <span className="font-medium text-gray-900 dark:text-slate-100">
-                    {WEEKDAY_LONG[isoWeekday(s.weekday)]}
-                  </span>
-                  <span className="text-gray-500 dark:text-slate-400">
-                    {s.startTime} · {s.durationMin} min
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
-              <p className="text-sm text-gray-500 dark:text-slate-400">
-                Nenhum horário definido ainda.
-              </p>
-              {!isArchived && (
-                <Link to={`/providers/${provider.id}/edit`}>
-                  <Button variant="secondary" size="sm" className="mt-3">
-                    <Plus size={14} />
-                    Definir horários
-                  </Button>
-                </Link>
-              )}
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* Empresa: vencimentos */}
-      {isCompany && (
-        <Card className="p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CalendarClock
-                size={14}
-                className="text-brand-600 dark:text-brand-400"
-              />
-              <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                Vencimentos recorrentes
+                Extrato de Sessões
               </h2>
             </div>
-          </div>
-
-          {loadingBillings ? (
-            <div className="flex justify-center py-4">
-              <Spinner size={20} />
-            </div>
-          ) : billings.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
-              <p className="text-sm text-gray-500 dark:text-slate-400">
-                Nenhum vencimento cadastrado.
-              </p>
-              <Link to={`/providers/${provider.id}/edit`}>
-                <Button variant="secondary" size="sm" className="mt-3">
-                  <Plus size={14} />
-                  Configurar vencimentos
-                </Button>
-              </Link>
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {billings.map((b) => {
-                const paidOn = billingPaid[b.id];
-                return (
-                  <li
-                    key={b.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 dark:text-slate-100">
-                        {b.description}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-slate-400">
-                        Todo dia {b.due_day} ·{" "}
-                        {centsToCurrencyBRL(b.amount_cents)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {paidOn ? (
-                        <Badge variant="success">Pago {formatBR(paidOn)}</Badge>
-                      ) : (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            handleRegisterPayment(
-                              b.id,
-                              b.description,
-                              b.amount_cents
-                            )
-                          }
-                          disabled={registeringBillingId === b.id}
-                        >
-                          {registeringBillingId === b.id
-                            ? "Registrando..."
-                            : "Registrar pagamento"}
-                        </Button>
-                      )}
-                      <Link
-                        to={`/providers/${provider.id}/edit`}
-                        className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
-                      >
-                        Editar
-                      </Link>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
-      )}
-
-      {/* Notas */}
-      {provider.notes && (
-        <Card className="p-6">
-          <h2 className="mb-3 text-sm font-medium text-gray-900 dark:text-slate-100">
-            Observações internas
-          </h2>
-          <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-slate-300">
-            {provider.notes}
-          </p>
-        </Card>
+            <SessionLedger subjectId={provider.id} subjectType="provider" />
+          </Card>
+        </div>
       )}
 
       {/* Modais */}
