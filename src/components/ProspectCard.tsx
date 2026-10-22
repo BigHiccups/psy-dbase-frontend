@@ -14,7 +14,9 @@ type Props = {
 
 export function ProspectCard({ patient, onDone }: Props) {
   const navigate = useNavigate();
-  const [converting, setConverting] = useState<string | null>(null);
+  
+  // Tipagem mais forte para o estado de carregamento
+  const [converting, setConverting] = useState<"provider" | "discard" | "merge" | null>(null);
   const [convertAsProviderOpen, setConvertAsProviderOpen] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
@@ -57,6 +59,7 @@ export function ProspectCard({ patient, onDone }: Props) {
   }
 
   async function handleMerge(existingPatientId: string) {
+    setConverting("merge");
     const { error } = await supabase.rpc("merge_prospect_into_patient", {
       p_prospect_id: patient.id,
       p_existing_patient_id: existingPatientId,
@@ -64,12 +67,18 @@ export function ProspectCard({ patient, onDone }: Props) {
 
     if (error) {
       setAlertState({ title: "Erro ao vincular", message: error.message, tone: "error" });
+      setConverting(null);
       return;
     }
 
+    setConverting(null);
     setLinkModalOpen(false);
-    setAlertState({ title: "Sucesso", message: "Horários vinculados ao paciente existente!", tone: "success" });
-    setTimeout(() => onDone(), 1500);
+    setAlertState({ 
+      title: "Sucesso", 
+      message: "Horários vinculados ao paciente existente!", 
+      tone: "success" 
+    });
+    // O onDone será chamado quando o usuário fechar o AlertDialog
   }
 
   return (
@@ -90,19 +99,41 @@ export function ProspectCard({ patient, onDone }: Props) {
         </div>
 
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setConfirmDiscard(true)} disabled={converting !== null}>
-            <Trash2 size={14} /> Remover
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => setConvertAsProviderOpen(true)} disabled={converting !== null}>
-            <Building2 size={14} /> É prestador
-          </Button>
-          
-          {/* NOVO BOTÃO AQUI */}
-          <Button variant="secondary" size="sm" onClick={() => setLinkModalOpen(true)} disabled={converting !== null}>
-            <LinkIcon size={14} /> Vincular Existente
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => setConfirmDiscard(true)} 
+            disabled={converting !== null}
+          >
+            <Trash2 size={14} /> 
+            {converting === "discard" ? "Removendo..." : "Remover"}
           </Button>
 
-          <Button size="sm" onClick={() => navigate(`/patients/${patient.id}/review`)} disabled={converting !== null}>
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => setConvertAsProviderOpen(true)} 
+            disabled={converting !== null}
+          >
+            <Building2 size={14} /> 
+            {converting === "provider" ? "Convertendo..." : "É prestador"}
+          </Button>
+          
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => setLinkModalOpen(true)} 
+            disabled={converting !== null}
+          >
+            <LinkIcon size={14} /> 
+            {converting === "merge" ? "Vinculando..." : "Vincular Existente"}
+          </Button>
+
+          <Button 
+            size="sm" 
+            onClick={() => navigate(`/patients/${patient.id}/review`)} 
+            disabled={converting !== null}
+          >
             <UserCheck size={14} /> É novo paciente
           </Button>
         </div>
@@ -136,7 +167,11 @@ export function ProspectCard({ patient, onDone }: Props) {
 
       <AlertDialog
         open={alertState !== null}
-        onClose={() => { setAlertState(null); if(alertState?.tone === "success") onDone(); }}
+        onClose={() => {
+          const wasSuccess = alertState?.tone === "success";
+          setAlertState(null);
+          if (wasSuccess) onDone(); // Só atualiza o dashboard ao fechar o alerta de sucesso
+        }}
         title={alertState?.title ?? ""}
         message={alertState?.message}
         tone={alertState?.tone ?? "info"}
