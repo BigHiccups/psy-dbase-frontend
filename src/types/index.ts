@@ -93,7 +93,8 @@ export type ProviderBilling = {
   amount_cents: number;
   due_day: number;
   due_month: number | null;
-  frequency: BillingFrequency;
+  frequency: "monthly" | "bimonthly" | "semiannual" | "yearly" | "once" | "biweekly" | "custom_days";
+  custom_interval_days: number | null;
   starts_on: string;
   status: "active" | "archived";
   created_at: string;

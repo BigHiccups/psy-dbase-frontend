@@ -12,33 +12,56 @@ const MONTH_LABEL = [
 
 export type DraftBilling = Omit<
   ProviderBilling,
-  | "id"
-  | "user_id"
-  | "provider_id"
-  | "status"
-  | "created_at"
-  | "updated_at"
-  | "starts_on"
+  "user_id" | "provider_id" | "status" | "created_at" | "updated_at" | "starts_on"
 > & { id?: string; starts_on?: string };
+
+type ProviderConfig = {
+  payment_format: string;
+  default_payment_method: string;
+  session_number_start: number;
+};
+
 type Props = {
   billings: DraftBilling[];
+  providerData: ProviderConfig;
   onChange: (billings: DraftBilling[]) => void;
+  onProviderDataChange: (data: ProviderConfig) => void;
   onRemove: (id: string, index: number) => void;
 };
 
-export function BillingList({ billings, onChange, onRemove }: Props) {
+export function BillingList({
+  billings,
+  providerData,
+  onChange,
+  onProviderDataChange,
+  onRemove,
+}: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  function handleSave(data: Omit<DraftBilling, "id">) {
+  function handleSave(data: any) {
+    // 1. Atualiza as configurações gerais do prestador no Formulário Pai
+    onProviderDataChange({
+      payment_format: data.provider_payment_format,
+      default_payment_method: data.provider_default_payment_method || "",
+      session_number_start: data.provider_session_number_start || 0,
+    });
+
+    // 2. Separa os dados que pertencem ao vencimento
+    const {
+      provider_payment_format,
+      provider_default_payment_method,
+      provider_session_number_start,
+      ...billingData
+    } = data;
+
+    // 3. Salva o vencimento na lista
     if (editingIndex !== null) {
-      // Editar — preserva starts_on e id existentes
       const updated = [...billings];
-      updated[editingIndex] = { ...updated[editingIndex], ...data };
+      updated[editingIndex] = { ...updated[editingIndex], ...billingData };
       onChange(updated);
     } else {
-      // Criar — starts_on será preenchido no ProviderForm (hoje)
-      onChange([...billings, data]);
+      onChange([...billings, billingData]);
     }
   }
 
@@ -66,6 +89,9 @@ export function BillingList({ billings, onChange, onRemove }: Props) {
         <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
           <p className="text-sm text-gray-500 dark:text-slate-400">
             Nenhum vencimento cadastrado ainda.
+          </p>
+          <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
+            Clique em adicionar para configurar os valores e formas de pagamento.
           </p>
         </div>
       ) : (
@@ -116,6 +142,7 @@ export function BillingList({ billings, onChange, onRemove }: Props) {
       {modalOpen && (
         <BillingEditorModal
           open
+          providerData={providerData} // <-- Passando os dados do prestador
           billingToEdit={
             editingIndex !== null
               ? ({

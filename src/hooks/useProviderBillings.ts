@@ -46,6 +46,7 @@ export function useProviderBillings(providerId: string | undefined) {
     due_day: number;
     due_month: number | null;
     frequency: string;
+    custom_interval_days: number | null; // <-- Tipagem adicionada
     starts_on: string;
   }) {
     const { error } = await supabase.rpc("set_provider_billing", {
@@ -57,10 +58,11 @@ export function useProviderBillings(providerId: string | undefined) {
       p_frequency: payload.frequency,
       p_starts_on: payload.starts_on,
       p_due_month: payload.due_month ?? null,
+      p_custom_interval_days: payload.custom_interval_days ?? null, // <-- Chamada atualizada
     });
 
     if (error) throw new Error(error.message);
-    await load();
+    await load(); // Recarrega a lista
   }
 
   async function archiveBilling(id: string) {
