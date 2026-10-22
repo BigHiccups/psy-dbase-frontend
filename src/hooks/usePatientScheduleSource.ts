@@ -105,7 +105,7 @@ export function usePatientScheduleSource(
         if (submission?.invite_id) {
           const { data: inviteSchedules } = await supabase
             .from("patient_invite_schedules")
-            .select("weekday, start_time, duration_min")
+            .select("weekday, start_time, duration_min, recurrence_type, recurrence_days, anchor_date")
             .eq("invite_id", submission.invite_id)
             .order("weekday")
             .order("start_time");
