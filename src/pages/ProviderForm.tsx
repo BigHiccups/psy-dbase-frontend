@@ -15,9 +15,6 @@ import {
   maskCPF,
   maskCNPJ,
   maskPhone,
-  maskCurrencyBRL,
-  parseCurrencyToCents,
-  centsToCurrencyBRL,
   isValidCPF,
   isValidCNPJ,
   isValidPhoneBR,
@@ -33,7 +30,7 @@ type FormState = {
   email: string;
   phone: string;
   notes: string;
-  session_price: string;
+  session_price: string; // Mantido para salvar o valor do primeiro vencimento no Prestador
   payment_format: PaymentFormat;
   default_payment_method: string;
   session_number_start: string;
@@ -130,7 +127,7 @@ export function ProviderForm() {
         email: provider.email ?? "",
         phone: provider.phone ?? "",
         notes: provider.notes ?? "",
-        session_price: centsToCurrencyBRL(provider.session_price_cents),
+        session_price: "", // O valor principal agora vem do vencimento
         payment_format: provider.payment_format ?? "avulso",
         default_payment_method: provider.default_payment_method ?? "",
         session_number_start: provider.session_number_start?.toString() ?? "0",
@@ -160,8 +157,6 @@ export function ProviderForm() {
       const next = { ...prev, [key]: value };
       if (key === "kind" && value !== prev.kind) {
         next.document = "";
-        // Removemos a limpeza automática de session_price ou draftBillings
-        // pois agora um prestador pode ter ambos.
       }
       return next;
     });
@@ -170,6 +165,17 @@ export function ProviderForm() {
   function handleRecurrenceChange(nextType: RecurrenceType, nextDays: number | null) {
     setRecurrenceType(nextType);
     setRecurrenceDays(nextDays);
+  }
+
+  function handleProviderDataChange(data: { payment_format: string; default_payment_method: string; session_number_start: number }) {
+    setForm((prev) => ({
+      ...prev,
+      payment_format: data.payment_format as PaymentFormat,
+      default_payment_method: data.default_payment_method,
+      session_number_start: data.session_number_start.toString(),
+      // Como é o primeiro vencimento, aproveitamos para salvar o valor no prestador
+      session_price: draftBillings.length === 0 ? (data as any).amount : prev.session_price 
+    }));
   }
 
   function handleRemoveBilling(id: string, index: number) {
@@ -201,40 +207,23 @@ export function ProviderForm() {
     setError(null);
     setScheduleError(null);
 
-    if (!form.display_name.trim()) {
-      setError("Nome é obrigatório.");
-      return;
-    }
-
+    if (!form.display_name.trim()) return setError("Nome é obrigatório.");
     if (form.kind === "person") {
       const isCnpj = personDocType === "cnpj";
       if (form.document && isCnpj && !isValidCNPJ(form.document)) return setError("CNPJ inválido.");
       if (form.document && !isCnpj && !isValidCPF(form.document)) return setError("CPF inválido.");
     }
-
-    if (form.kind === "company" && form.document && !isValidCNPJ(form.document)) {
-      return setError("CNPJ inválido.");
-    }
-
-    if (form.phone && !isValidPhoneBR(form.phone)) {
-      return setError("Telefone inválido. Use DDD + número.");
-    }
-
-    if (hasScheduleConflict) {
-      setScheduleError("Resolva os horários em conflito antes de salvar.");
-      return;
-    }
+    if (form.kind === "company" && form.document && !isValidCNPJ(form.document)) return setError("CNPJ inválido.");
+    if (form.phone && !isValidPhoneBR(form.phone)) return setError("Telefone inválido. Use DDD + número.");
+    if (hasScheduleConflict) return setScheduleError("Resolva os horários em conflito antes de salvar.");
 
     const recurrenceErr = validateRecurrence(recurrenceType, recurrenceDays);
-    if (recurrenceErr) {
-      setScheduleError(recurrenceErr);
-      return;
-    }
+    if (recurrenceErr) return setScheduleError(recurrenceErr);
 
     setSaving(true);
 
-    // Agora o session_price_cents é salvo independente do tipo (já que pessoa pode ter vencimentos e empresa pode ter valor)
-    // Mas para não quebrar a lógica antiga, mantemos o parse
+    const firstBilling = draftBillings[0];
+
     const payload = {
       kind: form.kind,
       display_name: toTitleCase(form.display_name),
@@ -243,7 +232,9 @@ export function ProviderForm() {
       email: form.email.trim() || null,
       phone: form.phone || null,
       notes: form.notes.trim() || null,
-      session_price_cents: parseCurrencyToCents(form.session_price),
+      // Salva o valor do primeiro vencimento no perfil do prestador (referência)
+      session_price_cents: firstBilling ? firstBilling.amount_cents : null,
+      // Salva as configurações vindas do modal
       payment_format: form.payment_format,
       default_payment_method: form.default_payment_method || null,
       session_number_start: parseInt(form.session_number_start, 10) || 0,
@@ -251,7 +242,6 @@ export function ProviderForm() {
 
     const schedulesChanged = !schedulesEqual(schedules, initialSchedules);
     const recurrenceChanged = !recurrenceEqual(recurrenceType, recurrenceDays, initialRecurrenceType, initialRecurrenceDays);
-
     const shouldSyncSchedules = form.kind === "person" && schedules.length > 0 && (isEdit ? schedulesChanged || recurrenceChanged : true);
 
     if (isEdit) {
@@ -276,7 +266,6 @@ export function ProviderForm() {
         }
       }
 
-      // Removida a condicional form.kind === "company"
       try {
         for (const b of draftBillings) {
           await saveBilling({
@@ -287,6 +276,7 @@ export function ProviderForm() {
             due_day: b.due_day,
             due_month: b.due_month ?? null,
             frequency: b.frequency,
+            custom_interval_days: b.custom_interval_days ?? null, // Passa a nova coluna
             starts_on: b.starts_on ?? toDateString(new Date()),
           });
         }
@@ -295,7 +285,6 @@ export function ProviderForm() {
         setSaving(false);
         return;
       }
-      
       navigate(`/providers/${id}`);
     } else {
       const { data: { user } } = await supabase.auth.getUser();
@@ -326,7 +315,6 @@ export function ProviderForm() {
         }
       }
 
-      // Removida a condicional form.kind === "company"
       try {
         for (const b of draftBillings) {
           await saveBilling({
@@ -336,6 +324,7 @@ export function ProviderForm() {
             due_day: b.due_day,
             due_month: b.due_month ?? null,
             frequency: b.frequency,
+            custom_interval_days: b.custom_interval_days ?? null, // Passa a nova coluna
             starts_on: b.starts_on ?? toDateString(new Date()),
           });
         }
@@ -344,7 +333,6 @@ export function ProviderForm() {
         setSaving(false);
         return;
       }
-      
       navigate(`/providers/${data.id}`);
     }
   }
@@ -360,10 +348,7 @@ export function ProviderForm() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <Link
-          to={isEdit ? `/providers/${id}` : "/providers"}
-          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >
+        <Link to={isEdit ? `/providers/${id}` : "/providers"} className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100">
           <ArrowLeft size={14} />
           {isEdit ? "Voltar para o prestador" : "Voltar para prestadores"}
         </Link>
@@ -376,25 +361,18 @@ export function ProviderForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Tipo */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Tipo</h2>
           <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => update("kind", "person")}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}
-            >
+            <button type="button" onClick={() => update("kind", "person")} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
               <User size={20} className={form.kind === "person" ? "text-brand-600 dark:text-brand-400" : "text-gray-400 dark:text-slate-500"} />
               <div>
                 <p className="text-sm font-medium">Profissional</p>
                 <p className="text-xs text-gray-500">Supervisor, psicólogo, etc.</p>
               </div>
             </button>
-            <button
-              type="button"
-              onClick={() => update("kind", "company")}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}
-            >
+            <button type="button" onClick={() => update("kind", "company")} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
               <Building2 size={20} className={form.kind === "company" ? "text-brand-600 dark:text-brand-400" : "text-gray-400 dark:text-slate-500"} />
               <div>
                 <p className="text-sm font-medium">Empresa</p>
@@ -404,6 +382,7 @@ export function ProviderForm() {
           </div>
         </Card>
 
+        {/* Dados */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Dados do prestador</h2>
           <Input label="Nome de exibição" required value={form.display_name} onChange={(e) => update("display_name", e.target.value)} placeholder={form.kind === "person" ? "Ex: Wlad" : "Ex: Escuta Social Psi"} />
@@ -440,79 +419,35 @@ export function ProviderForm() {
           <Input label="E-mail" type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="contato@exemplo.com" />
         </Card>
 
+        {/* BLOCO FINANCEIRO UNIFICADO */}
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-            Financeiro
-          </h2>
-          
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Valor da sessão</label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">R$</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.session_price}
-                onChange={(e) => update("session_price", maskCurrencyBRL(e.target.value))}
-                placeholder="0,00"
-                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-              />
-            </div>
-            <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">Valor pago por sessão a este prestador.</p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 mt-4">
+          <div className="flex items-center justify-between">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Forma de Pagamento</label>
-              <select
-                value={form.payment_format}
-                onChange={(e) => update("payment_format", e.target.value as any)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              >
-                <option value="vencimento">Vencimento</option>
-                <option value="antecipado">Antecipado</option>
-                <option value="avulso">Avulso</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Meio de Pagamento Padrão</label>
-              <select
-                value={form.default_payment_method}
-                onChange={(e) => update("default_payment_method", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              >
-                <option value="">—</option>
-                <option value="pix">PIX</option>
-                <option value="debito">Débito</option>
-                <option value="credito">Crédito</option>
-                <option value="dinheiro">Dinheiro</option>
-                <option value="transferencia">Transferência</option>
-              </select>
+              <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                Financeiro e Vencimentos
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                Adicione os valores, formas de pagamento e vencimentos deste prestador.
+              </p>
             </div>
           </div>
 
-          <div className="mt-4">
-            <Input
-              label="Iniciar contagem de sessões em"
-              type="number"
-              min={0}
-              value={form.session_number_start}
-              onChange={(e) => update("session_number_start", e.target.value)}
-              hint="Se o prestador já realizou sessões antes, coloque o número da última sessão aqui."
-            />
-          </div>
-
-          {/* SEMPRE VISÍVEL AGORA */}
-          <div className="pt-4 border-t border-gray-100 dark:border-slate-800 mt-4">
+          <div className="pt-2">
             <BillingList
               billings={draftBillings}
+              providerData={{
+                payment_format: form.payment_format,
+                default_payment_method: form.default_payment_method,
+                session_number_start: parseInt(form.session_number_start) || 0
+              }}
               onChange={setDraftBillings}
+              onProviderDataChange={handleProviderDataChange}
               onRemove={handleRemoveBilling}
             />
           </div>
         </Card>
 
-        {/* Se for pessoa física, mostra horários */}
+        {/* Horários */}
         {form.kind === "person" && (
           <Card className="space-y-4 p-6">
             <ScheduleEditor
@@ -534,6 +469,7 @@ export function ProviderForm() {
           </Card>
         )}
 
+        {/* Notas */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Observações internas</h2>
           <textarea
