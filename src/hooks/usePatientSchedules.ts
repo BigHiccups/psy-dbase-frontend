@@ -25,7 +25,8 @@ export function usePatientSchedules(patientId: string | undefined) {
 
     const { data, error } = await supabase
       .from("patient_schedules")
-      .select("weekday, start_time, duration_min, recurrence_type, recurrence_days")
+      // ADICIONAMOS O anchor_date AQUI NA QUERY
+      .select("weekday, start_time, duration_min, recurrence_type, recurrence_days, anchor_date")
       .eq("patient_id", patientId)
       .order("weekday", { ascending: true })
       .order("start_time", { ascending: true });
@@ -45,6 +46,8 @@ export function usePatientSchedules(patientId: string | undefined) {
           recurrenceType:
             (row.recurrence_type as RecurrenceType | null) ?? "weekly",
           recurrenceDays: row.recurrence_days ?? null,
+          // ADICIONAMOS O ANCHOR DATE AQUI NO MAPEAMENTO
+          anchorDate: row.anchor_date ?? undefined,
         }))
       );
 
