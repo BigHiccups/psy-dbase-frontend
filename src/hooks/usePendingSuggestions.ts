@@ -31,19 +31,25 @@ export function usePendingSuggestions(targetMonth: string) {
 
         try {
             const [year, month] = targetMonth.split("-").map(Number);
-            const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-            // Wait, targetMonth is "YYYY-MM". So nextMonth is:
-            const nextMonthDate = new Date(year, month, 1); // month é 1-indexed na string, então isso gera o mês seguinte corretamente
+            
+            // Define o fim do período (último dia do mês selecionado)
+            const nextMonthDate = new Date(year, month, 1);
             const monthEnd = toISODate(nextMonthDate);
 
-            // A) Sessões
+            // Define o início do período (6 meses atrás) para pegar importações antigas
+            const sixMonthsAgoDate = new Date(year, month - 6, 1);
+            const searchStartDate = toISODate(sixMonthsAgoDate);
+
+            // ==========================================
+            // A) Sessões (Pacientes)
+            // ==========================================
             const { data: sessionRaw, error: sessionErr } = await supabase
                 .from("appointments")
                 .select(`*, patient:patients!patient_id (id, full_name, session_price_cents)`)
                 .eq("type", "session")
                 .in("status", ["active", "completed", "no_show_justified", "no_show_unjustified"])
                 .not("patient_id", "is", null)
-                .gte("starts_on", monthStart)
+                .gte("starts_on", searchStartDate) // Puxa de 6 meses atrás
                 .lt("starts_on", monthEnd)
                 .order("starts_on", { ascending: false })
                 .limit(300);
@@ -55,12 +61,24 @@ export function usePendingSuggestions(targetMonth: string) {
 
             let incomeRows: { patient_id: string; occurred_on: string }[] = [];
             if (sessionPatientIds.length > 0) {
-                const { data } = await supabase.from("transactions").select("patient_id, occurred_on").eq("type", "income").in("patient_id", sessionPatientIds).gte("occurred_on", monthStart).lt("occurred_on", monthEnd);
+                const { data } = await supabase
+                    .from("transactions")
+                    .select("patient_id, occurred_on")
+                    .eq("type", "income")
+                    .in("patient_id", sessionPatientIds)
+                    .gte("occurred_on", searchStartDate)
+                    .lt("occurred_on", monthEnd);
                 incomeRows = data ?? [];
             }
             const incomeSet = new Set(incomeRows.map((t) => `${t.patient_id}|${t.occurred_on}`));
 
-            const { data: dismissedAppts } = await supabase.from("dismissed_suggestions").select("target_id, reference_date").eq("target_type", "appointment").gte("reference_date", monthStart).lt("reference_date", monthEnd);
+            const { data: dismissedAppts } = await supabase
+                .from("dismissed_suggestions")
+                .select("target_id, reference_date")
+                .eq("target_type", "appointment")
+                .gte("reference_date", searchStartDate)
+                .lt("reference_date", monthEnd);
+            
             const dismissedApptSet = new Set((dismissedAppts ?? []).map((d) => `${d.target_id}|${d.reference_date}`));
 
             const sessionSuggestions: SuggestionSession[] = sessions
@@ -73,14 +91,16 @@ export function usePendingSuggestions(targetMonth: string) {
                     suggested_date: s.starts_on,
                 }));
 
-            // B) Personal
+            // ==========================================
+            // B) Compromissos Pessoais (Prestadores)
+            // ==========================================
             const { data: personalRaw, error: personalErr } = await supabase
                 .from("appointments")
                 .select(`*, provider:providers!provider_id (id, display_name, kind, session_price_cents)`)
                 .eq("type", "personal")
                 .in("status", ["active", "completed", "no_show_justified", "no_show_unjustified"])
                 .not("provider_id", "is", null)
-                .gte("starts_on", monthStart)
+                .gte("starts_on", searchStartDate) // Puxa de 6 meses atrás
                 .lt("starts_on", monthEnd)
                 .order("starts_on", { ascending: false })
                 .limit(300);
@@ -92,7 +112,13 @@ export function usePendingSuggestions(targetMonth: string) {
 
             let expenseRows: { provider_id: string; occurred_on: string }[] = [];
             if (personalProviderIds.length > 0) {
-                const { data } = await supabase.from("transactions").select("provider_id, occurred_on").eq("type", "expense").in("provider_id", personalProviderIds).gte("occurred_on", monthStart).lt("occurred_on", monthEnd);
+                const { data } = await supabase
+                    .from("transactions")
+                    .select("provider_id, occurred_on")
+                    .eq("type", "expense")
+                    .in("provider_id", personalProviderIds)
+                    .gte("occurred_on", searchStartDate)
+                    .lt("occurred_on", monthEnd);
                 expenseRows = data ?? [];
             }
             const expenseSet = new Set(expenseRows.map((t) => `${t.provider_id}|${t.occurred_on}`));
@@ -107,7 +133,11 @@ export function usePendingSuggestions(targetMonth: string) {
                     suggested_date: p.starts_on,
                 }));
 
-            // C) Billings
+            // ==========================================
+            // C) Vencimentos (Billings)
+            // ==========================================
+            // Aqui mantemos apenas o mês selecionado, pois vencimentos são mensais e senão a lista ficaria gigante.
+            const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
             const { data: billsRaw, error: billErr } = await supabase
                 .from("provider_billings")
                 .select(`*, provider:providers!provider_id (display_name)`)
@@ -120,12 +150,22 @@ export function usePendingSuggestions(targetMonth: string) {
 
             let billingPaidRows: { billing_id: string | null; occurred_on: string }[] = [];
             if (billIds.length > 0) {
-                const { data } = await supabase.from("transactions").select("billing_id, occurred_on").eq("type", "expense").in("billing_id", billIds).gte("occurred_on", monthStart).lt("occurred_on", monthEnd);
+                const { data } = await supabase
+                    .from("transactions")
+                    .select("billing_id, occurred_on")
+                    .eq("type", "expense")
+                    .in("billing_id", billIds)
+                    .gte("occurred_on", monthStart)
+                    .lt("occurred_on", monthEnd);
                 billingPaidRows = data ?? [];
             }
             const billingPaidThisMonth = new Set(billingPaidRows.map((t) => t.billing_id).filter(Boolean) as string[]);
 
-            const { data: dismissedBills } = await supabase.from("dismissed_suggestions").select("target_id, reference_date").eq("target_type", "billing").eq("reference_date", monthStart);
+            const { data: dismissedBills } = await supabase
+                .from("dismissed_suggestions")
+                .select("target_id, reference_date")
+                .eq("target_type", "billing")
+                .eq("reference_date", monthStart);
             const dismissedBillSet = new Set((dismissedBills ?? []).map((d) => d.target_id));
 
             const billingSuggestions: SuggestionBilling[] = bills
@@ -145,7 +185,11 @@ export function usePendingSuggestions(targetMonth: string) {
                 })
                 .filter((x): x is SuggestionBilling => x !== null);
 
-            setSuggestions([...sessionSuggestions, ...personalSuggestions, ...billingSuggestions]);
+            // Junta tudo e ordena por data (mais antigo para o mais novo)
+            setSuggestions([...sessionSuggestions, ...personalSuggestions, ...billingSuggestions].sort(
+                (a, b) => new Date(a.suggested_date).getTime() - new Date(b.suggested_date).getTime()
+            ));
+            
         } catch (err) {
             setError(err instanceof Error ? err.message : "Erro ao carregar sugestões.");
         } finally {
@@ -155,9 +199,12 @@ export function usePendingSuggestions(targetMonth: string) {
 
     useEffect(() => { load(); }, [load]);
 
-    // ... (Ações approveSingle, approveAll, dismiss permanecem iguais, mas usando 'targetMonth' como referência para o dismiss)
     async function approveSingle(s: Suggestion): Promise<void> {
-        const payload = { p_appointment_ids: s.kind === "session" ? [s.id] : [], p_billing_ids: s.kind === "billing" ? [s.id] : [], p_personal_ids: s.kind === "personal" ? [s.id] : [] };
+        const payload = { 
+            p_appointment_ids: s.kind === "session" ? [s.id] : [], 
+            p_billing_ids: s.kind === "billing" ? [s.id] : [], 
+            p_personal_ids: s.kind === "personal" ? [s.id] : [] 
+        };
         const { error } = await supabase.rpc("bulk_approve_suggestions", payload);
         if (error) throw new Error(error.message);
         await load();
@@ -167,15 +214,29 @@ export function usePendingSuggestions(targetMonth: string) {
         const apptIds = suggestions.filter((s): s is SuggestionSession => s.kind === "session").map((s) => s.id);
         const billIds = suggestions.filter((s): s is SuggestionBilling => s.kind === "billing").map((s) => s.id);
         const persIds = suggestions.filter((s): s is SuggestionPersonal => s.kind === "personal").map((s) => s.id);
-        const { data, error } = await supabase.rpc("bulk_approve_suggestions", { p_appointment_ids: apptIds, p_billing_ids: billIds, p_personal_ids: persIds });
+        
+        const { data, error } = await supabase.rpc("bulk_approve_suggestions", { 
+            p_appointment_ids: apptIds, 
+            p_billing_ids: billIds, 
+            p_personal_ids: persIds 
+        });
+        
         if (error) throw new Error(error.message);
         await load();
         return (data as number) ?? 0;
     }
 
     async function dismiss(s: Suggestion): Promise<void> {
-        const referenceDate = s.kind === "billing" ? `${targetMonth}-01` : s.suggested_date;
-        const { error } = await supabase.rpc("dismiss_suggestion", { p_target_type: s.kind === "billing" ? "billing" : "appointment", p_target_id: s.id, p_reference_date: referenceDate });
+        const [year, month] = targetMonth.split("-").map(Number);
+        const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+        
+        const referenceDate = s.kind === "billing" ? monthStart : s.suggested_date;
+        const { error } = await supabase.rpc("dismiss_suggestion", { 
+            p_target_type: s.kind === "billing" ? "billing" : "appointment", 
+            p_target_id: s.id, 
+            p_reference_date: referenceDate 
+        });
+        
         if (error) throw new Error(error.message);
         await load();
     }

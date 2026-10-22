@@ -160,8 +160,8 @@ export function ProviderForm() {
       const next = { ...prev, [key]: value };
       if (key === "kind" && value !== prev.kind) {
         next.document = "";
-        if (value === "company") next.session_price = "";
-        if (value === "person") setDraftBillings([]); 
+        // Removemos a limpeza automática de session_price ou draftBillings
+        // pois agora um prestador pode ter ambos.
       }
       return next;
     });
@@ -233,6 +233,8 @@ export function ProviderForm() {
 
     setSaving(true);
 
+    // Agora o session_price_cents é salvo independente do tipo (já que pessoa pode ter vencimentos e empresa pode ter valor)
+    // Mas para não quebrar a lógica antiga, mantemos o parse
     const payload = {
       kind: form.kind,
       display_name: toTitleCase(form.display_name),
@@ -241,7 +243,7 @@ export function ProviderForm() {
       email: form.email.trim() || null,
       phone: form.phone || null,
       notes: form.notes.trim() || null,
-      session_price_cents: form.kind === "person" ? parseCurrencyToCents(form.session_price) : null,
+      session_price_cents: parseCurrencyToCents(form.session_price),
       payment_format: form.payment_format,
       default_payment_method: form.default_payment_method || null,
       session_number_start: parseInt(form.session_number_start, 10) || 0,
@@ -274,26 +276,26 @@ export function ProviderForm() {
         }
       }
 
-      if (form.kind === "company") {
-        try {
-          for (const b of draftBillings) {
-            await saveBilling({
-              id: b.id,
-              provider_id: id!,
-              description: b.description,
-              amount_cents: b.amount_cents,
-              due_day: b.due_day,
-              due_month: b.due_month ?? null,
-              frequency: b.frequency,
-              starts_on: b.starts_on ?? toDateString(new Date()),
-            });
-          }
-        } catch (billErr) {
-          setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
-          setSaving(false);
-          return;
+      // Removida a condicional form.kind === "company"
+      try {
+        for (const b of draftBillings) {
+          await saveBilling({
+            id: b.id,
+            provider_id: id!,
+            description: b.description,
+            amount_cents: b.amount_cents,
+            due_day: b.due_day,
+            due_month: b.due_month ?? null,
+            frequency: b.frequency,
+            starts_on: b.starts_on ?? toDateString(new Date()),
+          });
         }
+      } catch (billErr) {
+        setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
+        setSaving(false);
+        return;
       }
+      
       navigate(`/providers/${id}`);
     } else {
       const { data: { user } } = await supabase.auth.getUser();
@@ -324,25 +326,25 @@ export function ProviderForm() {
         }
       }
 
-      if (form.kind === "company") {
-        try {
-          for (const b of draftBillings) {
-            await saveBilling({
-              provider_id: data.id,
-              description: b.description,
-              amount_cents: b.amount_cents,
-              due_day: b.due_day,
-              due_month: b.due_month ?? null,
-              frequency: b.frequency,
-              starts_on: b.starts_on ?? toDateString(new Date()),
-            });
-          }
-        } catch (billErr) {
-          setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
-          setSaving(false);
-          return;
+      // Removida a condicional form.kind === "company"
+      try {
+        for (const b of draftBillings) {
+          await saveBilling({
+            provider_id: data.id,
+            description: b.description,
+            amount_cents: b.amount_cents,
+            due_day: b.due_day,
+            due_month: b.due_month ?? null,
+            frequency: b.frequency,
+            starts_on: b.starts_on ?? toDateString(new Date()),
+          });
         }
+      } catch (billErr) {
+        setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
+        setSaving(false);
+        return;
       }
+      
       navigate(`/providers/${data.id}`);
     }
   }
@@ -439,24 +441,25 @@ export function ProviderForm() {
         </Card>
 
         <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Financeiro</h2>
-          {form.kind === "person" && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Valor da sessão</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">R$</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.session_price}
-                  onChange={(e) => update("session_price", maskCurrencyBRL(e.target.value))}
-                  placeholder="0,00"
-                  className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-                />
-              </div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">Valor pago por sessão a este prestador.</p>
+          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+            Financeiro
+          </h2>
+          
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Valor da sessão</label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">R$</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.session_price}
+                onChange={(e) => update("session_price", maskCurrencyBRL(e.target.value))}
+                placeholder="0,00"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
             </div>
-          )}
+            <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">Valor pago por sessão a este prestador.</p>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2 mt-4">
             <div>
@@ -499,17 +502,17 @@ export function ProviderForm() {
             />
           </div>
 
-          {form.kind === "company" && (
-            <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
-              <BillingList
-                billings={draftBillings}
-                onChange={setDraftBillings}
-                onRemove={handleRemoveBilling}
-              />
-            </div>
-          )}
+          {/* SEMPRE VISÍVEL AGORA */}
+          <div className="pt-4 border-t border-gray-100 dark:border-slate-800 mt-4">
+            <BillingList
+              billings={draftBillings}
+              onChange={setDraftBillings}
+              onRemove={handleRemoveBilling}
+            />
+          </div>
         </Card>
 
+        {/* Se for pessoa física, mostra horários */}
         {form.kind === "person" && (
           <Card className="space-y-4 p-6">
             <ScheduleEditor

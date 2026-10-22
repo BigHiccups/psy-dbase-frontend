@@ -30,7 +30,7 @@ import {
 import { CancelSeriesModal } from "../components/agenda/CancelSeriesModal";
 import { ReactivateModal } from "../components/ReactivateModal";
 import { ConflictOnReactivateModal } from "../components/ConflictOnReactivateModal";
-import { SessionLedger } from "../components/SessionLedger"; // <--- IMPORTANTE
+import { SessionLedger } from "../components/SessionLedger";
 import { WEEKDAY_LONG, isoWeekday, toDateString } from "../lib/agenda-date";
 import { centsToCurrencyBRL } from "../lib/masks";
 import { getRecurrenceShortLabel } from "../lib/recurrence";
@@ -75,11 +75,9 @@ export function ProviderDetail() {
     reload: reloadSchedules,
   } = useProviderSchedules(id);
 
-  const { billings, loading: loadingBillings } = useProviderBillings(
-    provider?.kind === "company" ? id : undefined
-  );
+  // Agora os vencimentos são carregados para QUALQUER tipo de prestador
+  const { billings, loading: loadingBillings } = useProviderBillings(id);
 
-  // Estado das Abas
   const [activeTab, setActiveTab] = useState<"perfil" | "extrato">("perfil");
 
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -95,8 +93,9 @@ export function ProviderDetail() {
     string | null
   >(null);
 
+  // Carrega status de pagamento do mês corrente (para qualquer prestador que tenha billings)
   useEffect(() => {
-    if (!provider || provider.kind !== "company" || billings.length === 0) {
+    if (!provider || billings.length === 0) {
       setBillingPaid({});
       return;
     }
@@ -127,7 +126,7 @@ export function ProviderDetail() {
       }
       setBillingPaid(map);
     })();
-  }, [provider?.id, provider?.kind, billings]);
+  }, [provider?.id, billings]);
 
   async function handleArchive() {
     if (!provider) return;
@@ -193,9 +192,9 @@ export function ProviderDetail() {
           provider_id: string | null;
           patients: { full_name: string } | { full_name: string }[] | null;
           providers:
-            | { display_name: string }
-            | { display_name: string }[]
-            | null;
+          | { display_name: string }
+          | { display_name: string }[]
+          | null;
         };
 
         if (row.provider_id === provider.id && !row.patient_id) continue;
@@ -498,11 +497,10 @@ export function ProviderDetail() {
       <div className="flex border-b border-gray-200 dark:border-slate-800">
         <button
           onClick={() => setActiveTab("perfil")}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
-            activeTab === "perfil"
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition ${activeTab === "perfil"
               ? "border-brand-500 text-brand-600 dark:text-brand-400"
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"
-          }`}
+            }`}
         >
           Perfil do Prestador
         </button>
@@ -510,11 +508,10 @@ export function ProviderDetail() {
         {!isCompany && (
           <button
             onClick={() => setActiveTab("extrato")}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
-              activeTab === "extrato"
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition ${activeTab === "extrato"
                 ? "border-brand-500 text-brand-600 dark:text-brand-400"
                 : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"
-            }`}
+              }`}
           >
             Extrato Financeiro
           </button>
@@ -535,13 +532,11 @@ export function ProviderDetail() {
                 label={documentLabel(provider.kind)}
                 value={provider.document}
               />
-              {isCompany && (
-                <InfoItem
-                  icon={<Building2 size={14} />}
-                  label="Razão social"
-                  value={provider.legal_name}
-                />
-              )}
+              <InfoItem
+                icon={<Building2 size={14} />}
+                label="Razão social"
+                value={provider.legal_name}
+              />
               <InfoItem
                 icon={<Mail size={14} />}
                 label="E-mail"
@@ -636,92 +631,90 @@ export function ProviderDetail() {
             </Card>
           )}
 
-          {/* Empresa: vencimentos */}
-          {isCompany && (
-            <Card className="p-6">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <CalendarClock
-                    size={14}
-                    className="text-brand-600 dark:text-brand-400"
-                  />
-                  <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                    Vencimentos recorrentes
-                  </h2>
-                </div>
+          {/* Vencimentos - Agora para TODOS os tipos de prestador */}
+          <Card className="p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <CalendarClock
+                  size={14}
+                  className="text-brand-600 dark:text-brand-400"
+                />
+                <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                  Vencimentos recorrentes
+                </h2>
               </div>
+            </div>
 
-              {loadingBillings ? (
-                <div className="flex justify-center py-4">
-                  <Spinner size={20} />
-                </div>
-              ) : billings.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
-                  <p className="text-sm text-gray-500 dark:text-slate-400">
-                    Nenhum vencimento cadastrado.
-                  </p>
-                  <Link to={`/providers/${provider.id}/edit`}>
-                    <Button variant="secondary" size="sm" className="mt-3">
-                      <Plus size={14} />
-                      Configurar vencimentos
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  {billings.map((b) => {
-                    const paidOn = billingPaid[b.id];
-                    return (
-                      <li
-                        key={b.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-gray-900 dark:text-slate-100">
-                            {b.description}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-slate-400">
-                            Todo dia {b.due_day} ·{" "}
-                            {centsToCurrencyBRL(b.amount_cents)}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {paidOn ? (
-                            <Badge variant="success">
-                              Pago {formatBR(paidOn)}
-                            </Badge>
-                          ) : (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() =>
-                                handleRegisterPayment(
-                                  b.id,
-                                  b.description,
-                                  b.amount_cents
-                                )
-                              }
-                              disabled={registeringBillingId === b.id}
-                            >
-                              {registeringBillingId === b.id
-                                ? "Registrando..."
-                                : "Registrar pagamento"}
-                            </Button>
-                          )}
-                          <Link
-                            to={`/providers/${provider.id}/edit`}
-                            className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+            {loadingBillings ? (
+              <div className="flex justify-center py-4">
+                <Spinner size={20} />
+              </div>
+            ) : billings.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center dark:border-slate-700">
+                <p className="text-sm text-gray-500 dark:text-slate-400">
+                  Nenhum vencimento cadastrado.
+                </p>
+                <Link to={`/providers/${provider.id}/edit`}>
+                  <Button variant="secondary" size="sm" className="mt-3">
+                    <Plus size={14} />
+                    Configurar vencimentos
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {billings.map((b) => {
+                  const paidOn = billingPaid[b.id];
+                  return (
+                    <li
+                      key={b.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-slate-800/60"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 dark:text-slate-100">
+                          {b.description}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400">
+                          Todo dia {b.due_day} ·{" "}
+                          {centsToCurrencyBRL(b.amount_cents)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {paidOn ? (
+                          <Badge variant="success">
+                            Pago {formatBR(paidOn)}
+                          </Badge>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              handleRegisterPayment(
+                                b.id,
+                                b.description,
+                                b.amount_cents
+                              )
+                            }
+                            disabled={registeringBillingId === b.id}
                           >
-                            Editar
-                          </Link>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Card>
-          )}
+                            {registeringBillingId === b.id
+                              ? "Registrando..."
+                              : "Registrar pagamento"}
+                          </Button>
+                        )}
+                        <Link
+                          to={`/providers/${provider.id}/edit`}
+                          className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                        >
+                          Editar
+                        </Link>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
 
           {/* Notas */}
           {provider.notes && (
