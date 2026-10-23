@@ -29,16 +29,21 @@ export type RecurrenceType =
   | "weekly"
   | "biweekly"
   | "monthly"
+  | "bimonthly"
+  | "quarterly"
+  | "semiannual"
+  | "yearly"
   | "every_30_days"
   | "custom_days";
 
 export type ScheduleInput = {
   weekday: number;                  // 0=domingo, 6=sábado
-  startTime: string;                // "HH:MM"
-  durationMin: number;              // default 50
-  recurrenceType?: RecurrenceType;  // default 'weekly' se ausente
-  recurrenceDays?: number | null;   // só se custom_days, 1..365
-  anchorDate?: string;              // YYYY-MM-DD — data da 1ª ocorrência
+  startTime: string | null;         // "HH:MM" ou null se for dia inteiro
+  durationMin: number | null;       // default 50 ou null se for dia inteiro
+  recurrenceType?: RecurrenceType;
+  recurrenceDays?: number | null;
+  anchorDate?: string | null;       // YYYY-MM-DD
+  color?: string | null;
 };
 
 export type InviteResponse = {
@@ -49,6 +54,7 @@ export type InviteResponse = {
   whatsappUrl: string;
   phone: string;
   schedules: ScheduleInput[];
+
 };
 
 export type InviteCheck = {
@@ -125,6 +131,8 @@ export type Appointment = {
   google_event_id: string | null;
   linked_expense: boolean;
   notes: string | null;
+  title: string | null;    // <-- Adicionado
+  color: string | null;    // <-- Adicionado
   created_at: string;
   updated_at: string;
 };

@@ -42,7 +42,7 @@ export function AppointmentDetailModal({
   const [cancelSeriesOpen, setCancelSeriesOpen] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [paymentStatus, setPaymentStatus] = useState<"unknown" | "none" | "paid">("unknown");
   const [creatingIncome, setCreatingIncome] = useState(false);
 
@@ -55,7 +55,7 @@ export function AppointmentDetailModal({
       setPaymentStatus("unknown");
       return;
     }
-    
+
     (async () => {
       const { data } = await supabase
         .from("transactions")
@@ -236,8 +236,10 @@ export function AppointmentDetailModal({
               {!isBlocked && (
                 <p className={`mt-0.5 text-sm ${style.text}`}>{subjectName}</p>
               )}
-              {isBlocked && appointment.notes && (
-                <p className={`mt-0.5 text-sm ${style.text}`}>{appointment.notes}</p>
+              {appointment.title && (
+                <p className={`text-xs ${style.text} opacity-80 font-medium mt-1`}>
+                  {appointment.title}
+                </p>
               )}
             </div>
           </div>
@@ -282,7 +284,7 @@ export function AppointmentDetailModal({
           )}
 
           <div className="flex flex-col gap-3 border-t border-gray-100 pt-5 dark:border-slate-800">
-            
+
             {/* Botões de Status */}
             {!isBlocked && !isCancelled && (
               <div className="flex flex-wrap gap-2">

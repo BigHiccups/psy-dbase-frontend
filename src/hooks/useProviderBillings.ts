@@ -35,7 +35,6 @@ export function useProviderBillings(providerId: string | undefined) {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerId]);
 
   async function saveBilling(payload: {
@@ -46,48 +45,31 @@ export function useProviderBillings(providerId: string | undefined) {
     due_day: number;
     due_month: number | null;
     frequency: string;
-    custom_interval_days: number | null; // <-- Tipagem adicionada
+    custom_interval_days: number | null;
     starts_on: string;
   }) {
+    // Força mensal, já que a UI não pede mais a frequência
     const { error } = await supabase.rpc("set_provider_billing", {
       p_billing_id: payload.id || null,
       p_provider_id: payload.provider_id,
       p_description: payload.description,
       p_amount_cents: payload.amount_cents,
       p_due_day: payload.due_day,
-      p_frequency: payload.frequency,
+      p_frequency: "monthly", 
       p_starts_on: payload.starts_on,
-      p_due_month: payload.due_month ?? null,
-      p_custom_interval_days: payload.custom_interval_days ?? null, // <-- Chamada atualizada
+      p_due_month: null,
+      p_custom_interval_days: null,
     });
 
     if (error) throw new Error(error.message);
-    await load(); // Recarrega a lista
+    await load();
   }
 
   async function archiveBilling(id: string) {
-    const { error } = await supabase.rpc("archive_provider_billing", {
-      p_billing_id: id,
-    });
+    const { error } = await supabase.rpc("archive_provider_billing", { p_billing_id: id });
     if (error) throw new Error(error.message);
     await load();
   }
 
-  async function deleteBilling(id: string) {
-    const { error } = await supabase.rpc("delete_provider_billing", {
-      p_billing_id: id,
-    });
-    if (error) throw new Error(error.message);
-    await load();
-  }
-
-  return {
-    billings,
-    loading,
-    error,
-    reload: load,
-    saveBilling,
-    archiveBilling,
-    deleteBilling,
-  };
+  return { billings, loading, error, reload: load, saveBilling, archiveBilling };
 }

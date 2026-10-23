@@ -1,25 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Save, AlertCircle, User, Building2 } from "lucide-react";
+import { ArrowLeft, Save, AlertCircle, User, Building2, Plus, Trash2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { Button, Card, Input, Spinner, AlertDialog, ConfirmDialog } from "../components/ui";
-import { ScheduleEditor } from "../components/agenda/ScheduleEditor";
+import { Button, Card, Input, Spinner, AlertDialog } from "../components/ui";
+import { ServiceScheduleField } from "../components/agenda/ServiceScheduleField";
 import { BillingList, type DraftBilling } from "../components/BillingList";
 import { useProvider } from "../hooks/useProvider";
 import { useProviderScheduleSource } from "../hooks/useProviderScheduleSource";
 import { useProviderBillings } from "../hooks/useProviderBillings";
-import { useOccupiedSlots } from "../hooks/useOccupiedSlots";
 import { toTitleCase } from "../lib/text";
 import { toDateString } from "../lib/agenda-date";
-import {
-  maskCPF,
-  maskCNPJ,
-  maskPhone,
-  isValidCPF,
-  isValidCNPJ,
-  isValidPhoneBR,
-} from "../lib/masks";
-import { validateRecurrence } from "../lib/recurrence";
+import { maskPhone } from "../lib/masks";
 import type { ProviderKind, RecurrenceType, ScheduleInput, PaymentFormat } from "../types";
 
 type FormState = {
@@ -30,43 +21,29 @@ type FormState = {
   email: string;
   phone: string;
   notes: string;
-  session_price: string; // Mantido para salvar o valor do primeiro vencimento no Prestador
   payment_format: PaymentFormat;
   default_payment_method: string;
   session_number_start: string;
 };
 
-const INITIAL_FORM: FormState = {
-  kind: "person",
-  display_name: "",
-  legal_name: "",
-  document: "",
-  email: "",
-  phone: "",
-  notes: "",
-  session_price: "",
-  payment_format: "avulso",
-  default_payment_method: "",
-  session_number_start: "0",
+type ServiceBlock = {
+  id: string;
+  schedule: ScheduleInput;
+  recurrenceType: RecurrenceType;
+  recurrenceDays: number | null;
+  billings: DraftBilling[];
 };
 
-function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
-  if (a.length !== b.length) return false;
-  const key = (s: ScheduleInput) =>
-    `${s.weekday}-${s.startTime.slice(0, 5)}-${s.durationMin}-${s.anchorDate ?? ""}`;
-  const ka = [...a].map(key).sort().join("|");
-  const kb = [...b].map(key).sort().join("|");
-  return ka === kb;
-}
+const INITIAL_FORM: FormState = {
+  kind: "person", display_name: "", legal_name: "", document: "", email: "", phone: "", notes: "",
+  payment_format: "avulso", default_payment_method: "", session_number_start: "0",
+};
 
-function recurrenceEqual(aType: RecurrenceType, aDays: number | null, bType: RecurrenceType, bDays: number | null): boolean {
-  return aType === bType && aDays === bDays;
-}
-
-type AlertState = {
-  title: string;
-  message: string;
-  tone: "info" | "error" | "success";
+const DEFAULT_SCHEDULE: ScheduleInput = {
+  weekday: 1, // Segunda
+  startTime: "14:00",
+  durationMin: 50,
+  anchorDate: toDateString(new Date()), // Inicia com a data de hoje por padrão
 };
 
 export function ProviderForm() {
@@ -75,410 +52,238 @@ export function ProviderForm() {
   const isEdit = !!id;
 
   const { provider, loading: loadingProvider } = useProvider(id);
-  const {
-    schedules: sourcedSchedules,
-    source,
-    recurrenceType: sourcedRecurrenceType,
-    recurrenceDays: sourcedRecurrenceDays,
-    loading: loadingSchedules,
-  } = useProviderScheduleSource(id);
+  const { schedules: sourcedSchedules, loading: loadingSchedules } = useProviderScheduleSource(id);
+  const { billings: existingBillings, saveBilling, loading: loadingBillings } = useProviderBillings(id);
 
-  const {
-    billings: existingBillings,
-    saveBilling,
-    archiveBilling,
-    loading: loadingBillings,
-  } = useProviderBillings(id);
-
-  const { slots: occupiedSlots } = useOccupiedSlots({ excludeProviderId: id });
+  // Controle para não sobrescrever o que o usuário está digitando
+  const isInitialized = useRef(false);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [personDocType, setPersonDocType] = useState<"cpf" | "cnpj">("cpf");
 
-  const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
-  const [initialSchedules, setInitialSchedules] = useState<ScheduleInput[]>([]);
+  const [services, setServices] = useState<ServiceBlock[]>([
+    { id: crypto.randomUUID(), schedule: DEFAULT_SCHEDULE, recurrenceType: "weekly", recurrenceDays: null, billings: [] }
+  ]);
 
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
-  const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
-  const [initialRecurrenceType, setInitialRecurrenceType] = useState<RecurrenceType>("weekly");
-  const [initialRecurrenceDays, setInitialRecurrenceDays] = useState<number | null>(null);
-
-  const [draftBillings, setDraftBillings] = useState<DraftBilling[]>([]);
-
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
-  const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alertState, setAlertState] = useState<{ title: string; message: string; tone: "info" | "error" | "success" } | null>(null);
 
-  const [alertState, setAlertState] = useState<AlertState | null>(null);
-  const [removePending, setRemovePending] = useState<{ id: string; index: number } | null>(null);
-
+  // 1. Carrega os dados básicos do prestador
   useEffect(() => {
     if (provider) {
       const docDigits = provider.document?.replace(/\D/g, "") ?? "";
-      if (provider.kind === "person" && docDigits.length === 14) {
-        setPersonDocType("cnpj");
-      }
+      if (provider.kind === "person" && docDigits.length === 14) setPersonDocType("cnpj");
       setForm({
-        kind: provider.kind,
-        display_name: provider.display_name ?? "",
-        legal_name: provider.legal_name ?? "",
-        document: provider.document ?? "",
-        email: provider.email ?? "",
-        phone: provider.phone ?? "",
-        notes: provider.notes ?? "",
-        session_price: "", // O valor principal agora vem do vencimento
-        payment_format: provider.payment_format ?? "avulso",
-        default_payment_method: provider.default_payment_method ?? "",
+        kind: provider.kind, display_name: provider.display_name ?? "", legal_name: provider.legal_name ?? "",
+        document: provider.document ?? "", email: provider.email ?? "", phone: provider.phone ?? "", notes: provider.notes ?? "",
+        payment_format: provider.payment_format ?? "avulso", default_payment_method: provider.default_payment_method ?? "",
         session_number_start: provider.session_number_start?.toString() ?? "0",
       });
     }
   }, [provider]);
 
+  // 2. Carrega os serviços (horários + faturamentos)
   useEffect(() => {
-    if (!loadingSchedules) {
-      setSchedules(sourcedSchedules);
-      setInitialSchedules((prev) => (prev.length === 0 ? sourcedSchedules : prev));
-      setRecurrenceType(sourcedRecurrenceType);
-      setRecurrenceDays(sourcedRecurrenceDays);
-      setInitialRecurrenceType((prev) => (prev === "weekly" && sourcedRecurrenceType !== "weekly" ? sourcedRecurrenceType : prev));
-      setInitialRecurrenceDays((prev) => (prev === null && sourcedRecurrenceDays !== null ? sourcedRecurrenceDays : prev));
-    }
-  }, [loadingSchedules, sourcedSchedules, sourcedRecurrenceType, sourcedRecurrenceDays]);
+    if (!loadingSchedules && !loadingBillings && isEdit && !isInitialized.current) {
+      isInitialized.current = true;
 
-  useEffect(() => {
-    if (isEdit && existingBillings) {
-      setDraftBillings(existingBillings);
-    }
-  }, [isEdit, existingBillings]);
+      const numSchedules = sourcedSchedules.length;
+      const numBillings = existingBillings.length;
 
-  function update<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => {
-      const next = { ...prev, [key]: value };
-      if (key === "kind" && value !== prev.kind) {
-        next.document = "";
-      }
-      return next;
-    });
-  }
+      // Descobre quantos blocos precisamos criar (o maior entre a quantidade de horários e faturamentos)
+      const maxBlocks = Math.max(numSchedules, numBillings, 1);
 
-  function handleRecurrenceChange(nextType: RecurrenceType, nextDays: number | null) {
-    setRecurrenceType(nextType);
-    setRecurrenceDays(nextDays);
-  }
+      const newServices: ServiceBlock[] = [];
 
-  function handleProviderDataChange(data: { payment_format: string; default_payment_method: string; session_number_start: number }) {
-    setForm((prev) => ({
-      ...prev,
-      payment_format: data.payment_format as PaymentFormat,
-      default_payment_method: data.default_payment_method,
-      session_number_start: data.session_number_start.toString(),
-      // Como é o primeiro vencimento, aproveitamos para salvar o valor no prestador
-      session_price: draftBillings.length === 0 ? (data as any).amount : prev.session_price 
-    }));
-  }
+      for (let i = 0; i < maxBlocks; i++) {
+        const schedule = sourcedSchedules[i] || DEFAULT_SCHEDULE;
+        const billing = existingBillings[i];
 
-  function handleRemoveBilling(id: string, index: number) {
-    setRemovePending({ id, index });
-  }
-
-  async function confirmRemoveBilling() {
-    if (!removePending) return;
-    const { id, index } = removePending;
-
-    if (id) {
-      try {
-        await archiveBilling(id);
-      } catch (err) {
-        setAlertState({
-          title: "Erro ao remover",
-          message: err instanceof Error ? err.message : "Erro desconhecido.",
-          tone: "error",
+        newServices.push({
+          id: crypto.randomUUID(),
+          schedule: { ...schedule },
+          recurrenceType: schedule.recurrenceType || "weekly",
+          recurrenceDays: schedule.recurrenceDays || null,
+          billings: billing ? [billing] : []
         });
-        return;
       }
+
+      setServices(newServices);
     }
-    setDraftBillings((prev) => prev.filter((_, i) => i !== index));
-    setRemovePending(null);
+  }, [loadingSchedules, loadingBillings, isEdit, sourcedSchedules, existingBillings]);
+
+  function updateService(id: string, field: keyof ServiceBlock, value: any) {
+    setServices((prev) => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+  }
+
+  function addService() {
+    setServices((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), schedule: DEFAULT_SCHEDULE, recurrenceType: "weekly", recurrenceDays: null, billings: [] }
+    ]);
+  }
+
+  function removeService(id: string) {
+    if (services.length === 1) return; // Mantém pelo menos 1
+    setServices((prev) => prev.filter(s => s.id !== id));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setScheduleError(null);
 
     if (!form.display_name.trim()) return setError("Nome é obrigatório.");
-    if (form.kind === "person") {
-      const isCnpj = personDocType === "cnpj";
-      if (form.document && isCnpj && !isValidCNPJ(form.document)) return setError("CNPJ inválido.");
-      if (form.document && !isCnpj && !isValidCPF(form.document)) return setError("CPF inválido.");
-    }
-    if (form.kind === "company" && form.document && !isValidCNPJ(form.document)) return setError("CNPJ inválido.");
-    if (form.phone && !isValidPhoneBR(form.phone)) return setError("Telefone inválido. Use DDD + número.");
-    if (hasScheduleConflict) return setScheduleError("Resolva os horários em conflito antes de salvar.");
 
-    const recurrenceErr = validateRecurrence(recurrenceType, recurrenceDays);
-    if (recurrenceErr) return setScheduleError(recurrenceErr);
+    // Junta todos os horários de todos os blocos para salvar no banco
+    const allSchedules = services.map(s => ({
+      ...s.schedule,
+      recurrenceType: s.recurrenceType,
+      recurrenceDays: s.recurrenceDays,
+      // Pega a descrição do primeiro faturamento do bloco, se existir
+      title: s.billings[0]?.description || (s.schedule.startTime ? "Sessão" : "Compromisso"),
+      color: s.schedule.color || null,
+    }));
+
+    // Junta todos os faturamentos
+    const allBillings = services.flatMap(s => s.billings);
+
+    // Para o banco, usamos a recorrência do primeiro bloco como "principal" (a estrutura atual do banco pede isso)
+    const mainRecurrence = services[0].recurrenceType;
+    const mainRecurrenceDays = services[0].recurrenceDays;
 
     setSaving(true);
-
-    const firstBilling = draftBillings[0];
+    const firstBilling = allBillings[0];
 
     const payload = {
-      kind: form.kind,
-      display_name: toTitleCase(form.display_name),
-      legal_name: form.legal_name.trim() || null,
-      document: form.document.trim() || null,
-      email: form.email.trim() || null,
-      phone: form.phone || null,
-      notes: form.notes.trim() || null,
-      // Salva o valor do primeiro vencimento no perfil do prestador (referência)
-      session_price_cents: firstBilling ? firstBilling.amount_cents : null,
-      // Salva as configurações vindas do modal
-      payment_format: form.payment_format,
-      default_payment_method: form.default_payment_method || null,
+      kind: form.kind, display_name: toTitleCase(form.display_name), legal_name: form.legal_name.trim() || null,
+      document: form.document.trim() || null, email: form.email.trim() || null, phone: form.phone || null,
+      notes: form.notes.trim() || null, session_price_cents: firstBilling ? firstBilling.amount_cents : null,
+      payment_format: form.payment_format, default_payment_method: form.default_payment_method || null,
       session_number_start: parseInt(form.session_number_start, 10) || 0,
     };
 
-    const schedulesChanged = !schedulesEqual(schedules, initialSchedules);
-    const recurrenceChanged = !recurrenceEqual(recurrenceType, recurrenceDays, initialRecurrenceType, initialRecurrenceDays);
-    const shouldSyncSchedules = form.kind === "person" && schedules.length > 0 && (isEdit ? schedulesChanged || recurrenceChanged : true);
+    const shouldSyncSchedules = allSchedules.length > 0;
 
     if (isEdit) {
       const { error: updateErr } = await supabase.from("providers").update(payload).eq("id", id);
-      if (updateErr) {
-        setError(updateErr.message);
-        setSaving(false);
-        return;
-      }
+      if (updateErr) { setError(updateErr.message); setSaving(false); return; }
 
       if (shouldSyncSchedules) {
         const { error: scheduleErr } = await supabase.rpc("set_provider_schedules", {
-          p_provider_id: id,
-          p_schedules: schedules,
-          p_recurrence_type: recurrenceType,
-          p_recurrence_days: recurrenceType === "custom_days" ? recurrenceDays : null,
+          p_provider_id: id, p_schedules: allSchedules, p_recurrence_type: mainRecurrence, p_recurrence_days: mainRecurrenceDays,
         });
-        if (scheduleErr) {
-          setScheduleError(scheduleErr.message);
-          setSaving(false);
-          return;
-        }
+        if (scheduleErr) { setError(scheduleErr.message); setSaving(false); return; }
       }
 
       try {
-        for (const b of draftBillings) {
-          await saveBilling({
-            id: b.id,
-            provider_id: id!,
-            description: b.description,
-            amount_cents: b.amount_cents,
-            due_day: b.due_day,
-            due_month: b.due_month ?? null,
-            frequency: b.frequency,
-            custom_interval_days: b.custom_interval_days ?? null, // Passa a nova coluna
-            starts_on: b.starts_on ?? toDateString(new Date()),
-          });
+        for (const b of allBillings) {
+          await saveBilling({ id: b.id, provider_id: id!, description: b.description, amount_cents: b.amount_cents, due_day: b.due_day, due_month: null, frequency: "monthly", custom_interval_days: null, starts_on: b.starts_on ?? toDateString(new Date()) });
         }
-      } catch (billErr) {
-        setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
-        setSaving(false);
-        return;
-      }
+      } catch (billErr) { setError("Erro ao salvar faturamentos."); setSaving(false); return; }
+
       navigate(`/providers/${id}`);
     } else {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError("Sessão expirada. Faça login novamente.");
-        setSaving(false);
-        return;
-      }
+      if (!user) { setError("Sessão expirada."); setSaving(false); return; }
 
       const { data, error: insertErr } = await supabase.from("providers").insert({ ...payload, user_id: user.id }).select().single();
-      if (insertErr || !data) {
-        setError(insertErr?.message ?? "Erro ao criar prestador.");
-        setSaving(false);
-        return;
-      }
+      if (insertErr || !data) { setError(insertErr?.message ?? "Erro ao criar prestador."); setSaving(false); return; }
 
       if (shouldSyncSchedules) {
-        const { error: scheduleErr } = await supabase.rpc("set_provider_schedules", {
-          p_provider_id: data.id,
-          p_schedules: schedules,
-          p_recurrence_type: recurrenceType,
-          p_recurrence_days: recurrenceType === "custom_days" ? recurrenceDays : null,
+        await supabase.rpc("set_provider_schedules", {
+          p_provider_id: data.id, p_schedules: allSchedules, p_recurrence_type: mainRecurrence, p_recurrence_days: mainRecurrenceDays,
         });
-        if (scheduleErr) {
-          setScheduleError(scheduleErr.message);
-          setSaving(false);
-          return;
-        }
       }
 
-      try {
-        for (const b of draftBillings) {
-          await saveBilling({
-            provider_id: data.id,
-            description: b.description,
-            amount_cents: b.amount_cents,
-            due_day: b.due_day,
-            due_month: b.due_month ?? null,
-            frequency: b.frequency,
-            custom_interval_days: b.custom_interval_days ?? null, // Passa a nova coluna
-            starts_on: b.starts_on ?? toDateString(new Date()),
-          });
-        }
-      } catch (billErr) {
-        setError(billErr instanceof Error ? billErr.message : "Erro ao salvar vencimentos.");
-        setSaving(false);
-        return;
+      for (const b of allBillings) {
+        await saveBilling({ provider_id: data.id, description: b.description, amount_cents: b.amount_cents, due_day: b.due_day, due_month: null, frequency: "monthly", custom_interval_days: null, starts_on: b.starts_on ?? toDateString(new Date()) });
       }
       navigate(`/providers/${data.id}`);
     }
   }
 
   if (isEdit && (loadingProvider || loadingSchedules || loadingBillings)) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Spinner size={24} />
-      </div>
-    );
+    return <div className="flex items-center justify-center py-20"><Spinner size={24} /></div>;
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <Link to={isEdit ? `/providers/${id}` : "/providers"} className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100">
-          <ArrowLeft size={14} />
-          {isEdit ? "Voltar para o prestador" : "Voltar para prestadores"}
+          <ArrowLeft size={14} /> {isEdit ? "Voltar para o prestador" : "Voltar para prestadores"}
         </Link>
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">
-          {isEdit ? "Editar prestador" : "Novo prestador"}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-          Prestadores de serviço (pessoa) ou instituições (empresa) com quem você tem relação.
-        </p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">{isEdit ? "Editar prestador" : "Novo prestador"}</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Tipo */}
-        <Card className="space-y-4 p-6">
-          <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Tipo</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => update("kind", "person")} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
-              <User size={20} className={form.kind === "person" ? "text-brand-600 dark:text-brand-400" : "text-gray-400 dark:text-slate-500"} />
-              <div>
-                <p className="text-sm font-medium">Profissional</p>
-                <p className="text-xs text-gray-500">Supervisor, psicólogo, etc.</p>
-              </div>
-            </button>
-            <button type="button" onClick={() => update("kind", "company")} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
-              <Building2 size={20} className={form.kind === "company" ? "text-brand-600 dark:text-brand-400" : "text-gray-400 dark:text-slate-500"} />
-              <div>
-                <p className="text-sm font-medium">Empresa</p>
-                <p className="text-xs text-gray-500">Curso, aluguel, plataforma.</p>
-              </div>
-            </button>
-          </div>
-        </Card>
 
-        {/* Dados */}
+        {/* BLOCO A - DADOS */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Dados do prestador</h2>
-          <Input label="Nome de exibição" required value={form.display_name} onChange={(e) => update("display_name", e.target.value)} placeholder={form.kind === "person" ? "Ex: Wlad" : "Ex: Escuta Social Psi"} />
-          {form.kind === "company" && (
-            <Input label="Razão social" value={form.legal_name} onChange={(e) => update("legal_name", e.target.value)} placeholder="Nome jurídico completo" />
-          )}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button type="button" onClick={() => setForm(prev => ({ ...prev, kind: "person" }))} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
+              <User size={20} className={form.kind === "person" ? "text-brand-600" : "text-gray-400"} />
+              <div><p className="text-sm font-medium">Profissional</p><p className="text-xs text-gray-500">Supervisor, psicólogo, etc.</p></div>
+            </button>
+            <button type="button" onClick={() => setForm(prev => ({ ...prev, kind: "company" }))} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
+              <Building2 size={20} className={form.kind === "company" ? "text-brand-600" : "text-gray-400"} />
+              <div><p className="text-sm font-medium">Empresa</p><p className="text-xs text-gray-500">Curso, aluguel, plataforma.</p></div>
+            </button>
+          </div>
+          <Input label="Nome de exibição" required value={form.display_name} onChange={(e) => setForm(prev => ({ ...prev, display_name: e.target.value }))} />
+          {form.kind === "company" && <Input label="Razão social" value={form.legal_name} onChange={(e) => setForm(prev => ({ ...prev, legal_name: e.target.value }))} />}
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              {form.kind === "person" ? (
-                <div className="mb-2 flex h-[22px] items-end gap-2 text-xs">
-                  <button type="button" onClick={() => { setPersonDocType("cpf"); update("document", ""); }} className={personDocType === "cpf" ? "font-medium text-brand-600" : "text-gray-500"}>CPF</button>
-                  <span className="text-gray-300">|</span>
-                  <button type="button" onClick={() => { setPersonDocType("cnpj"); update("document", ""); }} className={personDocType === "cnpj" ? "font-medium text-brand-600" : "text-gray-500"}>CNPJ</button>
-                </div>
-              ) : (
-                <div className="mb-2 h-[22px]" />
-              )}
-              <Input
-                label={form.kind === "company" || personDocType === "cnpj" ? "CNPJ" : "CPF"}
-                inputMode="numeric"
-                value={form.document}
-                onChange={(e) => {
-                  const isCnpj = form.kind === "company" || personDocType === "cnpj";
-                  update("document", isCnpj ? maskCNPJ(e.target.value) : maskCPF(e.target.value));
-                }}
-                placeholder={form.kind === "company" || personDocType === "cnpj" ? "00.000.000/0000-00" : "000.000.000-00"}
+            <Input label={form.kind === "company" || personDocType === "cnpj" ? "CNPJ" : "CPF"} value={form.document} onChange={(e) => setForm(prev => ({ ...prev, document: e.target.value }))} />
+            <Input label="Telefone" value={form.phone} onChange={(e) => setForm(prev => ({ ...prev, phone: maskPhone(e.target.value) }))} />
+          </div>
+          <Input label="E-mail" type="email" value={form.email} onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))} />
+        </Card>
+
+        {/* BLOCO B - SERVIÇOS */}
+        {services.map((service, index) => (
+          <Card key={service.id} className="space-y-6 p-6 relative group">
+            {services.length > 1 && (
+              <button type="button" onClick={() => removeService(service.id)} className="absolute top-4 right-4 p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded dark:hover:bg-red-950/50">
+                <Trash2 size={16} />
+              </button>
+            )}
+
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900 dark:text-brand-300">
+                {index + 1}
+              </span>
+              <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Configuração do Serviço</h2>
+            </div>
+
+            <div className="pt-2">
+              <ServiceScheduleField
+                value={service.schedule}
+                onChange={(val) => updateService(service.id, "schedule", val)}
+                recurrenceType={service.recurrenceType}
+                onRecurrenceChange={(type) => updateService(service.id, "recurrenceType", type)}
               />
             </div>
-            <div>
-              <div className="mb-2 h-[22px]" />
-              <Input label="Telefone" type="tel" inputMode="tel" value={form.phone} onChange={(e) => update("phone", maskPhone(e.target.value))} placeholder="(00) 00000-0000" />
+
+            <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
+              <BillingList
+                billings={service.billings}
+                providerData={{ payment_format: form.payment_format, default_payment_method: form.default_payment_method, session_number_start: parseInt(form.session_number_start) || 0 }}
+                onChange={(val) => updateService(service.id, "billings", val)}
+                onProviderDataChange={(data) => setForm(prev => ({ ...prev, ...data, session_number_start: data.session_number_start.toString(), payment_format: data.payment_format as PaymentFormat }))}
+              />
             </div>
-          </div>
-          <Input label="E-mail" type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="contato@exemplo.com" />
-        </Card>
-
-        {/* BLOCO FINANCEIRO UNIFICADO */}
-        <Card className="space-y-4 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                Financeiro e Vencimentos
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                Adicione os valores, formas de pagamento e vencimentos deste prestador.
-              </p>
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <BillingList
-              billings={draftBillings}
-              providerData={{
-                payment_format: form.payment_format,
-                default_payment_method: form.default_payment_method,
-                session_number_start: parseInt(form.session_number_start) || 0
-              }}
-              onChange={setDraftBillings}
-              onProviderDataChange={handleProviderDataChange}
-              onRemove={handleRemoveBilling}
-            />
-          </div>
-        </Card>
-
-        {/* Horários */}
-        {form.kind === "person" && (
-          <Card className="space-y-4 p-6">
-            <ScheduleEditor
-              value={schedules}
-              onChange={setSchedules}
-              disabledSlots={occupiedSlots}
-              error={scheduleError}
-              hint={
-                source === "google"
-                  ? "Estes horários vieram do Google Calendar. Você pode ajustá-los."
-                  : "Estes horários gerarão agendamentos recorrentes (compromisso pessoal). Horários já ocupados aparecem em âmbar."
-              }
-              onConflictChange={setHasScheduleConflict}
-              title="Horários do prestador"
-              recurrenceType={recurrenceType}
-              recurrenceDays={recurrenceDays}
-              onRecurrenceChange={handleRecurrenceChange}
-            />
           </Card>
-        )}
+        ))}
 
-        {/* Notas */}
-        <Card className="space-y-4 p-6">
+        <Button type="button" variant="secondary" onClick={addService} className="w-full border-dashed border-2 py-6">
+          <Plus size={18} /> Adicionar novo serviço
+        </Button>
+
+        {/* BLOCO C - OBSERVAÇÕES */}
+        <Card className="space-y-4 p-6 mt-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Observações internas</h2>
-          <textarea
-            value={form.notes}
-            onChange={(e) => update("notes", e.target.value)}
-            rows={4}
-            placeholder="Anotações administrativas sobre este prestador"
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-          />
+          <textarea value={form.notes} onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))} rows={4} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
         </Card>
 
         {error && (
@@ -488,34 +293,17 @@ export function ProviderForm() {
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pb-12 sm:pb-4">
+        <div className="flex justify-end gap-2 pb-12 sm:pb-4 pt-4">
           <Link to={isEdit ? `/providers/${id}` : "/providers"}>
             <Button type="button" variant="secondary">Cancelar</Button>
           </Link>
-          <Button type="submit" disabled={saving || hasScheduleConflict}>
-            <Save size={16} />
-            {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Criar prestador"}
+          <Button type="submit" disabled={saving}>
+            <Save size={16} /> {saving ? "Salvando..." : "Salvar alterações"}
           </Button>
         </div>
       </form>
 
-      <ConfirmDialog
-        open={removePending !== null}
-        onClose={() => setRemovePending(null)}
-        onConfirm={confirmRemoveBilling}
-        title="Remover vencimento?"
-        description="Esta ação não pode ser desfeita."
-        confirmLabel="Remover"
-        tone="danger"
-      />
-
-      <AlertDialog
-        open={alertState !== null}
-        onClose={() => setAlertState(null)}
-        title={alertState?.title ?? ""}
-        message={alertState?.message}
-        tone={alertState?.tone ?? "info"}
-      />
+      <AlertDialog open={alertState !== null} onClose={() => setAlertState(null)} title={alertState?.title ?? ""} message={alertState?.message} tone={alertState?.tone ?? "info"} />
     </div>
   );
 }

@@ -53,7 +53,7 @@ const INITIAL_FORM: FormState = {
 function schedulesEqual(a: ScheduleInput[], b: ScheduleInput[]): boolean {
   if (a.length !== b.length) return false;
   const key = (s: ScheduleInput) =>
-    `${s.weekday}-${s.startTime.slice(0, 5)}-${s.durationMin}-${s.anchorDate ?? ""}`;
+  `${s.weekday}-${s.startTime?.slice(0, 5) ?? ""}-${s.durationMin ?? 0}-${s.anchorDate ?? ""}`;
   const ka = [...a].map(key).sort().join("|");
   const kb = [...b].map(key).sort().join("|");
   return ka === kb;

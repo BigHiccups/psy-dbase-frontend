@@ -20,14 +20,15 @@ export function DayOverviewModal({
   onClose,
   onAppointmentClick,
 }: Props) {
-  const sorted = [...appointments].sort((a, b) =>
-    a.start_time.localeCompare(b.start_time)
-  );
+  const sorted = [...appointments].sort((a, b) => {
+    if (!a.start_time) return 1;
+    if (!b.start_time) return -1;
+    return a.start_time.localeCompare(b.start_time);
+  });
 
   return (
     <Modal open={open} onClose={onClose} size="md">
       <div className="space-y-4">
-        {/* Cabeçalho */}
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
             <CalendarDays size={20} />
@@ -43,7 +44,6 @@ export function DayOverviewModal({
           </div>
         </div>
 
-        {/* Lista */}
         {sorted.length === 0 ? (
           <p className="py-6 text-center text-sm text-gray-500 dark:text-slate-400">
             Nenhum agendamento neste dia.
@@ -52,11 +52,17 @@ export function DayOverviewModal({
           <div className="space-y-2">
             {sorted.map((appt) => {
               const style = TYPE_STYLES[appt.type];
-              const name =
-                appt.patient?.full_name ??
-                appt.provider?.display_name ??
-                "(sem nome)";
+              const name = appt.patient?.full_name ?? appt.provider?.display_name ?? "(sem nome)";
               const isCancelled = appt.status === "cancelled";
+
+              const hasCustomColor = !!appt.color && appt.type !== "blocked";
+              const customColorStyle = hasCustomColor ? {
+                backgroundColor: `${appt.color!}20`, // <-- Adicionado !
+                borderLeftColor: appt.color!,        // <-- Adicionado !
+                color: appt.color!,                  // <-- Adicionado !
+              } : {};
+              const defaultClasses = !hasCustomColor ? `${style.bg} ${style.border}` : '';
+
               return (
                 <button
                   key={appt.id}
@@ -64,26 +70,23 @@ export function DayOverviewModal({
                     onClose();
                     onAppointmentClick(appt);
                   }}
-                  className={`flex w-full items-center gap-3 rounded-lg border-l-4 p-3 text-left transition hover:brightness-95 ${style.bg} ${style.border}`}
+                  className={`flex w-full items-center gap-3 rounded-lg border-l-4 p-3 text-left transition hover:brightness-95 ${defaultClasses}`}
+                  style={customColorStyle}
                 >
                   <div className="w-14 shrink-0">
-                    <p className={`text-sm font-semibold ${style.text}`}>
-                      {formatTime(appt.start_time)}
+                    <p className={`text-sm font-semibold ${!hasCustomColor ? style.text : ''}`}>
+                      {appt.start_time ? formatTime(appt.start_time) : "Dia todo"}
                     </p>
-                    <p className={`text-[10px] ${style.text} opacity-70`}>
-                      {appt.duration_min}min
+                    <p className={`text-[10px] ${!hasCustomColor ? style.text : ''} opacity-70`}>
+                      {appt.duration_min ? `${appt.duration_min}min` : ""}
                     </p>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p
-                      className={`truncate text-sm font-medium ${style.text} ${
-                        isCancelled ? "line-through opacity-50" : ""
-                      }`}
-                    >
+                    <p className={`truncate text-sm font-medium ${isCancelled ? "line-through opacity-50" : ""} ${!hasCustomColor ? style.text : ''}`}>
                       {name}
                     </p>
-                    <p className={`text-[10px] ${style.text} opacity-70`}>
-                      {style.label}
+                    <p className={`truncate text-[10px] opacity-80 ${!hasCustomColor ? style.text : ''}`}>
+                      {appt.title ? appt.title : style.label}
                     </p>
                   </div>
                 </button>
@@ -92,7 +95,6 @@ export function DayOverviewModal({
           </div>
         )}
 
-        {/* Ações */}
         <div className="flex justify-between border-t border-gray-100 pt-4 dark:border-slate-800">
           <Link
             to={`/agenda/day/${date}`}

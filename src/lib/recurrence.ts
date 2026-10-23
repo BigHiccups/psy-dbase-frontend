@@ -3,22 +3,21 @@ import type { RecurrenceType } from "../types";
 // =========================================================
 // Constantes de recorrência
 // =========================================================
-// Cada opção tem:
-// - value:       valor gravado no banco (coluna recurrence_type)
-// - label:       texto completo (select do ScheduleEditor)
-// - shortLabel:  texto curto (badge em PatientDetail / ProviderDetail)
-// =========================================================
-export const RECURRENCE_OPTIONS: {
-  value: RecurrenceType;
-  label: string;
-  shortLabel: string;
+export const RECURRENCE_OPTIONS: { 
+  value: RecurrenceType; 
+  label: string; 
+  shortLabel: string; 
 }[] = [
-  { value: "once",          label: "Única vez",                       shortLabel: "Única" },
-  { value: "weekly",        label: "Semanal (a cada 7 dias)",         shortLabel: "Semanal" },
-  { value: "biweekly",      label: "Quinzenal (a cada 14 dias)",      shortLabel: "Quinzenal" },
-  { value: "every_30_days", label: "A cada 30 dias",                  shortLabel: "30 dias" },
-  { value: "monthly",       label: "Mensal (mesmo dia do mês)",       shortLabel: "Mensal" },
-  { value: "custom_days",   label: "Personalizado (a cada N dias)",   shortLabel: "Personalizado" },
+  { value: "weekly", label: "Semanal", shortLabel: "Semanal" },
+  { value: "biweekly", label: "Quinzenal", shortLabel: "Quinzenal" },
+  { value: "monthly", label: "Mensal", shortLabel: "Mensal" },
+  { value: "bimonthly", label: "Bimestral", shortLabel: "Bimestral" },
+  { value: "quarterly", label: "Trimestral", shortLabel: "Trimestral" },
+  { value: "semiannual", label: "Semestral", shortLabel: "Semestral" },
+  { value: "yearly", label: "Anual", shortLabel: "Anual" },
+  { value: "custom_days", label: "Personalizado (dias)", shortLabel: "P. Dias" },
+  { value: "every_30_days", label: "A cada 30 dias", shortLabel: "30 dias" },
+  { value: "once", label: "Única vez", shortLabel: "Única" },
 ];
 
 // Default quando o ScheduleInput não traz recurrenceType
@@ -43,11 +42,16 @@ export function validateRecurrence(
   type: RecurrenceType,
   days: number | null | undefined
 ): string | null {
+  // Atualizado com todas as frequências suportadas
   const validTypes: RecurrenceType[] = [
     "once",
     "weekly",
     "biweekly",
     "monthly",
+    "bimonthly",
+    "quarterly",
+    "semiannual",
+    "yearly",
     "every_30_days",
     "custom_days",
   ];
