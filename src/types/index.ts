@@ -37,13 +37,17 @@ export type RecurrenceType =
   | "custom_days";
 
 export type ScheduleInput = {
-  weekday: number;                  // 0=domingo, 6=sábado
-  startTime: string | null;         // "HH:MM" ou null se for dia inteiro
-  durationMin: number | null;       // default 50 ou null se for dia inteiro
+  weekday: number;
+  startTime: string | null;
+  durationMin: number | null;
   recurrenceType?: RecurrenceType;
   recurrenceDays?: number | null;
-  anchorDate?: string | null;       // YYYY-MM-DD
+  anchorDate?: string | null;
+  // NOVOS CAMPOS
+  title?: string | null;
   color?: string | null;
+  sessionPrice?: number | null;
+  paymentFormat?: string | null;
 };
 
 export type InviteResponse = {

@@ -5,7 +5,6 @@ import { parseDateBR, formatDateBR } from "../../lib/masks";
 import type { ScheduleInput, RecurrenceType } from "../../types";
 import { Check, Palette } from "lucide-react";
 
-// Cores organizadas
 const COLORS = [
   { name: 'Padrão', hex: '' },
   { name: 'Teal', hex: '#0d9488' },
@@ -29,16 +28,22 @@ type Props = {
   value: ScheduleInput;
   onChange: (value: ScheduleInput) => void;
   recurrenceType: RecurrenceType;
-  onRecurrenceChange: (type: RecurrenceType) => void;
+  onRecurrenceChange: (type: RecurrenceType, days?: number | null) => void;
+  recurrenceDays?: number | null;
 };
 
-export function ServiceScheduleField({ value, onChange, recurrenceType, onRecurrenceChange }: Props) {
+export function ServiceScheduleField({ 
+  value, 
+  onChange, 
+  recurrenceType, 
+  onRecurrenceChange,
+  recurrenceDays 
+}: Props) {
   const [dateText, setDateText] = useState("");
   const [hasTime, setHasTime] = useState(!!value.startTime);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
-  // Fecha o seletor de cores se clicar fora
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (colorPickerRef.current && !colorPickerRef.current.contains(event.target as Node)) {
@@ -50,7 +55,8 @@ export function ServiceScheduleField({ value, onChange, recurrenceType, onRecurr
   }, []);
 
   const isYearly = recurrenceType === "yearly";
-  const isDateBased = ["monthly", "bimonthly", "quarterly", "semiannual", "yearly"].includes(recurrenceType);
+  const isCustomDays = recurrenceType === "custom_days";
+  const isDateBased = ["once", "monthly", "bimonthly", "quarterly", "semiannual", "yearly", "custom_days"].includes(recurrenceType);
 
   useEffect(() => {
     if (value.anchorDate) setDateText(formatDateBR(value.anchorDate));
@@ -85,59 +91,62 @@ export function ServiceScheduleField({ value, onChange, recurrenceType, onRecurr
     }
   };
 
-  // Pega as 3 primeiras cores (Padrão, Teal, Esmeralda) para mostrar na tela
-  const quickColors = COLORS.slice(0, 3);
+  // Descobre qual é a cor atual para renderizar a bolinha única
+  const currentColorObj = COLORS.find(c => 
+    c.hex === '' ? !value.color : value.color === c.hex
+  ) || COLORS[0];
 
   return (
     <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
       
-      {/* SELETOR DE COR (Compacto) */}
+      {/* SELETOR DE COR SIMPLIFICADO */}
       <div className="flex items-center gap-3 mb-2 relative" ref={colorPickerRef}>
         <label className="text-xs font-medium text-gray-600 dark:text-slate-300">
           Cor do serviço:
         </label>
         
-        <div className="flex items-center gap-1.5">
-          {/* Mostra as 3 cores rápidas */}
-          {quickColors.map(c => {
-            const isSelected = (c.hex === '' && !value.color) || (c.hex !== '' && value.color === c.hex);
-            return (
-              <button
-                key={c.hex || 'default'}
-                type="button"
-                onClick={() => onChange({ ...value, color: c.hex || null })}
-                className={`flex h-6 w-6 items-center justify-center rounded-full transition-transform hover:scale-110 ${
-                  isSelected ? 'ring-2 ring-brand-500 ring-offset-1 dark:ring-offset-slate-900' : ''
-                } ${c.hex === '' ? 'border border-gray-300 bg-white dark:border-slate-600 dark:bg-slate-800' : ''}`}
-                style={c.hex ? { backgroundColor: c.hex } : {}}
-                title={c.name}
-              >
-                {isSelected && <Check size={12} className={c.hex === '' ? "text-brand-600" : "text-white"} strokeWidth={3} />}
-              </button>
-            );
-          })}
-
-          {/* Botão para abrir o menu com todas as cores */}
+        <div className="flex items-center gap-2">
+          
+          {/* Única bolinha mostrando a cor atual */}
           <button
             type="button"
             onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
-            className={`ml-1 flex h-6 w-6 items-center justify-center rounded-full border transition-colors ${
+            className={`flex h-7 w-7 items-center justify-center rounded-full border transition-all duration-200 hover:scale-105 hover:opacity-90 shadow-sm ${
+              currentColorObj.hex === '' ? 'border-gray-300 bg-white dark:border-slate-500 dark:bg-slate-200' : 'border-transparent'
+            }`}
+            style={currentColorObj.hex ? { backgroundColor: currentColorObj.hex } : {}}
+            title={`Cor atual: ${currentColorObj.name}`}
+          >
+            <Check 
+              size={14} 
+              className={currentColorObj.hex === '' ? "text-slate-800" : "text-white"} 
+              strokeWidth={3} 
+            />
+          </button>
+
+          {/* Botão para abrir a paleta */}
+          <button
+            type="button"
+            onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
+            className={`ml-1 flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
               isColorPickerOpen 
                 ? 'border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-950/50 dark:text-brand-400' 
                 : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
             }`}
-            title="Mais cores"
+            title="Escolher outra cor"
           >
-            <Palette size={12} />
+            <Palette size={14} />
           </button>
         </div>
 
         {/* Popover com todas as cores */}
         {isColorPickerOpen && (
-          <div className="absolute left-0 top-full z-50 mt-2 w-48 rounded-xl border border-gray-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800 animate-in fade-in zoom-in-95 duration-100">
+          <div className="absolute left-0 top-full z-50 mt-2 w-[200px] rounded-xl border border-gray-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800 animate-in fade-in zoom-in-95 duration-100">
             <div className="grid grid-cols-4 gap-2">
               {COLORS.map(c => {
-                const isSelected = (c.hex === '' && !value.color) || (c.hex !== '' && value.color === c.hex);
+                const isSelected = c.hex === '' ? !value.color : value.color === c.hex;
+                const isDefault = c.hex === '';
+                
                 return (
                   <button
                     key={c.hex || 'default'}
@@ -146,13 +155,21 @@ export function ServiceScheduleField({ value, onChange, recurrenceType, onRecurr
                       onChange({ ...value, color: c.hex || null });
                       setIsColorPickerOpen(false);
                     }}
-                    className={`flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110 ${
-                      isSelected ? 'ring-2 ring-brand-500 ring-offset-1 dark:ring-offset-slate-800' : ''
-                    } ${c.hex === '' ? 'border border-gray-300 bg-white dark:border-slate-600 dark:bg-slate-700' : ''}`}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 ${
+                      isSelected 
+                        ? 'scale-110 ring-2 ring-brand-500 ring-offset-2 dark:ring-brand-400 dark:ring-offset-slate-800 shadow-md' 
+                        : 'hover:scale-105 opacity-80 hover:opacity-100'
+                    } ${isDefault ? 'border border-gray-300 bg-white dark:border-slate-500 dark:bg-slate-200' : ''}`}
                     style={c.hex ? { backgroundColor: c.hex } : {}}
                     title={c.name}
                   >
-                    {isSelected && <Check size={14} className={c.hex === '' ? "text-brand-600" : "text-white"} strokeWidth={3} />}
+                    {isSelected && (
+                      <Check 
+                        size={16} 
+                        className={isDefault ? "text-slate-800" : "text-white"} 
+                        strokeWidth={3} 
+                      />
+                    )}
                   </button>
                 );
               })}
@@ -168,9 +185,13 @@ export function ServiceScheduleField({ value, onChange, recurrenceType, onRecurr
           </label>
           <select
             value={recurrenceType}
-            onChange={(e) => onRecurrenceChange(e.target.value as RecurrenceType)}
+            onChange={(e) => {
+              const val = e.target.value as RecurrenceType;
+              onRecurrenceChange(val, val === "custom_days" ? 15 : null);
+            }}
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
+            <option value="once">Avulso (Única vez)</option>
             <option value="weekly">Semanal</option>
             <option value="biweekly">Quinzenal</option>
             <option value="monthly">Mensal</option>
@@ -178,9 +199,39 @@ export function ServiceScheduleField({ value, onChange, recurrenceType, onRecurr
             <option value="quarterly">Trimestral</option>
             <option value="semiannual">Semestral</option>
             <option value="yearly">Anual</option>
+            <option value="custom_days">Personalizado</option>
           </select>
         </div>
 
+        {isCustomDays ? (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+              A cada quantos dias?
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={recurrenceDays || 15}
+              onChange={(e) => onRecurrenceChange(recurrenceType, Number(e.target.value))}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </div>
+        ) : (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+              Data de Início
+            </label>
+            <MaskedDateInput
+              value={dateText}
+              onChange={handleDateChange}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </div>
+        )}
+      </div>
+
+      {isCustomDays && (
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
             Data de Início
@@ -191,7 +242,7 @@ export function ServiceScheduleField({ value, onChange, recurrenceType, onRecurr
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
-      </div>
+      )}
 
       <div className="pt-2 border-t border-gray-200 dark:border-slate-700">
         <label className={`flex items-center gap-2 cursor-pointer ${isYearly ? 'opacity-50 cursor-not-allowed' : ''}`}>

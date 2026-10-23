@@ -41,7 +41,10 @@ export function useProviderScheduleSource(
       // 1) provider_schedules (manual)
       const { data: manualData, error: manualErr } = await supabase
         .from("provider_schedules")
-        .select("weekday, start_time, duration_min, recurrence_type, recurrence_days, anchor_date")
+        // ADICIONAMOS title, color, session_price_cents e payment_format
+        .select(
+          "weekday, start_time, duration_min, recurrence_type, recurrence_days, anchor_date, title, color, session_price_cents, payment_format"
+        )
         .eq("provider_id", providerId)
         .order("weekday")
         .order("start_time");
@@ -57,9 +60,13 @@ export function useProviderScheduleSource(
             recurrenceType: (row.recurrence_type as RecurrenceType | null) ?? "weekly",
             recurrenceDays: row.recurrence_days ?? null,
             anchorDate: row.anchor_date ?? undefined,
+            // MAPEAMENTO DOS NOVOS CAMPOS
+            title: row.title,
+            color: row.color,
+            sessionPrice: row.session_price_cents,
+            paymentFormat: row.payment_format,
           }))
         );
-        // Apenas para compatibilidade com a interface (o primeiro horário define o "principal")
         setRecurrenceType((manualData[0].recurrence_type as RecurrenceType | null) ?? "weekly");
         setRecurrenceDays(manualData[0].recurrence_days ?? null);
         setSource("manual");
@@ -70,7 +77,7 @@ export function useProviderScheduleSource(
       // 2) appointments tipo 'personal' (derivado)
       const { data: apptData } = await supabase
         .from("appointments")
-        .select("weekday, start_time, duration_min")
+        .select("weekday, start_time, duration_min, title, color")
         .eq("provider_id", providerId)
         .eq("status", "active")
         .eq("type", "personal")
@@ -93,6 +100,8 @@ export function useProviderScheduleSource(
             durationMin: row.duration_min ?? 50,
             recurrenceType: "weekly",
             recurrenceDays: null,
+            title: row.title,
+            color: row.color,
           });
         }
 
@@ -110,7 +119,9 @@ export function useProviderScheduleSource(
       setRecurrenceDays(null);
       setLoading(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao buscar horários.");
+      setError(
+        err instanceof Error ? err.message : "Erro ao buscar horários."
+      );
       setSchedules([]);
       setSource("none");
       setLoading(false);
@@ -119,6 +130,7 @@ export function useProviderScheduleSource(
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerId]);
 
   return {
