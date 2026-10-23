@@ -43,7 +43,7 @@ const DEFAULT_SCHEDULE: ScheduleInput = {
   weekday: 1, // Segunda
   startTime: "14:00",
   durationMin: 50,
-  anchorDate: toDateString(new Date()), // Inicia com a data de hoje por padrão
+  anchorDate: toDateString(new Date()),
 };
 
 export function ProviderForm() {
@@ -55,12 +55,11 @@ export function ProviderForm() {
   const { schedules: sourcedSchedules, loading: loadingSchedules } = useProviderScheduleSource(id);
   const { billings: existingBillings, saveBilling, loading: loadingBillings } = useProviderBillings(id);
 
-  // Controle para não sobrescrever o que o usuário está digitando
   const isInitialized = useRef(false);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [personDocType, setPersonDocType] = useState<"cpf" | "cnpj">("cpf");
-
+  
   const [services, setServices] = useState<ServiceBlock[]>([
     { id: crypto.randomUUID(), schedule: DEFAULT_SCHEDULE, recurrenceType: "weekly", recurrenceDays: null, billings: [] }
   ]);
@@ -90,12 +89,10 @@ export function ProviderForm() {
 
       const numSchedules = sourcedSchedules.length;
       const numBillings = existingBillings.length;
-
-      // Descobre quantos blocos precisamos criar (o maior entre a quantidade de horários e faturamentos)
       const maxBlocks = Math.max(numSchedules, numBillings, 1);
-
+      
       const newServices: ServiceBlock[] = [];
-
+      
       for (let i = 0; i < maxBlocks; i++) {
         const schedule = sourcedSchedules[i] || DEFAULT_SCHEDULE;
         const billing = existingBillings[i];
@@ -108,7 +105,7 @@ export function ProviderForm() {
           billings: billing ? [billing] : []
         });
       }
-
+      
       setServices(newServices);
     }
   }, [loadingSchedules, loadingBillings, isEdit, sourcedSchedules, existingBillings]);
@@ -125,7 +122,7 @@ export function ProviderForm() {
   }
 
   function removeService(id: string) {
-    if (services.length === 1) return; // Mantém pelo menos 1
+    if (services.length === 1) return;
     setServices((prev) => prev.filter(s => s.id !== id));
   }
 
@@ -135,20 +132,15 @@ export function ProviderForm() {
 
     if (!form.display_name.trim()) return setError("Nome é obrigatório.");
 
-    // Junta todos os horários de todos os blocos para salvar no banco
     const allSchedules = services.map(s => ({
       ...s.schedule,
       recurrenceType: s.recurrenceType,
       recurrenceDays: s.recurrenceDays,
-      // Pega a descrição do primeiro faturamento do bloco, se existir
       title: s.billings[0]?.description || (s.schedule.startTime ? "Sessão" : "Compromisso"),
-      color: s.schedule.color || null,
+      color: s.schedule.color || null, // Garante que a cor vá pro banco
     }));
-
-    // Junta todos os faturamentos
+    
     const allBillings = services.flatMap(s => s.billings);
-
-    // Para o banco, usamos a recorrência do primeiro bloco como "principal" (a estrutura atual do banco pede isso)
     const mainRecurrence = services[0].recurrenceType;
     const mainRecurrenceDays = services[0].recurrenceDays;
 
@@ -181,12 +173,12 @@ export function ProviderForm() {
           await saveBilling({ id: b.id, provider_id: id!, description: b.description, amount_cents: b.amount_cents, due_day: b.due_day, due_month: null, frequency: "monthly", custom_interval_days: null, starts_on: b.starts_on ?? toDateString(new Date()) });
         }
       } catch (billErr) { setError("Erro ao salvar faturamentos."); setSaving(false); return; }
-
+      
       navigate(`/providers/${id}`);
     } else {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setError("Sessão expirada."); setSaving(false); return; }
-
+      
       const { data, error: insertErr } = await supabase.from("providers").insert({ ...payload, user_id: user.id }).select().single();
       if (insertErr || !data) { setError(insertErr?.message ?? "Erro ao criar prestador."); setSaving(false); return; }
 
@@ -217,27 +209,27 @@ export function ProviderForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-
+        
         {/* BLOCO A - DADOS */}
         <Card className="space-y-4 p-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Dados do prestador</h2>
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <button type="button" onClick={() => setForm(prev => ({ ...prev, kind: "person" }))} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
+            <button type="button" onClick={() => setForm(prev => ({...prev, kind: "person"}))} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "person" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
               <User size={20} className={form.kind === "person" ? "text-brand-600" : "text-gray-400"} />
               <div><p className="text-sm font-medium">Profissional</p><p className="text-xs text-gray-500">Supervisor, psicólogo, etc.</p></div>
             </button>
-            <button type="button" onClick={() => setForm(prev => ({ ...prev, kind: "company" }))} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
+            <button type="button" onClick={() => setForm(prev => ({...prev, kind: "company"}))} className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${form.kind === "company" ? "border-brand-300 bg-brand-50/50 dark:border-brand-700 dark:bg-brand-950/30" : "border-gray-200 bg-white hover:border-gray-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"}`}>
               <Building2 size={20} className={form.kind === "company" ? "text-brand-600" : "text-gray-400"} />
               <div><p className="text-sm font-medium">Empresa</p><p className="text-xs text-gray-500">Curso, aluguel, plataforma.</p></div>
             </button>
           </div>
-          <Input label="Nome de exibição" required value={form.display_name} onChange={(e) => setForm(prev => ({ ...prev, display_name: e.target.value }))} />
-          {form.kind === "company" && <Input label="Razão social" value={form.legal_name} onChange={(e) => setForm(prev => ({ ...prev, legal_name: e.target.value }))} />}
+          <Input label="Nome de exibição" required value={form.display_name} onChange={(e) => setForm(prev => ({...prev, display_name: e.target.value}))} />
+          {form.kind === "company" && <Input label="Razão social" value={form.legal_name} onChange={(e) => setForm(prev => ({...prev, legal_name: e.target.value}))} />}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label={form.kind === "company" || personDocType === "cnpj" ? "CNPJ" : "CPF"} value={form.document} onChange={(e) => setForm(prev => ({ ...prev, document: e.target.value }))} />
-            <Input label="Telefone" value={form.phone} onChange={(e) => setForm(prev => ({ ...prev, phone: maskPhone(e.target.value) }))} />
+            <Input label={form.kind === "company" || personDocType === "cnpj" ? "CNPJ" : "CPF"} value={form.document} onChange={(e) => setForm(prev => ({...prev, document: e.target.value}))} />
+            <Input label="Telefone" value={form.phone} onChange={(e) => setForm(prev => ({...prev, phone: maskPhone(e.target.value)}))} />
           </div>
-          <Input label="E-mail" type="email" value={form.email} onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))} />
+          <Input label="E-mail" type="email" value={form.email} onChange={(e) => setForm(prev => ({...prev, email: e.target.value}))} />
         </Card>
 
         {/* BLOCO B - SERVIÇOS */}
@@ -248,7 +240,7 @@ export function ProviderForm() {
                 <Trash2 size={16} />
               </button>
             )}
-
+            
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900 dark:text-brand-300">
                 {index + 1}
@@ -261,7 +253,16 @@ export function ProviderForm() {
                 value={service.schedule}
                 onChange={(val) => updateService(service.id, "schedule", val)}
                 recurrenceType={service.recurrenceType}
-                onRecurrenceChange={(type) => updateService(service.id, "recurrenceType", type)}
+                recurrenceDays={service.recurrenceDays}
+                onRecurrenceChange={(type, days) => {
+                  setServices((prev) =>
+                    prev.map((s) =>
+                      s.id === service.id
+                        ? { ...s, recurrenceType: type, recurrenceDays: days ?? null }
+                        : s
+                    )
+                  );
+                }}
               />
             </div>
 
@@ -270,7 +271,7 @@ export function ProviderForm() {
                 billings={service.billings}
                 providerData={{ payment_format: form.payment_format, default_payment_method: form.default_payment_method, session_number_start: parseInt(form.session_number_start) || 0 }}
                 onChange={(val) => updateService(service.id, "billings", val)}
-                onProviderDataChange={(data) => setForm(prev => ({ ...prev, ...data, session_number_start: data.session_number_start.toString(), payment_format: data.payment_format as PaymentFormat }))}
+                onProviderDataChange={(data) => setForm(prev => ({...prev, ...data, session_number_start: data.session_number_start.toString(), payment_format: data.payment_format as PaymentFormat }))}
               />
             </div>
           </Card>
@@ -283,7 +284,7 @@ export function ProviderForm() {
         {/* BLOCO C - OBSERVAÇÕES */}
         <Card className="space-y-4 p-6 mt-6">
           <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Observações internas</h2>
-          <textarea value={form.notes} onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))} rows={4} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
+          <textarea value={form.notes} onChange={(e) => setForm(prev => ({...prev, notes: e.target.value}))} rows={4} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
         </Card>
 
         {error && (
