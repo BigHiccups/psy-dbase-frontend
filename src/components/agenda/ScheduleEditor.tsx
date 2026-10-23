@@ -6,11 +6,7 @@ import { slotOverlapsAppointment } from "../../lib/appointment-overlap";
 import { RECURRENCE_OPTIONS } from "../../lib/recurrence";
 import { parseDateBR, formatDateBR, isValidDateBR } from "../../lib/masks";
 import { MaskedDateInput } from "../ui/MaskedDateInput";
-import {
-  toDateString,
-  WEEKDAY_LONG,
-  isoWeekday,
-} from "../../lib/agenda-date";
+import { toDateString } from "../../lib/agenda-date";
 import type { RecurrenceType, ScheduleInput } from "../../types";
 
 type DisabledSlot = {
@@ -29,7 +25,6 @@ type Props = {
   hint?: string;
   title?: string;
   onConflictChange?: (hasConflict: boolean) => void;
-
   recurrenceType?: RecurrenceType;
   recurrenceDays?: number | null;
   onRecurrenceChange?: (type: RecurrenceType, days: number | null) => void;
@@ -40,7 +35,7 @@ const DEFAULT_START_TIME = "14:00";
 const DEFAULT_RECURRENCE_TYPE: RecurrenceType = "weekly";
 
 function normalizeTime(t: string): string {
-  return t.slice(0, 5);
+  return t?.slice(0, 5) || "00:00";
 }
 
 function nextDateForWeekday(weekday: number): string {
@@ -68,22 +63,10 @@ function usesDateInput(type: RecurrenceType): boolean {
 }
 
 export function ScheduleEditor({
-  value,
-  onChange,
-  disabledSlots = [],
-  disabled,
-  readOnly,
-  error,
-  hint,
-  title = "Horários das sessões",
-  onConflictChange,
-  recurrenceType,
-  recurrenceDays,
-  onRecurrenceChange,
+  value, onChange, disabledSlots = [], disabled, readOnly, error, hint, title = "Horários das sessões", onConflictChange, recurrenceType, recurrenceDays, onRecurrenceChange,
 }: Props) {
   const showRecurrence = !!onRecurrenceChange;
-  const effectiveRecurrenceType: RecurrenceType =
-    recurrenceType ?? DEFAULT_RECURRENCE_TYPE;
+  const effectiveRecurrenceType: RecurrenceType = recurrenceType ?? DEFAULT_RECURRENCE_TYPE;
   const isCustomDays = effectiveRecurrenceType === "custom_days";
   const isOnce = effectiveRecurrenceType === "once";
   const useDateInput = usesDateInput(effectiveRecurrenceType);
@@ -108,7 +91,11 @@ export function ScheduleEditor({
   function handleDateTextChange(index: number, maskedValue: string) {
     setDateTexts((prev) => ({ ...prev, [index]: maskedValue }));
     const iso = parseDateBR(maskedValue);
-    if (iso) update(index, { anchorDate: iso });
+    if (iso) {
+      // A MÁGICA: Ao mudar a data, o dia da semana é recalculado imediatamente
+      const newWeekday = weekdayFromDate(iso);
+      update(index, { anchorDate: iso, weekday: newWeekday });
+    }
   }
 
   function isDateInvalid(index: number): boolean {
@@ -124,7 +111,8 @@ export function ScheduleEditor({
       const nextUsesDate = usesDateInput(next);
       const currentUsesDate = useDateInput;
       if (nextUsesDate && !currentUsesDate) {
-        return { ...s, anchorDate: nextDateForWeekday(s.weekday) };
+        const dateStr = nextDateForWeekday(s.weekday);
+        return { ...s, anchorDate: dateStr, weekday: weekdayFromDate(dateStr) };
       }
       if (!nextUsesDate && currentUsesDate) {
         const weekday = s.anchorDate ? weekdayFromDate(s.anchorDate) : s.weekday;
@@ -186,8 +174,8 @@ export function ScheduleEditor({
       if (i === index) return false;
       const otherWeekday = useDateInput ? (s.anchorDate ? weekdayFromDate(s.anchorDate) : s.weekday) : s.weekday;
       return slotOverlapsAppointment(
-        { weekday: selfWeekday, startTime: self.startTime, durationMin: self.durationMin },
-        { weekday: otherWeekday, start_time: s.startTime, duration_min: s.durationMin }
+        { weekday: selfWeekday, startTime: self.startTime!, durationMin: self.durationMin! },
+        { weekday: otherWeekday, start_time: s.startTime || "00:00", duration_min: s.durationMin || 50 }
       );
     });
   }
@@ -195,14 +183,12 @@ export function ScheduleEditor({
   function isRowLocked(index: number): boolean {
     const s = value[index];
     const effWeekday = useDateInput ? (s.anchorDate ? weekdayFromDate(s.anchorDate) : s.weekday) : s.weekday;
-    return isExternallyOverlapping(effWeekday, s.startTime, s.durationMin) || hasInternalConflict(index);
+    return isExternallyOverlapping(effWeekday, s.startTime || "00:00", s.durationMin || 50) || hasInternalConflict(index);
   }
 
   const hasConflict = useMemo(() => value.some((_, i) => isRowLocked(i)), [value, disabledSlots, useDateInput]);
 
-  useEffect(() => {
-    onConflictChange?.(hasConflict);
-  }, [hasConflict, onConflictChange]);
+  useEffect(() => { onConflictChange?.(hasConflict); }, [hasConflict, onConflictChange]);
 
   useEffect(() => {
     if (!isOnce) return;
@@ -217,14 +203,14 @@ export function ScheduleEditor({
     if (isExternallyOverlapping(weekday, startTime, durationMin)) return false;
     return !value.some((s, i) => i !== ignoreIndex && slotOverlapsAppointment(
       { weekday, startTime, durationMin },
-      { weekday: useDateInput ? (s.anchorDate ? weekdayFromDate(s.anchorDate) : s.weekday) : s.weekday, start_time: s.startTime, duration_min: s.durationMin }
+      { weekday: useDateInput ? (s.anchorDate ? weekdayFromDate(s.anchorDate) : s.weekday) : s.weekday, start_time: s.startTime || "00:00", duration_min: s.durationMin || 50 }
     ));
   }
 
   function findFreeSlot(): ScheduleInput {
     const last = value[value.length - 1];
     const baseWeekday = last ? (last.weekday + 1) % 7 : 1;
-    const baseStartTime = last ? normalizeTime(last.startTime) : DEFAULT_START_TIME;
+    const baseStartTime = last && last.startTime ? normalizeTime(last.startTime) : DEFAULT_START_TIME;
     const baseDuration = last?.durationMin ?? DEFAULT_DURATION;
     for (let i = 0; i < 7; i++) {
       const wd = (baseWeekday + i) % 7;
@@ -282,7 +268,7 @@ export function ScheduleEditor({
                 <Repeat size={12} /> Frequência
               </label>
               <select value={effectiveRecurrenceType} onChange={(e) => handleRecurrenceTypeChange(e.target.value as RecurrenceType)} disabled={disabled || readOnly} className={`w-full ${inputClasses}`}>
-                {RECURRENCE_OPTIONS.map((opt) => ( <option key={opt.value} value={opt.value}>{opt.label}</option> ))}
+                {RECURRENCE_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
               </select>
             </div>
             {isCustomDays && (
@@ -311,66 +297,74 @@ export function ScheduleEditor({
         {value.map((s, index) => {
           const locked = isRowLocked(index);
           const dateInvalid = isDateInvalid(index);
-          const effWeekday = useDateInput ? (s.anchorDate ? weekdayFromDate(s.anchorDate) : s.weekday) : s.weekday;
-
+          
           return (
             <div key={index} className={`rounded-xl border p-3 transition ${locked ? "border-amber-300 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/20" : "border-gray-200 bg-gray-50/60 dark:border-slate-800 dark:bg-slate-800/40"}`}>
               
-              {/* Container flexível: Coluna no mobile, Linha no desktop */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 
-                {/* Número */}
-                <div className={`mt-1 hidden h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium sm:flex sm:mt-[24px] ${locked ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200" : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"}`}>
+                <div className={`hidden h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium sm:flex mb-1.5 ${locked ? "bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200" : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"}`}>
                   {index + 1}
                 </div>
 
-                {/* Dia / Data (Ocupa toda a linha no mobile) */}
-                <div className="w-full sm:flex-1">
+                {/* DATA DE INÍCIO (dd/mm/aaaa) */}
+                {useDateInput && (
+                  <div className="w-full sm:w-[130px]">
+                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-slate-300">
+                      Data Início
+                    </label>
+                    <MaskedDateInput 
+                      value={dateTexts[index] ?? ""} 
+                      onChange={(v) => handleDateTextChange(index, v)} 
+                      disabled={disabled} 
+                      readOnly={readOnly} 
+                      invalid={dateInvalid} 
+                      className={`w-full ${inputClasses}`} 
+                    />
+                  </div>
+                )}
+
+                {/* DIA DA SEMANA (Travado se a frequência usar data) */}
+                <div className="w-full sm:w-[140px]">
                   <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-slate-300">
-                    {useDateInput ? "Início" : "Dia da semana"}
+                    Dia da semana
                   </label>
-                  {useDateInput ? (
-                    <MaskedDateInput value={dateTexts[index] ?? ""} onChange={(v) => handleDateTextChange(index, v)} disabled={disabled} readOnly={readOnly} invalid={dateInvalid} className={`w-full ${inputClasses}`} />
-                  ) : (
-                    <select value={s.weekday} onChange={(e) => update(index, { weekday: Number(e.target.value) })} disabled={disabled || readOnly} className={`w-full ${inputClasses}`}>
-                      {WEEKDAYS.map((w) => ( <option key={w.value} value={w.value}>{w.long}</option> ))}
-                    </select>
-                  )}
+                  <select 
+                    value={s.weekday} 
+                    onChange={(e) => update(index, { weekday: Number(e.target.value) })} 
+                    disabled={disabled || readOnly || useDateInput}
+                    className={`w-full ${inputClasses}`}
+                  >
+                    {WEEKDAYS.map((w) => (<option key={w.value} value={w.value}>{w.long}</option>))}
+                  </select>
                 </div>
 
-                {/* Hora, Duração e Lixeira (Ficam juntos na base no mobile) */}
-                <div className="flex items-end gap-2 sm:flex-row">
-                  
-                  <div className="flex-1 sm:w-[100px] sm:flex-initial">
+                {/* HORA E DURAÇÃO */}
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="flex-1 sm:w-[100px]">
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-slate-300">Hora</label>
-                    <input type="time" value={s.startTime} onChange={(e) => update(index, { startTime: e.target.value })} disabled={disabled || readOnly} className={`w-full ${inputClasses}`} />
+                    <input type="time" value={s.startTime || ""} onChange={(e) => update(index, { startTime: e.target.value })} disabled={disabled || readOnly} className={`w-full ${inputClasses}`} />
                   </div>
 
-                  <div className="flex-1 sm:w-[90px] sm:flex-initial">
+                  <div className="flex-1 sm:w-[90px]">
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-slate-300">Duração</label>
                     <div className="relative">
-                      <input type="number" min={15} max={240} step={5} value={s.durationMin} onChange={(e) => update(index, { durationMin: Number(e.target.value) })} disabled={disabled || readOnly} className={`w-full pr-8 ${inputClasses}`} />
+                      <input type="number" min={15} max={240} step={5} value={s.durationMin ?? 50} onChange={(e) => update(index, { durationMin: Number(e.target.value) })} disabled={disabled || readOnly} className={`w-full pr-8 ${inputClasses}`} />
                       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 dark:text-slate-400">min</span>
                     </div>
                   </div>
-
-                  {!readOnly && (
-                    <button type="button" onClick={() => remove(index)} disabled={value.length === 1 || disabled || isOnce} className="mb-0.5 rounded-md p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400">
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-
                 </div>
+
+                {!readOnly && (
+                  <button type="button" onClick={() => remove(index)} disabled={value.length === 1 || disabled || isOnce} className="rounded-md p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-500 dark:hover:bg-red-950/50 dark:hover:text-red-400 mb-0.5">
+                    <Trash2 size={14} />
+                  </button>
+                )}
+
               </div>
 
-              {useDateInput && s.anchorDate && (
-                <p className="mt-1.5 sm:pl-9 text-xs text-gray-500 dark:text-slate-400">
-                  cai em: <span className="font-medium text-gray-700 dark:text-slate-300">{WEEKDAY_LONG[isoWeekday(effWeekday)]}</span>
-                </p>
-              )}
-
               {dateInvalid && (
-                <p className="mt-1.5 sm:pl-9 text-xs text-red-600 dark:text-red-400">Data inválida. Use o formato dd/mm/aaaa.</p>
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">Data inválida. Use o formato dd/mm/aaaa.</p>
               )}
             </div>
           );

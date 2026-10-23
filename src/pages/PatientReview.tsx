@@ -50,8 +50,7 @@ export function PatientReview() {
   });
   
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
-  const [recurrenceType, setRecurrenceType] =
-    useState<RecurrenceType>("weekly");
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
   const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [hasScheduleConflict, setHasScheduleConflict] = useState(false);
@@ -90,17 +89,11 @@ export function PatientReview() {
     sourcedRecurrenceDays,
   ]);
 
-  function update<K extends keyof typeof form>(
-    key: K,
-    value: (typeof form)[K]
-  ) {
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleRecurrenceChange(
-    nextType: RecurrenceType,
-    nextDays: number | null
-  ) {
+  function handleRecurrenceChange(nextType: RecurrenceType, nextDays: number | null) {
     setRecurrenceType(nextType);
     setRecurrenceDays(nextDays);
   }
@@ -130,11 +123,12 @@ export function PatientReview() {
       return;
     }
 
+    // PROTEÇÃO CONTRA NULOS AQUI (o ?. evita o crash do TS)
     const conflict = schedules.find((s) =>
       occupiedSlots.some(
         (o) =>
           o.weekday === s.weekday &&
-          o.startTime.slice(0, 5) === s.startTime.slice(0, 5)
+          o.startTime.slice(0, 5) === s.startTime?.slice(0, 5)
       )
     );
     if (conflict) {
@@ -146,7 +140,8 @@ export function PatientReview() {
 
     const seen = new Set<string>();
     for (const s of schedules) {
-      const key = `${s.weekday}-${s.startTime.slice(0, 5)}`;
+      const key = `${s.weekday}-${s.startTime?.slice(0, 5) ?? ""}`;
+
       if (seen.has(key)) {
         setScheduleError("Há horários duplicados entre si. Remova um deles.");
         return;
@@ -233,17 +228,13 @@ export function PatientReview() {
         </Link>
 
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
-          <AlertCircle
-            size={18}
-            className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
-          />
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
           <div>
             <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
               Revisando cadastro importado
             </p>
             <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300/80">
-              Preencha os dados e confirme para ativar como paciente. Nome
-              original do Google:{" "}
+              Preencha os dados e confirme para ativar como paciente. Nome original do Google:{" "}
               <span className="italic">{patient.full_name}</span>
             </p>
           </div>
@@ -255,77 +246,30 @@ export function PatientReview() {
       </div>
 
       <Card className="space-y-4 p-6">
-        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-          Dados pessoais
-        </h2>
-
-        <Input
-          label="Nome completo"
-          required
-          value={form.full_name}
-          onChange={(e) => update("full_name", e.target.value)}
-        />
-
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Dados pessoais</h2>
+        <Input label="Nome completo" required value={form.full_name} onChange={(e) => update("full_name", e.target.value)} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="CPF"
-            inputMode="numeric"
-            value={form.cpf}
-            onChange={(e) => update("cpf", maskCPF(e.target.value))}
-          />
-          <Input
-            label="Data de nascimento"
-            type="date"
-            value={form.birth_date}
-            onChange={(e) => update("birth_date", e.target.value)}
-          />
+          <Input label="CPF" inputMode="numeric" value={form.cpf} onChange={(e) => update("cpf", maskCPF(e.target.value))} />
+          <Input label="Data de nascimento" type="date" value={form.birth_date} onChange={(e) => update("birth_date", e.target.value)} />
         </div>
-
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Cidade"
-            value={form.city}
-            onChange={(e) => update("city", e.target.value)}
-          />
-          <Input
-            label="Telefone"
-            type="tel"
-            inputMode="tel"
-            value={form.phone}
-            onChange={(e) => update("phone", maskPhone(e.target.value))}
-          />
+          <Input label="Cidade" value={form.city} onChange={(e) => update("city", e.target.value)} />
+          <Input label="Telefone" type="tel" inputMode="tel" value={form.phone} onChange={(e) => update("phone", maskPhone(e.target.value))} />
         </div>
       </Card>
 
       <Card className="space-y-4 p-6">
-        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-          Contato de urgência
-        </h2>
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Contato de urgência</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Nome"
-            value={form.emergency_contact_name}
-            onChange={(e) =>
-              update("emergency_contact_name", e.target.value)
-            }
-          />
-          <Input
-            label="Telefone"
-            type="tel"
-            inputMode="tel"
-            value={form.emergency_contact_phone}
-            onChange={(e) =>
-              update("emergency_contact_phone", maskPhone(e.target.value))
-            }
-          />
+          <Input label="Nome" value={form.emergency_contact_name} onChange={(e) => update("emergency_contact_name", e.target.value)} />
+          <Input label="Telefone" type="tel" inputMode="tel" value={form.emergency_contact_phone} onChange={(e) => update("emergency_contact_phone", maskPhone(e.target.value))} />
         </div>
       </Card>
 
       <Card className="space-y-4 p-6">
         {loadingSchedules ? (
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
-            <Spinner size={16} />
-            Carregando horários...
+            <Spinner size={16} /> Carregando horários...
           </div>
         ) : (
           <ScheduleEditor
@@ -349,58 +293,28 @@ export function PatientReview() {
       </Card>
 
       <Card className="space-y-4 p-6">
-        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-          Financeiro
-        </h2>
-
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Financeiro</h2>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-            Valor da sessão
-          </label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Valor da sessão</label>
           <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">
-              R$
-            </span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={form.session_price}
-              onChange={(e) =>
-                update("session_price", maskCurrencyBRL(e.target.value))
-              }
-              placeholder="0,00"
-              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-            />
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-slate-400">R$</span>
+            <input type="text" inputMode="numeric" value={form.session_price} onChange={(e) => update("session_price", maskCurrencyBRL(e.target.value))} placeholder="0,00" className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500" />
           </div>
-          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-            Valor cobrado por sessão. Usado nos relatórios financeiros.
-          </p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">Valor cobrado por sessão. Usado nos relatórios financeiros.</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 mt-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-              Forma de Pagamento
-            </label>
-            <select
-              value={form.payment_format}
-              onChange={(e) => update("payment_format", e.target.value as any)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Forma de Pagamento</label>
+            <select value={form.payment_format} onChange={(e) => update("payment_format", e.target.value as any)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
               <option value="vencimento">Vencimento</option>
               <option value="antecipado">Antecipado</option>
               <option value="avulso">Avulso</option>
             </select>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
-              Meio de Pagamento Padrão
-            </label>
-            <select
-              value={form.default_payment_method}
-              onChange={(e) => update("default_payment_method", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">Meio de Pagamento Padrão</label>
+            <select value={form.default_payment_method} onChange={(e) => update("default_payment_method", e.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
               <option value="">—</option>
               <option value="pix">PIX</option>
               <option value="debito">Débito</option>
@@ -412,60 +326,29 @@ export function PatientReview() {
         </div>
 
         <div className="mt-4">
-          <Input
-            label="Iniciar contagem de sessões em"
-            type="number"
-            min={0}
-            value={form.session_number_start}
-            onChange={(e) => update("session_number_start", e.target.value)}
-            hint="Se o paciente já fez sessões antes, coloque o número da última sessão aqui."
-          />
+          <Input label="Iniciar contagem de sessões em" type="number" min={0} value={form.session_number_start} onChange={(e) => update("session_number_start", e.target.value)} hint="Se o paciente já fez sessões antes, coloque o número da última sessão aqui." />
         </div>
       </Card>
 
       <Card className="space-y-4 p-6">
-        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">
-          Observações internas
-        </h2>
-        <textarea
-          value={form.notes}
-          onChange={(e) => update("notes", e.target.value)}
-          rows={3}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-        />
+        <h2 className="text-sm font-medium text-gray-900 dark:text-slate-100">Observações internas</h2>
+        <textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} rows={3} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500" />
       </Card>
 
       {saveError && (
         <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
-          <AlertCircle
-            size={16}
-            className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
-          />
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
           <p className="text-sm text-red-700 dark:text-red-300">{saveError}</p>
         </div>
       )}
 
       <div className="flex justify-end gap-2">
         <Link to="/patients">
-          <Button type="button" variant="secondary">
-            Cancelar
-          </Button>
+          <Button type="button" variant="secondary">Cancelar</Button>
         </Link>
-        <Button
-          onClick={handleConfirm}
-          disabled={saving || hasScheduleConflict}
-          title={
-            hasScheduleConflict
-              ? "Resolva os horários em conflito antes de salvar"
-              : undefined
-          }
-        >
+        <Button onClick={handleConfirm} disabled={saving || hasScheduleConflict} title={hasScheduleConflict ? "Resolva os horários em conflito antes de salvar" : undefined}>
           <UserCheck size={16} />
-          {saving
-            ? "Salvando..."
-            : hasScheduleConflict
-              ? "Resolva os conflitos"
-              : "Confirmar e ativar"}
+          {saving ? "Salvando..." : hasScheduleConflict ? "Resolva os conflitos" : "Confirmar e ativar"}
         </Button>
       </div>
     </div>

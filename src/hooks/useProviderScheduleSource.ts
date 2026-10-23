@@ -19,8 +19,7 @@ export function useProviderScheduleSource(
 ): Result {
   const [schedules, setSchedules] = useState<ScheduleInput[]>([]);
   const [source, setSource] = useState<ScheduleSource>("none");
-  const [recurrenceType, setRecurrenceType] =
-    useState<RecurrenceType>("weekly");
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("weekly");
   const [recurrenceDays, setRecurrenceDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,14 +38,10 @@ export function useProviderScheduleSource(
     setError(null);
 
     try {
-      // ============================================================
       // 1) provider_schedules (manual)
-      // ============================================================
       const { data: manualData, error: manualErr } = await supabase
         .from("provider_schedules")
-        .select(
-          "weekday, start_time, duration_min, recurrence_type, recurrence_days, anchor_date"
-        )
+        .select("weekday, start_time, duration_min, recurrence_type, recurrence_days, anchor_date")
         .eq("provider_id", providerId)
         .order("weekday")
         .order("start_time");
@@ -57,27 +52,22 @@ export function useProviderScheduleSource(
         setSchedules(
           manualData.map((row) => ({
             weekday: row.weekday,
-            startTime: (row.start_time as string).slice(0, 5),
-            durationMin: row.duration_min,
-            recurrenceType:
-              (row.recurrence_type as RecurrenceType | null) ?? "weekly",
+            startTime: (row.start_time as string)?.slice(0, 5) || "14:00",
+            durationMin: row.duration_min ?? 50,
+            recurrenceType: (row.recurrence_type as RecurrenceType | null) ?? "weekly",
             recurrenceDays: row.recurrence_days ?? null,
             anchorDate: row.anchor_date ?? undefined,
           }))
         );
-        setRecurrenceType(
-          (manualData[0].recurrence_type as RecurrenceType | null) ?? "weekly"
-        );
+        // Apenas para compatibilidade com a interface (o primeiro horário define o "principal")
+        setRecurrenceType((manualData[0].recurrence_type as RecurrenceType | null) ?? "weekly");
         setRecurrenceDays(manualData[0].recurrence_days ?? null);
         setSource("manual");
         setLoading(false);
         return;
       }
 
-      // ============================================================
       // 2) appointments tipo 'personal' (derivado)
-      // Sem recorrência própria — assume 'weekly', sem anchor
-      // ============================================================
       const { data: apptData } = await supabase
         .from("appointments")
         .select("weekday, start_time, duration_min")
@@ -92,7 +82,7 @@ export function useProviderScheduleSource(
         const result: ScheduleInput[] = [];
 
         for (const row of apptData) {
-          const startTime = (row.start_time as string).slice(0, 5);
+          const startTime = (row.start_time as string)?.slice(0, 5) || "14:00";
           const key = `${row.weekday}-${startTime}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -100,7 +90,7 @@ export function useProviderScheduleSource(
           result.push({
             weekday: row.weekday,
             startTime,
-            durationMin: row.duration_min,
+            durationMin: row.duration_min ?? 50,
             recurrenceType: "weekly",
             recurrenceDays: null,
           });
@@ -120,20 +110,15 @@ export function useProviderScheduleSource(
       setRecurrenceDays(null);
       setLoading(false);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Erro ao buscar horários."
-      );
+      setError(err instanceof Error ? err.message : "Erro ao buscar horários.");
       setSchedules([]);
       setSource("none");
-      setRecurrenceType("weekly");
-      setRecurrenceDays(null);
       setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerId]);
 
   return {
