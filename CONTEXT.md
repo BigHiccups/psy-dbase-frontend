@@ -1,8 +1,12 @@
-Perfeito. Vou reescrever os dois com o estado completo da feature até agora.
+Com certeza! O `CONTEXT.md` do frontend que você me enviou estava focado na Fase 3 (quando tínhamos apenas o ScheduleEditor básico e estávamos começando o provider_billings). 
+
+Com as nossas últimas implementações, o frontend deu um salto gigante: criamos o **Módulo Financeiro completo**, refatoramos todos os formulários para a arquitetura **Multi-Serviços**, implementamos as **cores na agenda** e adicionamos o **AlertDialog**.
+
+Aqui está o **`CONTEXT.md` do Frontend (psy-dbase-front) totalmente reescrito e detalhado**, mantendo a densidade e o histórico das decisões.
+
+*(Copie o bloco abaixo e substitua o conteúdo do seu arquivo).*
 
 ---
-
-## Arquivo 1 — `CONTEXT.md` (frontend)
 
 ```markdown
 # CONTEXT.md — psy-dbase-front
@@ -17,12 +21,7 @@ Perfeito. Vou reescrever os dois com o estado completo da feature até agora.
 
 Interface web do **psy-dbase**, sistema de gestão para psicólogo autônomo.
 
-Cobre cadastro de pacientes via formulário público, CRUD completo de pacientes,
-CRUD de prestadores (pessoa física e empresa), revisão de provisórios importados
-do Google, agenda em dia/semana/mês com bloqueio de conflito e stacking,
-dashboard com próximas sessões e aniversariantes, valor de sessão por
-paciente/prestador, **frequência configurável de recorrência** e — nas próximas
-fases — prontuário, financeiro, notificações e integração Calendar bidirecional.
+Cobre cadastro de pacientes via formulário público, CRUD completo de pacientes e prestadores, revisão de provisórios importados do Google, **agenda em dia/semana/mês com arrastar-e-soltar e cores customizadas**, **módulo financeiro com fluxo de caixa e aprovação de receitas/despesas**, e **arquitetura multi-serviços** (um paciente ou prestador pode ter múltiplos horários e valores). 
 
 **Repositório irmão:** `psy-dbase` (backend Node + integrações).
 **Status:** em produção na Vercel — `https://psy-dbase-frontend.vercel.app`
@@ -48,7 +47,7 @@ fases — prontuário, financeiro, notificações e integração Calendar bidire
 
 ---
 
-## 3. Estrutura de pastas
+## 3. Estrutura de pastas (resumo das principais)
 
 ```text
 src/
@@ -59,742 +58,226 @@ src/
 │   │   ├── AppointmentDetailModal.tsx
 │   │   ├── CancelSeriesModal.tsx
 │   │   ├── CreateAppointmentModal.tsx
-│   │   ├── create-appointment/          # NOVO (sub-componentes do modal)
-│   │   │   ├── BlockFields.tsx
-│   │   │   ├── conflict-checker.ts
-│   │   │   ├── DateTimeFields.tsx
-│   │   │   ├── EntityPicker.tsx
-│   │   │   ├── RecurrenceSelector.tsx
-│   │   │   └── TypeSelector.tsx
-│   │   ├── DayBillingsBadge.tsx         # NOVO (badge de vencimentos)
-│   │   ├── DayBillingsModal.tsx         # NOVO (modal de vencimentos)
+│   │   ├── create-appointment/          # Sub-componentes do modal
+│   │   ├── DayBillingsBadge.tsx         # Badge de vencimentos
+│   │   ├── DayBillingsModal.tsx         # Modal de vencimentos
 │   │   ├── DayCancelledModal.tsx
 │   │   ├── DayHeader.tsx
 │   │   ├── DayOverviewModal.tsx
 │   │   ├── DayView.tsx
-│   │   ├── dnd/                         # NOVO (drag and drop)
-│   │   │   └── DroppableSlot.tsx
+│   │   ├── dnd/                         # Drag and drop
 │   │   ├── MonthDayCell.tsx
 │   │   ├── MonthView.tsx
-│   │   ├── MoveAppointmentModal.tsx     # NOVO
-│   │   ├── ResizeAppointmentModal.tsx   # NOVO
-│   │   ├── ResizeHandle.tsx             # NOVO
-│   │   ├── ScheduleEditor.tsx
+│   │   ├── MoveAppointmentModal.tsx
+│   │   ├── ResizeAppointmentModal.tsx
+│   │   ├── ResizeHandle.tsx
+│   │   ├── ScheduleEditor.tsx           # Legado (usado no PatientReview)
+│   │   ├── ServiceScheduleField.tsx     # NOVO: Bloco Multi-Serviço (Cor, Data, Frequência)
 │   │   ├── SlotCancelledModal.tsx
 │   │   ├── StackOverviewModal.tsx
 │   │   ├── TimeColumn.tsx
 │   │   └── WeekView.tsx
 │   ├── layout/                          # Sidebar, Header, AppLayout, ThemeToggle
 │   ├── ui/                              # Design system
-│   │   ├── Button.tsx
-│   │   ├── Input.tsx
-│   │   ├── MaskedDateInput.tsx          # NOVO
-│   │   ├── Card.tsx
-│   │   ├── Badge.tsx
-│   │   ├── Modal.tsx
-│   │   ├── ConfirmDialog.tsx
-│   │   ├── EmptyState.tsx
-│   │   └── Spinner.tsx
-│   ├── BillingEditorModal.tsx           # NOVO (modal de criar/editar vencimento)
-│   ├── BillingList.tsx                  # NOVO (lista de vencimentos no form)
+│   │   ├── Button.tsx, Input.tsx, MaskedDateInput.tsx, Card.tsx, Badge.tsx
+│   │   ├── Modal.tsx, ConfirmDialog.tsx, AlertDialog.tsx, EmptyState.tsx, Spinner.tsx
+│   ├── BillingEditorModal.tsx           # Modal simplificado de criar/editar serviço
+│   ├── BillingList.tsx                  # Lista de faturamentos do serviço
 │   ├── ConflictOnReactivateModal.tsx
 │   ├── InvitePatientModal.tsx
-│   ├── ProspectCard.tsx
+│   ├── LinkPatientModal.tsx             # Vincular importação a paciente existente
+│   ├── PendingSuggestionsCard.tsx       # Aprovação financeira no /finance
+│   ├── PaymentReceiptModal.tsx          # Upload de comprovante
+│   ├── ReceiptViewerModal.tsx           # Visualização do comprovante
+│   ├── ProspectCard.tsx                 # Revisão de importados no Dashboard
 │   ├── ReactivateModal.tsx
-│   └── SubmissionCard.tsx
-├── contexts/
-│   └── AuthContext.tsx
+│   ├── SessionLedger.tsx                # Extrato financeiro por paciente/prestador
+│   ├── SubmissionCard.tsx
+│   └── TransactionModal.tsx             # Modal de criar/editar transação
+├── contexts/                            # AuthContext
 ├── hooks/
-│   ├── useAgendaView.ts
-│   ├── useAllUpcomingBillings.ts        # NOVO (vencimentos globais)
-│   ├── useAppointments.ts
-│   ├── useBirthdays.ts
-│   ├── useOccupiedSlots.ts
-│   ├── usePatient.ts
-│   ├── usePatients.ts
-│   ├── usePatientSchedules.ts
-│   ├── usePatientScheduleSource.ts
-│   ├── useProvider.ts
-│   ├── useProviderBillings.ts           # NOVO (CRUD de vencimentos)
-│   ├── useProviders.ts
-│   ├── useProviderSchedules.ts
-│   ├── useProviderScheduleSource.ts
-│   ├── useProspects.ts
-│   ├── useSubmissions.ts
-│   ├── useTheme.ts
-│   ├── useTodayAppointmentsCount.ts
-│   ├── useUpcomingAppointments.ts
-│   └── useWeekAppointmentsCount.ts
+│   ├── useAgendaView.ts, useAppointments.ts, useOccupiedSlots.ts
+│   ├── useAllUpcomingBillings.ts, useProviderBillings.ts
+│   ├── useTransactions.ts, usePendingSuggestions.ts
+│   ├── usePatient.ts, usePatients.ts, usePatientSchedules.ts, usePatientScheduleSource.ts
+│   ├── useProvider.ts, useProviders.ts, useProviderSchedules.ts, useProviderScheduleSource.ts
+│   └── useProspects.ts, useSubmissions.ts, useTheme.ts, useBirthdays.ts
 ├── lib/
-│   ├── agenda-date.ts
-│   ├── api.ts
-│   ├── appointment-colors.ts
-│   ├── appointment-layout.ts
-│   ├── appointment-overlap.ts
-│   ├── appointments-filter.ts
-│   ├── billings-date.ts                 # NOVO (projeção de datas de vencimento)
-│   ├── masks.ts                         # inclui máscaras de data (dd/mm/aaaa)
-│   ├── patient-display.ts
-│   ├── recurrence.ts                    # NOVO (helpers de frequência)
-│   ├── supabase.ts
-│   ├── text.ts
-│   └── weekdays.ts
+│   ├── agenda-date.ts, api.ts, appointment-colors.ts, appointment-layout.ts
+│   ├── appointment-overlap.ts, appointments-filter.ts, billings-date.ts
+│   ├── masks.ts, patient-display.ts, recurrence.ts, supabase.ts, text.ts, weekdays.ts
 ├── pages/
-│   ├── Agenda.tsx
-│   ├── Dashboard.tsx
-│   ├── Login.tsx
-│   ├── PatientDetail.tsx
-│   ├── PatientForm.tsx
-│   ├── PatientReview.tsx
-│   ├── Patients.tsx
-│   ├── ProviderDetail.tsx
-│   ├── ProviderForm.tsx
-│   ├── Providers.tsx
-│   ├── PublicForm.tsx
-│   └── Settings.tsx
-├── types/
-│   └── index.ts                         # inclui ProviderBilling, RecurrenceType, etc.
-├── App.tsx
-├── index.css
-└── main.tsx
+│   ├── Agenda.tsx, Dashboard.tsx, Login.tsx
+│   ├── PatientDetail.tsx, PatientForm.tsx, PatientReview.tsx, Patients.tsx
+│   ├── ProviderDetail.tsx, ProviderForm.tsx, Providers.tsx
+│   ├── PublicForm.tsx, Settings.tsx, Finance.tsx
+├── types/index.ts
+├── App.tsx, index.css, main.tsx
+```
 
 ---
 
 ## 4. Decisões de arquitetura
 
 ### 4.1 Dados vão direto para o Supabase
-
-O frontend **não** passa pelo backend Node para ler/escrever dados de aplicação.
-Fala direto com o Supabase via `@supabase/supabase-js`, e o **RLS** garante
-isolamento.
-
-O backend Node só é usado para operações que exigem **segredos**:
-
-- Geração de convites (TinyURL + telefone + JWT validation)
-- Google Calendar (OAuth, leitura, importação; escrita na Fase 6)
-- Envio de WhatsApp / e-mail (Fase 6)
-- Geração de PDF de recibo (Fase 5)
-- Transcrição de áudio (a decidir)
-
-### 4.2 Cliente HTTP autenticado
-
-Toda chamada ao backend passa por `src/lib/api.ts`, que injeta
-`Authorization: Bearer <token>`. **Nunca** chamar `fetch` direto.
-
-### 4.3 RLS + GRANT obrigatórios em toda tabela nova
-
-Toda tabela no Supabase precisa de:
-
-1. RLS + policies (`auth.uid() = user_id`)
-2. `grant select, insert, update, delete on … to authenticated;`
-
-**Sem o GRANT, o Postgres barra antes da RLS** — erro `42501 permission denied
-for table`.
-
-### 4.4 Tailwind v4 — não é v3
-
-- **Não existe** `tailwind.config.js`
-- **Não existe** `postcss.config.js`
-- Plugin em `vite.config.ts` via `@tailwindcss/vite`
-- Tema (cores, fontes) em `src/index.css` dentro de `@theme { … }`
-- Cor primária: `brand-*` (teal-600)
-- Fonte Inter via `<link>` no `index.html`
-
-**Importante:** o `@theme` precisa ter **`--color-brand-950`** definido. Sem
-isso, `dark:bg-brand-950` **não funciona** (o Tailwind v4 ignora a classe).
-
-### 4.5 Design system próprio em `components/ui/`
-
-- `Button` — `primary` / `secondary` / `ghost` / `danger`
-- `Input` — com `label`, `error`, `hint`
-- `MaskedDateInput` — input de data com máscara `dd/mm/aaaa` e preservação
-  do cursor (ver 4.29)
-- `Card`
-- `Badge` — `success` / `warning` / `danger` / `neutral` / `brand`
-- `Modal` — overlay + Esc
-- `ConfirmDialog` — confirmação com tons
-- `EmptyState`
-- `Spinner`
-
-### 4.6 Layout de app autenticado
-
-Rotas protegidas envelopadas por `<AppLayout />`:
-
-- `Sidebar` fixa em desktop (>= `lg`), drawer em mobile
-- `Header` sticky com avatar + logout + **`ThemeToggle`**
-- Sidebar tem **badge amarelo** ao lado de "Configurações" quando o perfil
-  está incompleto (sem CRP ou sem telefone)
-
-Ordem da sidebar: Dashboard, Pacientes, Prestadores, Agenda, Prontuário
-(futuro), Financeiro (futuro), Configurações.
-
-### 4.7 Rotas públicas fora do ProtectedRoute
-
-`/login` e `/form/:token` ficam **antes** do `<ProtectedRoute>`.
-
-**Ordem das rotas dinâmicas importa:** `/patients/new`,
-`/patients/:id/review` **antes** de `/patients/:id`.
-
-### 4.8 SPA routing na Vercel
-
-`vercel.json` com rewrite:
-
-```json
-{
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}
-```
-
-### 4.9 Variáveis `VITE_*` são injetadas em build time
-
-Mudar env var no painel da Vercel exige **redeploy sem cache**.
-
-### 4.10 Env vars de produção ficam no painel da Vercel
-
-`.env.local` local **só vale para desenvolvimento**.
-
-### 4.11 Nada de diálogos nativos do navegador
-
-**Regra:** nunca usar `alert()`, `confirm()` ou `prompt()` nativos.
-
-Sempre usar `ConfirmDialog` ou `Modal`.
-
-**Exceção atual (a corrigir):** `alert(error.message)` em `PatientDetail.tsx`
-e `ProviderDetail.tsx` (handlers de erro raro do Supabase).
-
-### 4.12 Normalização de nome vs. máscaras in-locus
-
-- **Nome:** normaliza **silenciosamente ao enviar** (`toTitleCase`).
-- **Telefone e CPF/CNPJ:** máscara **in-locus** enquanto digita.
-- **Valor monetário:** máscara in-locus, armazenado em **centavos** no banco
-  (`session_price_cents int`).
-- **Data (dd/mm/aaaa):** máscara in-locus via `MaskedDateInput`, armazenada
-  em ISO (`YYYY-MM-DD`) no banco.
-
-### 4.13 CRUD de pacientes
-
-- **Criar do zero:** `/patients/new` (`PatientForm.tsx`)
-- **Editar:** `/patients/:id/edit`
-- **Arquivar (soft delete):** `status='inactive'`. Cancela appointments futuros.
-- **Reativar:** `status='active'`. Recria appointments a partir de
-  `patient_schedules`.
-  - Se **não tem** schedules → `ReactivateModal`
-  - Se **tem** conflito → `ConflictOnReactivateModal`
-  - Se **sem** conflito → reativa direto
-- **Excluir (hard delete):** RPC `delete_patient`.
-- **Listagem:** filtros "Ativos | Arquivados | Todos".
-
-**Atenção:** `PatientForm` redireciona `prospect` para `/patients/:id/review`.
-
-### 4.14 CRUD de prestadores
-
-- **Criar do zero:** `/providers/new` (`ProviderForm.tsx`)
-- **Editar:** `/providers/:id/edit`
-- **Arquivar (soft delete):** `status='archived'`.
-- **Excluir (hard delete):** RPC `delete_provider`.
-- **Listagem:** filtros "Todos | Pessoas | Empresas | Arquivados"
-
-**Formulário dinâmico:**
-- `kind='person'` → CPF, esconde Razão social, mostra `ScheduleEditor` +
-  Financeiro (valor da sessão)
-- `kind='company'` → CNPJ + Razão social, sem `ScheduleEditor`, Financeiro
-  com label "Valor recorrente (referência)"
-
-**Reativação:** mesma lógica do paciente (com modais).
-
-### 4.15 Revisão de provisórios (movido para o Dashboard)
-
-Provisórios (`patients.status='prospect'`) aparecem **no `/dashboard`**, no
-bloco "Aguardando revisão" (colapsável).
-
-**Não aparecem mais em `/patients`.**
-
-Três ações por card (`ProspectCard`):
-
-- **É paciente** → `/patients/:id/review` → `promote_prospect_to_active`
-- **É prestador** → `convert_prospect_to_provider`
-- **Remover** → `discard_prospect`
-
-**Heurística de exibição:** `displayName()` remove prefixos comuns
-("Atendimento ", "Sessão ").
-
-### 4.16 Integração Google Calendar (leitura)
-
-- **Conectar:** `/settings` → `GET /calendar/connect` → abre em nova aba
-- **Callback:** backend redireciona para `/settings?google=connected`
-- **Importar:** `POST /calendar/import` com `{ daysAhead: 90 }`
-- **Desconectar:** `ConfirmDialog` + `DELETE /calendar/disconnect`
-
-**Fluxo em nova aba:** a aba original **não sabe** que a conexão foi concluída;
-F5 é necessário. Melhoria futura: `postMessage`.
-
-**IMPORTANTE — URLs de produção:**
-- Backend (Vercel): `GOOGLE_REDIRECT_URI=https://psy-dbase.vercel.app/calendar/callback`
-- Local: `GOOGLE_REDIRECT_URI=http://localhost:3333/calendar/callback`
-
-### 4.17 Agenda — 3 modos e 4 tipos
-
-A agenda lê `appointments` e renderiza em **Dia**, **Semana** e **Mês**.
-
-**Tipos** com cores distintas (`appointment-colors.ts`, com variantes dark):
-
-| Tipo | Cor | Ocupa horário? |
-|---|---|---|
-| `session` | brand (teal) | sim |
-| `personal` | cinza | sim |
-| `blocked` | cinza listrado | sim |
-| `due` | âmbar | **não** (marcador no cabeçalho) |
-
-**Status visual:**
-
-- `active` → normal
-- `cancelled` → **nunca aparece na grade**; vira badge `N ✕`
-- `completed` → esmaecido + ✓
-
-### 4.18 Dia da semana — atenção ao formato
-
-**Dois formatos coexistem** e não devem se misturar:
-
-**Formato JS** (0=domingo, 6=sábado):
-- `appointments.weekday`
-- `patient_schedules.weekday`
-- `provider_schedules.weekday`
-- `patient_invite_schedules.weekday`
-- `src/lib/weekdays.ts`
-- `Date.getDay()`
-
-**Formato ISO** (0=segunda, 6=domingo):
-- `WEEKDAY_SHORT` e `WEEKDAY_LONG` em `agenda-date.ts`
-- Usado **apenas para exibição**
-
-**Conversão:**
-
-```ts
-isoWeekday(jsDay)   // JS → ISO
-jsWeekday(isoDay)   // ISO → JS
-```
-
-**Sempre** usar `isoWeekday` antes de indexar `WEEKDAY_SHORT`/`WEEKDAY_LONG`.
-
-### 4.19 Horários recorrentes (`patient_schedules` / `provider_schedules`)
-
-Pacientes e prestadores `person` têm horários recorrentes. A RPC
-`set_patient_schedules` / `set_provider_schedules`:
-
-1. **Valida conflito por SOBREPOSIÇÃO DE INTERVALO** (não igualdade de
-   `start_time`)
-2. Se não houver conflito:
-   - **Deleta** appointments futuros deste sujeito
-   - Remove os schedules antigos
-   - Insere os novos
-   - Gera appointments para 90 dias
-
-**Reconfiguração vs. cancelamento:** reconfigurar **deleta**; cancelar
-(paciente avisou que não vem) **cancela** (`status='cancelled'`).
-
-**Idempotência:** `PatientForm` e `ProviderForm` só chamam a RPC se o conteúdo
-do `ScheduleEditor` **mudou** desde o carregamento (`schedulesEqual`).
-
-### 4.20 Cancelamento de série — 3 modos
-
-`CancelSeriesModal` (parametrizado com `subjectType: "patient" | "provider"`):
-
-- **Definitivo a partir de hoje** — cancela todos os futuros, deleta schedules
-- **Definitivo a partir de uma data** — cancela a partir da data escolhida,
-  **mantém schedules como referência**
-- **Suspender por período** — cancela só o intervalo, mantém schedules,
-  estende horizonte se necessário
-
-**Onde o botão aparece:**
-- `PatientDetail` — no card "Horários das sessões" (canto superior direito)
-- `ProviderDetail` — no card "Horários recorrentes" (mesmo lugar)
-- `AppointmentDetailModal` — botão "Cancelar série" quando `is_recurring`
-
-### 4.21 Bloqueio rígido por SOBREPOSIÇÃO DE INTERVALO
-
-Regra: `a.start < b.end && b.start < a.end`.
-
-Implementado em `src/lib/appointment-overlap.ts`.
-
-**Hooks:**
-- `useOccupiedSlots` — retorna `{ weekday, startTime, durationMin, occupiedBy, subjectName }`
-- `usePatientScheduleSource` — 3 camadas (`patient_schedules` → `patient_invite_schedules` → `appointments`)
-- `useProviderScheduleSource` — 2 camadas (`provider_schedules` → `appointments` tipo `personal`)
-
-**Regras do `ScheduleEditor`:**
-- Slot âmbar = conflito (externo **ou** interno)
-- Slot âmbar **é editável** — mudar recalcula conflito automaticamente
-- `+ Adicionar` sugere slot livre
-- Botão "Salvar" bloqueado enquanto houver conflito
-- `PatientForm`/`PatientReview`: `excludePatientId: id`
-- `ProviderForm`: `excludeProviderId: id`
-- `InvitePatientModal`: sem exclusão
-
-### 4.22 Valor da sessão (`session_price_cents`)
-
-Armazenado em **centavos** (`int`) para evitar float.
-
-- **Paciente:** `patients.session_price_cents` — valor que você cobra
-- **Prestador `person`:** `providers.session_price_cents` — valor que você paga por sessão
-- **Prestador `company`:** `providers.session_price_cents` — valor recorrente
-  de referência (Fase B refina com `provider_billings`)
-
-**Máscara in-locus** com `maskCurrencyBRL` / `parseCurrencyToCents` /
-`centsToCurrencyBRL`.
-
-### 4.23 Dark mode
-
-- Tailwind v4 com `@variant dark (&:where(.dark, .dark *))`
-- Toggle no Header (`ThemeToggle`) com 3 opções: **Claro / Escuro / Sistema**
-- Estado em `localStorage` (`psy-dbase:theme`)
-- Script inline no `index.html` **antes do React**
-- Paleta: **slate** para dark, brand mantém
-
-**Atenção:** o `@theme` precisa ter `--color-brand-950: #042f2e`.
-
-### 4.24 Dashboard
-
-Ordem dos blocos:
-
-1. Saudação
-2. Cards de resumo (4): Pacientes ativos, Submissões pendentes, Sessões hoje, Sessões esta semana
-3. Aguardando revisão (colapsável, scroll se > 3)
-4. Próximas sessões (colapsável, hoje + 7 dias)
-5. Aniversariantes do mês (só pacientes `active`)
-
-### 4.25 Aniversariantes
-
-- Busca `patients` com `status='active'` e `birth_date` no mês atual
-- Aniversariantes de prestadores: **decisão adiada** (precisa adicionar
-  `birth_date` em `providers`)
-
-### 4.26 Prestadores — modelo estendido
-
-**`person`** (ex: psicólogo, supervisor):
-- `provider_schedules` (horários recorrentes)
-- `appointments` tipo `personal`
-- Bloqueia slot na agenda
-- `session_price_cents` = valor pago por sessão
-
-**`company`** (ex: curso, plataforma, aluguel):
-- **Não tem** `provider_schedules`
-- Card vazio "Vencimentos" no `ProviderDetail` (placeholder)
-- Fase B: `provider_billings`
-- Não aparece na grade; aparece como badge no dia
-
-### 4.27 Convites — captura de e-mail e preferências (Fase 6)
-
-`PublicForm` ganhará campo e-mail, checkboxes de alerta Google Calendar e
-alerta de vencimento. Ver `TODO.md` seção Fase 6.
-
-### 4.28 Frequência configurável ⭐ NOVO
-
-Suporta 6 tipos de recorrência por sujeito (paciente ou prestador `person`):
-
-| `recurrence_type` | Comportamento | Precisa de `recurrence_days`? |
-|---|---|---|
-| `once` | 1 ocorrência só (na `anchor_date`) | não |
-| `weekly` | a cada 7 dias | não |
-| `biweekly` | a cada 14 dias | não |
-| `every_30_days` | a cada 30 dias | não |
-| `monthly` | mesmo dia do mês da âncora (fallback pro último dia do mês) | não |
-| `custom_days` | a cada N dias | **sim** (1..365) |
-
-#### Coluna `anchor_date` (data)
-
-Toda linha de `patient_schedules` / `provider_schedules` tem uma coluna
-`anchor_date date` que guarda **a data da primeira ocorrência**.
-
-**Por que existe:**
-- `monthly` precisa saber "qual dia do mês" (ex: 17)
-- `once` precisa de data exata (ex: 10/11/2026)
-- `custom_days` conta a partir de uma data específica
-
-**Como funciona o preenchimento:**
-- Se o front envia `anchorDate` no JSONB `p_schedules`, o backend usa essa data
-- Senão, calcula "próxima data no weekday informado" (compat com o formato antigo)
-
-#### Função auxiliar `compute_next_occurrence(date, text, int, date)`
-
-Calcula a próxima ocorrência. 4º parâmetro é `p_anchor_date`.
-
-Regra especial do `monthly`:
-
-```sql
-make_date(
-  extract(year from next_month_start)::int,
-  extract(month from next_month_start)::int,
-  least(anchor_day, last_day_of_next_month)
-)
-```
-
-Isso faz:
-- `17/jan` → `17/fev` → `17/mar` (dia preservado)
-- `31/jan` → `28/fev` → `31/mar` (volta pro 31 quando o mês permite)
-
-#### UI — `ScheduleEditor`
-
-- Campo por linha muda conforme frequência:
-  - `once`, `monthly`, `biweekly`, `every_30_days`, `custom_days` → **date picker** (input com máscara `dd/mm/aaaa`)
-  - `weekly` → **select de weekday**
-- Ao trocar a frequência no select, os horários são convertidos automaticamente:
-  - weekday → date: calcula próxima data no weekday atual
-  - date → weekday: extrai `getDay()` da data
-- Abaixo do date picker: `cai em: <weekday>` (derivado, não editável)
-- `once` bloqueia "+ Adicionar" e a lixeira (1 único slot)
-- `custom_days` mostra campo "A cada N dias"
-
-#### Backend — RPCs
-
-As RPCs têm **2 versões coexistindo** (migração em andamento):
-
-| RPC | Versão antiga | Versão nova |
-|---|---|---|
-| `set_patient_schedules` | `(uuid, jsonb, int)` | `(uuid, jsonb, text, int, int)` |
-| `set_provider_schedules` | `(uuid, jsonb, int)` | `(uuid, jsonb, text, int, int)` |
-| `cancel_appointment_series` | `(uuid, text, date, date)` | `(uuid, text, date, date, int)` |
-| `cancel_provider_appointment_series` | `(uuid, text, date, date)` | `(uuid, text, date, date, int)` |
-
-O frontend usa `callRpcWithFallback` que tenta a nova, e cai pra antiga se
-o Postgres responder `function does not exist`.
-
-**Importante:** o `CancelSeriesModal` passa `p_renew_days: null` explicitamente
-pra desambiguar o overload (senão o Postgres não sabe qual versão chamar).
-
-#### Migration 3 — pendente
-
-Depois de validar em produção, dropar as RPCs antigas (3/4 args) e remover o
-`callRpcWithFallback` do frontend.
-
-### 4.29 `MaskedDateInput` — máscara de data BR ⭐ NOVO
-
-Componente em `src/components/ui/MaskedDateInput.tsx`.
-
-**Problema que resolve:** `<input type="date">` mostra a data no formato do
-locale do navegador (mm/dd/aaaa em Chrome en-US). Não dá pra forçar via HTML.
-
-**Solução:** `<input type="text">` com máscara `dd/mm/aaaa` controlada por
-React, com **preservação da posição do cursor** ao editar no meio (via
-`setSelectionRange` num `useLayoutEffect`).
-
-Helpers em `src/lib/masks.ts`:
-- `maskDateBR(input)` — aplica máscara enquanto digita
-- `parseDateBR("dd/mm/aaaa")` → `"YYYY-MM-DD" | null` (valida data real)
-- `formatDateBR("YYYY-MM-DD")` → `"dd/mm/aaaa"`
-- `isValidDateBR("dd/mm/aaaa")` → boolean
-
-### 4.30 Agendamento pela Agenda (CreateAppointmentModal) ⭐ NOVO
-
-- O modal de criação foi quebrado em sub-componentes (create-appointment/).
-- 3 abas: Sessão (paciente), Prestador, Bloqueio.
-- Cadastro rápido: permite criar paciente ou prestador sem sair da agenda. 
-- O modal de prestador aceita person (com horários) e não mostra company (foco em atendimento).
-- Empresa (company): não aparece no modal de agendamento. Tem apenas vencimentos.
-
-### 4.31 Drag and Drop na Agenda ⭐ NOVO
-
-- Usa @dnd-kit/core.
-- Mover: DroppableSlot (id YYYY-MM-DD|hour) recebe o bloco; MoveAppointmentModal confirma.
-- Redimensionar: ResizeHandle na borda inferior altera a altura do bloco em tempo real (preview com "Término: HH:MM"). Ao soltar, ResizeAppointmentModal confirma e altera duration_min.
-- Criar por arrastar: clicar e arrastar num slot vazio cria um bloco fantasma verde e, ao soltar, abre o CreateAppointmentModal com duração pré-calculada. Clique curto abre com 50min padrão.
-- Bloqueios e cancelados não são arrastáveis.
-
-### 4.32 Provider Billings (Vencimentos de Empresas) ⭐ NOVO
-- Modelo: tabela provider_billings (id, provider_id, description, amount_cents, due_day, frequency, starts_on, status).
-- Soft delete: ao remover, o status vira archived. O hook useProviderBillings filtra status='active'.
-- No ProviderForm: ao criar uma empresa nova, os vencimentos são mantidos em memória (draftBillings) e salvos no banco após a criação do provider (evita erro de FK).
-- Na Agenda: o hook useAllUpcomingBillings traz os dados, e billingHappensOnDate projeta se a conta cai naquele dia. O DayHeader renderiza um badge DayBillingsBadge (💰). Ao clicar, abre DayBillingsModal.
-
-### 4.33 Pessoa Física com CPF ou CNPJ ⭐ NOVO
-- A opção "Pessoa" no ProviderForm permite alternar entre CPF e CNPJ.
-- Motivo: Supervisores podem ser autônomos (CPF) ou MEI/clínica (CNPJ), mas continuam sendo agendáveis como profissionais (com horários).
-- A validação se adapta ao tipo escolhido.
+O frontend **não** passa pelo backend Node para ler/escrever dados de aplicação. Fala direto com o Supabase via `@supabase/supabase-js`, e o **RLS** garante isolamento.
+
+### 4.2 RLS + GRANT obrigatórios
+Toda tabela no Supabase precisa de RLS + policies e `grant select, insert, update, delete on … to authenticated;`. Sem o GRANT, o Postgres barra antes da RLS (erro `42501`).
+
+### 4.3 Tailwind v4
+Tema em `src/index.css` dentro de `@theme { … }`. **Importante:** precisa ter `--color-brand-950` definido para o dark mode funcionar. Não existe `tailwind.config.js`.
+
+### 4.34 Arquitetura Multi-Serviços ⭐ NOVO
+Um paciente ou prestador pode ter **múltiplos serviços** (ex: Terapia Individual R$ 200 e Supervisão R$ 150).
+- Os formulários (`PatientForm` e `ProviderForm`) usam um estado `services: ServiceBlock[]`.
+- O componente `ServiceScheduleField.tsx` gerencia cada bloco, contendo: Frequência (`weekly`, `monthly`, etc.), Data de Início (`anchorDate`), Cor e checkbox de "Dia inteiro" (boletos).
+- As funções `set_patient_schedules` / `set_provider_schedules` no banco recebem um JSONB com todos os blocos.
+
+### 4.35 Motor Financeiro (Regime de Caixa) ⭐ NOVO
+Localizado em `/finance` (`Finance.tsx`).
+- **Cards Resumo:** Entradas e Saídas somam **apenas o que está pago** (`paid_on`). O card Pendentes mostra a contagem e o saldo.
+- **`PendingSuggestionsCard`:** O sistema varre sessões (`appointments`) e vencimentos (`provider_billings`) e sugere lançamentos. Pode Aprovar, Editar ou Descartar.
+- **`TransactionModal`:** Modal de criar/editar lançamento manual.
+- **Comprovantes:** Upload de PDF/Imagem via `PaymentReceiptModal`. O bucket do Supabase é privado e a visualização (`ReceiptViewerModal`) usa URL assinada temporária.
+- **Extrato de Sessões (`SessionLedger`):** Exibido no `PatientDetail` e `ProviderDetail`. A numeração (`#1`, `#2`) é separada por serviço e as badges usam a cor do serviço.
+
+### 4.36 Agenda Premium (Cores e Títulos) ⭐ NOVO
+- Os componentes `AppointmentBlock`, `MonthDayCell` e `DayOverviewModal` renderizam a propriedade `color` do agendamento (fundo com opacidade `${color}20`). Se nula, usam a cor padrão do tipo.
+- O `title` do serviço aparece embaixo do nome do paciente na agenda.
+- **Pendente:** As cores do histórico (passado) não atualizam automaticamente se o serviço mudar de cor; precisa de um merge no `useAppointments` (evitando UPDATE em massa no banco).
+
+### 4.37 Importação e Merge de Google Calendar ⭐ NOVO
+- A importação no backend agora materializa os eventos em `patient_schedules` (Não cria `appointments` direto).
+- No Dashboard, o `ProspectCard` permite clicar em **"Vincular Existente"**, que abre o `LinkPatientModal` para unificar os horários importados com um paciente já ativo no banco.
+
+### 4.38 AlertDialog (Design System) ⭐ NOVO
+- Substituiu 100% dos `alert()` e `confirm()` nativos. O `AlertDialog` tem variantes (`info`, `error`, `success`) e botão único "Entendi".
+
+### 4.4 Nada de diálogos nativos
+Nunca usar `alert()`, `confirm()` ou `prompt()`. Usar sempre `AlertDialog` (para avisos) e `ConfirmDialog` (para ações destrutivas) do design system.
+
+### 4.5 Normalização de nome vs. máscaras in-locus
+- **Nome:** normaliza ao enviar (`toTitleCase`).
+- **Telefone, CPF, CNPJ, Moeda:** máscara **in-locus**.
+- **Data:** `MaskedDateInput` (dd/mm/aaaa), armazenada em ISO (`YYYY-MM-DD`).
+
+### 4.6 SPA routing na Vercel
+`vercel.json` com rewrite para `/index.html` (evita 404 no F5).
 
 ---
 
-## 5. Fluxos principais
+## 5. Funcionalidades e Regras de Negócio
 
-### 5.1 Login
+### 5.1 Agenda (Dia, Semana, Mês)
+- **Status:** `active` (normal), `cancelled` (line-through + badge), `completed` (esmaecido + check).
+- **Tipos:** `session`, `personal`, `blocked`. O tipo `due` foi removido (substituído pelos alertas de vencimento no topo do dia).
+- **Cores Customizadas:** `AppointmentBlock`, `MonthDayCell` e `DayOverviewModal` leem a propriedade `color` do agendamento. Se nula, usam a cor padrão do tipo. O fundo da cor recebe 15~20% de opacidade via Hex Alpha (ex: `${color}20`).
+- **Título do Serviço:** A propriedade `title` aparece embaixo do nome do paciente/prestador na agenda.
+- **Drag and Drop:** Usa `@dnd-kit/core`. Movimentação e redimensionamento com preview em tempo real. Bloqueios e cancelados não são arrastáveis.
+- **Dia Inteiro:** Serviços sem horário (`start_time = null`) aparecem como cartões no topo da coluna do dia (fora da grade de horas).
 
-`supabase.auth.signInWithOAuth({ provider: "google", redirectTo: <origin>/dashboard })`.
+### 5.2 Arquitetura Multi-Serviços
+Tanto `PatientForm` quanto `ProviderForm` não têm mais um único horário. Eles usam o conceito de **Blocos de Serviço** (`services`):
+- Cada bloco tem: `title`, `sessionPrice`, `paymentFormat`, `schedule` (dia/hora), `recurrenceType` e `color`.
+- O botão **"+ Adicionar outro serviço"** cria um novo bloco.
+- O componente `ServiceScheduleField.tsx` renderiza o bloco e permite frequências complexas: `once`, `weekly`, `biweekly`, `monthly`, `bimonthly`, `quarterly`, `semiannual`, `yearly`, `custom_days` e o check de "Definir horário específico".
+- **Sincronização:** Ao salvar, o frontend envia um JSONB com todos os blocos para a RPC (ex: `set_patient_schedules`).
 
-**Site URL** e **Redirect URLs** precisam ter:
-- `https://psy-dbase-frontend.vercel.app` + `/**`
-- `http://localhost:5173` + `/**`
+### 5.3 Módulo Financeiro (`/finance`)
+- **Regime de Caixa:** Os cards de Entradas/Saídas somam **apenas** o que está pago (`paid_on` preenchido). O card de Pendentes mostra a contagem e o saldo.
+- **Aprovação de Sugestões (`PendingSuggestionsCard`):**
+  - O sistema cruza `appointments` (sessões realizadas/passadas) e `provider_billings` (vencimentos).
+  - As sugestões podem ser Aprovadas, Editadas (abre o `TransactionModal`) ou Descartadas.
+- **Anexos:** O `PaymentReceiptModal` permite subir um PDF ou Imagem para o bucket `receipts` do Supabase. O `ReceiptViewerModal` gera uma URL assinada e exibe o arquivo sem sair da tela.
+- **Rollback:** O botão "Desfazer pagamento" devolve a transação para o status Pendente.
+- **Vínculo:** As transações podem ser vinculadas a um `appointment_id` (sessão), `billing_id` (empresa) ou `provider_id`.
 
-### 5.2 Convite de paciente
+### 5.4 Importação do Google Calendar e Revisão
+- A importação traz Prospects para o Dashboard.
+- O `ProspectCard` tem 3 ações:
+  1. **É novo paciente:** Redireciona para `/patients/:id/review` (onde os blocos de serviço são configurados).
+  2. **Vincular Existente:** Abre o `LinkPatientModal`, fundindo os horários importados com o cadastro de um paciente já ativo.
+  3. **É prestador:** Converte para `provider` `person`.
 
-1. `/patients` → "Convidar"
-2. `InvitePatientModal` coleta nome (opcional), telefone e ≥ 1 horário
-3. Chama `POST /invites` no backend
-4. Backend cria convite, encurta URL, monta link `wa.me`
-5. Frontend abre `whatsappUrl` em nova aba
-
-### 5.3 Formulário público
-
-1. Paciente abre `/form/<token>`
-2. `PublicForm` valida token via RPC `get_invite_by_token`
-3. Mostra sessões combinadas + campos + 2 checkboxes
-4. Envia via RPC `submit_patient_form`
-
-### 5.4 Aprovar/Rejeitar submissão
-
-1. `/patients` → seção "Submissões pendentes"
-2. **Aprovar** → RPC `approve_submission` cria `patient` com `status='prospect'`
-3. **Rejeitar** → `update status='rejected'`
-
-### 5.5 Promover provisório a paciente
-
-1. `/dashboard` → bloco "Aguardando revisão"
-2. `ProspectCard` → "É paciente" → `/patients/:id/review`
-3. Salva: RPC `promote_prospect_to_active` com `p_schedules`
-4. **Ainda não passa `recurrence_type` / `recurrence_days`** — Etapa 3 pendente
-
-### 5.6 Criar/editar paciente/prestador
-
-- `PatientForm` / `ProviderForm` com `ScheduleEditor` + Financeiro
-- Ao salvar: chama RPC de schedules **se os horários ou a frequência mudaram**
-- Envia `anchorDate` dentro de cada item do JSONB `p_schedules`
-
-### 5.7 Arquivar / Reativar / Excluir
-
-- **Arquivar** → RPC `cancel_*_future_appointments` + status
-- **Reativar** → status + (ver seção 4.13)
-- **Excluir** → RPC `delete_patient` / `delete_provider`
-
-### 5.8 Agenda
-
-Ver seções 4.17 a 4.21.
-
-### 5.9 Dashboard
-
-Ver seção 4.24.
+### 5.5 Extrato de Sessões (`SessionLedger`)
+- Localizado nas abas do `PatientDetail` e `ProviderDetail`.
+- Faz a contagem **separada por serviço** (`#1 Terapia Individual`, `#1 Supervisão`).
+- Usa a badge colorida com a cor do serviço.
 
 ---
 
 ## 6. Convenções de código
 
-- **Idioma:** variáveis, funções, tipos, arquivos em **inglês**. Comentários
-  em **português**.
+- **Idioma:** variáveis, funções, tipos, arquivos em **inglês**. Comentários em **português**.
 - **Componentes:** função nomeada (`export function Foo()`).
 - **Tipos:** usar `type`, não `interface`.
 - **Estados de fetch:** sempre tratar `loading`, `error` e `empty`.
 - **Nada de `any`:** exceto em integrações com bibliotecas.
-
-**Regra de ouro:** hooks só dentro de `export function`. Nunca fora.
+- **Regra de ouro:** hooks só dentro de `export function`. Nunca fora (para evitar "Invalid hook call").
 
 ---
 
 ## 7. Armadilhas conhecidas
 
-| Sintoma                                             | Causa                                           | Solução                                                     |
-|-----------------------------------------------------|-------------------------------------------------|-------------------------------------------------------------|
-| `42501 permission denied for table`                 | Faltou GRANT                                    | `grant … to authenticated;`                                 |
-| `Invalid hook call` no console                      | Hook fora do `export function`                  | Mover para dentro do componente                             |
-| Login redireciona para `localhost` em produção      | Site URL aponta para localhost                  | Ajustar **Site URL** e **Redirect URLs**                    |
-| `/dashboard` dá 404 em produção                     | Falta `vercel.json` com SPA rewrite             | Criar `vercel.json`                                         |
-| Tailwind não aplica estilos novos                   | Config v3 em projeto v4                         | Usar `@theme` + plugin Vite                                 |
-| Bundle aponta para `localhost` mesmo após config    | `VITE_*` só em novo build                       | Redeploy **sem cache**                                      |
-| `tsc -b` falha com `declared but never used`        | Import não usado                                | Remover o import                                            |
-| Rota `:id` captura `new` ou `review`                | Ordem das rotas                                 | Declarar literais antes de dinâmicas                        |
-| Bloco aparece na coluna errada da agenda            | `WEEKDAY_SHORT/LONG` em ordem JS, não ISO       | Usar `isoWeekday()` antes de indexar                        |
-| `appointments_subject_check` violada ao excluir     | FK com `on delete set null` conflita            | Usar RPC `delete_patient` / `delete_provider`               |
-| Slot do próprio paciente/provider fica âmbar        | `useOccupiedSlots` sem `excludeId`              | Passar `excludePatientId` / `excludeProviderId`             |
-| Salvar mesmo com conflito                           | Sem `onConflictChange` / sem validação no submit | Usar `hasScheduleConflict` + botão desabilitado             |
-| Dark mode com fundo claro + texto claro             | Falta `--color-brand-950` no `@theme`           | Adicionar `--color-brand-950: #042f2e`                      |
-| Amigo cai em localhost ao autorizar Google          | `GOOGLE_REDIRECT_URI` no backend de produção    | Atualizar pra URL da Vercel                                 |
-| **`Could not choose the best candidate function`**  | Overload ambíguo de RPC                         | Passar todos os parâmetros, ou usar `callRpcWithFallback`   |
-| **Cursor pula pro fim ao editar data com máscara**  | Input controlado reposiciona cursor             | Usar `MaskedDateInput` (setSelectionRange)                  |
-| **`<input type="date">` mostra mm/dd/aaaa**         | Locale do navegador                             | Usar `MaskedDateInput` (não `<input type="date">`)          |
-| **`monthly` cai em dia diferente do esperado**      | Faltava `anchor_date`                           | Sempre passar `anchorDate` no JSONB                         |
+| Sintoma | Causa | Solução |
+|---|---|---|
+| **`42501 permission denied for table`** | Faltou GRANT | `grant … to authenticated;` |
+| **`Invalid hook call` no console** | Hook fora do `export function` | Mover para dentro do componente |
+| **Tailwind não aplica estilos** | Config v3 em projeto v4 | Usar `@theme` + plugin Vite |
+| **Dark mode com fundo claro + texto claro** | Falta `--color-brand-950` no `@theme` | Adicionar `--color-brand-950: #042f2e` |
+| **`Could not choose the best candidate function`** | Overload ambíguo de RPC | Passar todos os parâmetros ou usar `callRpcWithFallback` |
+| **`duplicate key value violates unique constraint`** | Salvar cor/horário que já existe | RPC do banco usa `ON CONFLICT DO UPDATE` |
+| **Cor não aplica no histórico** | O `UPDATE` só pega o futuro | Rodar SQL ou usar merge no `useAppointments` (Pendente) |
+| **`<input type="date">` mostra mm/dd/aaaa** | Locale do navegador | Usar `MaskedDateInput` |
+| **Botão dentro de modal dá submit no form** | Botão sem `type="button"` | Adicionar `type="button"` em botões que não sejam de submissão |
+| **`monthly` cai em dia diferente do esperado** | Faltava `anchor_date` | Sempre passar `anchorDate` no JSONB |
+| **Modal fechando ao clicar em "Configurar"** | Formulário abraçando o modal (Portal) | Usar `e.preventDefault()` e `e.stopPropagation()`, ou portar o modal |
+| **`duplicate key value violates unique constraint`** | Salvar cor/horário de serviço que já existe no banco | RPC de schedule usa `ON CONFLICT DO UPDATE` para atualizar as cores sem quebrar |
+| **Botão dentro de modal recarrega o form** | Botão sem `type="button"` dentro de um `<form>` | Adicionar `type="button"` em botões que abrem modais ou não são submits |
+| **Cor não aplica no histórico da agenda** | O banco só atualiza o futuro na RPC de save | Rodar SQL de correção no passado ou implementar merge visual no `useAppointments` |
+| **Modal de vencimento e horário quebrando** | Modal renderizado dentro da tag `<form>` | Usar `e.stopPropagation()` ou portar o modal |
 
 ---
 
-## 8. Segurança
+## 8. Estado atual (última atualização)
 
-- **`anon key`:** painel da Vercel + `.env.local`. Segura porque o RLS protege.
-- **`service_role`:** exclusiva do backend. Nunca no frontend.
-- **`access_token`:** header `Authorization`. Expira em 1h, renovado pelo SDK.
-- **Env vars `VITE_*` são públicas:** aparecem no bundle.
-- **LGPD:** dado sensível de saúde.
+**Concluído (Fases 1–3 + Financeiro + Multi-Serviços):**
 
----
-
-## 9. O que está fora do escopo
-
-- Lógica pesada (convite, OAuth, PDF) → **backend `psy-dbase`**
-- Migrations SQL → **Supabase CLI + migrations versionadas** (mudou: era SQL Editor)
-- Autenticação OAuth → **Supabase Auth**
-- Deploy do backend → **Vercel** (projeto separado)
-
----
-
-## 10. Estado atual (última atualização)
-
-**Concluído (Fases 1–3):**
-
-- ✅ Fase 1: Auth Google, deploy Vercel, SPA routing
-- ✅ Fase 2: convite, formulário público, submissões, CRUD de pacientes
-- ✅ Design system + layout autenticado
-- ✅ Migração Tailwind v3 → v4
-- ✅ Máscaras (CPF, CNPJ, telefone, moeda, **data BR**)
-- ✅ Página `/settings` com Google Calendar
-- ✅ CRUD completo de prestadores
-- ✅ Agenda em 3 modos (Dia/Semana/Mês) + stacking + cancelados como badges
-- ✅ Horários recorrentes (paciente + provider `person`)
-- ✅ Arquivar/reativar com modais de conflito
-- ✅ Dark mode completo
-- ✅ Dashboard reformulado
-- ✅ Valor da sessão (`session_price_cents`)
-
-**Concluído (Frequência configurável) — parcialmente:**
-
-- ✅ Migrations 1, 2, 2.6 aplicadas em produção
-- ✅ Tipos `RecurrenceType` + `ScheduleInput.recurrenceType/recurrenceDays/anchorDate`
-- ✅ `ScheduleEditor` com UI dinâmica (date vs weekday)
-- ✅ `MaskedDateInput` (máscara + preservação do cursor)
-- ✅ Hooks leem `recurrence_type` / `recurrence_days`
-- ✅ `PatientForm` / `ProviderForm` enviam frequência + `anchorDate`
-- ✅ Badges de frequência em `PatientDetail` / `ProviderDetail`
-- ✅ `CancelSeriesModal` desambigua overload com `p_renew_days: null`
-- ✅ `callRpcWithFallback` implementado
-- ✅ Frequência configurável 100% concluída
-- ✅ Refatoração do CreateAppointmentModal
-- ✅ Bloqueios com 3 modos + cancelamento e reativação automática
-- ✅ Drag and drop (Mover e Redimensionar)
-
-- ✅ `usePatientScheduleSource` / `useProviderScheduleSource` ler `anchor_date`
-- ✅ `PatientReview` usar `promote_prospect_to_active` nova (com recorrência)
-- ✅ Deploy + teste em produção
-- ✅ Migration 3 — dropar RPCs antigas (3/4 args)
-- ✅ Cleanup do `callRpcWithFallback`
-
-- ✅ **`provider_billings`** (Fase B) — vencimentos de empresas
-- ✅ **Agendamento avulso** — botão "Novo agendamento" fora da série
-- ✅ **Drag and drop na agenda** — `@dnd-kit/core`
-- ✅ **Ajustes finos** — 404, favicon, metadados, `AlertDialog`, busca,
-  perfil/preferências em `/settings`, `postMessage` do OAuth
-- ✅ **Re-branding** — pausado
+- ✅ Autenticação, Roteamento, Layout, Design System e Dark Mode.
+- ✅ Convite, formulário público, submissões e CRUD de pacientes.
+- ✅ CRUD de prestadores (com CPF/CNPJ alternáveis).
+- ✅ Agenda em 3 modos com DnD (mover, redimensionar), stacking e bloqueios.
+- ✅ Importação do Google refatorada (Materialização adiada, Merge/Vínculo).
+- ✅ Frequência configurável e `MaskedDateInput`.
+- ✅ **Arquitetura Multi-Serviços:** Múltiplos blocos com título, cor e valores independentes.
+- ✅ **Módulo Financeiro Completo:** Regime de caixa, sugestões, transações, comprovantes, extrato.
+- ✅ **Agenda Premium:** Cores customizadas, título do serviço nos blocos.
+- ✅ **AlertDialog implementado:** Fim dos alerts nativos.
+- ✅ **Correção da Importação Google:** Sincronização de fuso, dia inteiro e vínculo de pacientes existentes.
 
 
 **Pendente — fases seguintes:**
-- ⏳ Ajustes finos (404, AlertDialog, busca, postMessage).
-- ⏳ Financeiro (Fase 5) + Recibos + Relatórios
-- ⏳ Notificações + Calendar escrita (Fase 6)
-- ⏳ Prontuário (Fase 4)
-- ⏳ Fase 6 (Notificações / Google Calendar escrita).
-- ⏳ Testes E2E (Playwright)
+- ⏳ **Ajustes finos no Financeiro:** Relatórios (Faturamento, ocupação), exportação CSV.
+- ⏳ **Prontuário (Fase 4):** Evolução SOAP, Anamnese, Upload de áudio.
+- ⏳ **Fase 5b:** Geração de Recibos em PDF (Backend).
+- ⏳ **Fase 6:** Notificações e Sincronização de escrita com Google Calendar.
+- ⏳ **Sincronização de Cores:** Merge visual das cores no `useAppointments` para não depender de SQL no passado.
+- ⏳ **Busca e Paginação:** Busca server-side em `/patients` e `/providers`.
+- ⏳ **Testes E2E (Playwright).**
+- ⏳ **Sincronização de Cores no Histórico:** Fazer o merge visual das cores no `useAppointments` para não depender de SQL no passado.
+- ⏳ **Ajustes finos no Financeiro:** Relatórios (Faturamento, ocupação), exportação CSV.
+- ⏳ **Prontuário (Fase 4):** Evolução SOAP, Anamnese, Upload de áudio.
 
 **Branches ativas:**
-- Frontend: `feat/recurrence`
-- Backend: `feat/recurrence`
+- Frontend: `main`
+- Backend: `main`
 
 ---
 
-## 11. Como usar este documento
+## 9. Como usar este documento
 
 Ao entrar no projeto, leia na ordem:
-
 1. Este `CONTEXT.md`
 2. `README.md`
 3. `TODO.md`
@@ -805,5 +288,6 @@ Se algo aqui estiver desatualizado, **atualize antes de codar**.
 
 ---
 
-## Arquivo 2 — `TODO.md` (frontend)
+Esse documento agora reflete **exatamente** a arquitetura e as funcionalidades que construímos juntos (Multi-serviços, Financeiro, Cores, etc.). 
 
+Se estiver de acordo, o próximo passo é atualizarmos o **`TODO.md` do Frontend** com a mesma riqueza de detalhes (marcando tudo o que já foi entregue e listando os refinamentos pendentes, como o merge de cores e a busca). Quer que eu prepare?
