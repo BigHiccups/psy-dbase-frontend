@@ -22,25 +22,36 @@ export function MonthDayCell({
   const inMonth = isInMonth(date, monthStr);
   const today = isToday(date);
 
+  // AQUI: Mostra todos, exceto os cancelados
   const active = appointments.filter(
-    (a) => a.starts_on === date && a.status === "active"
+    (a) => a.starts_on === date && a.status !== "cancelled"
   );
 
   const visibleAppointments = active.slice(0, 2);
   const hiddenCount = active.length - visibleAppointments.length + billings.length;
 
+  // Função que define a cor da bolinha
+  const getStatusDot = (status: string) => {
+    if (status === "completed") return "bg-green-500";
+    if (status === "no_show_justified") return "bg-amber-500";
+    if (status === "no_show_unjustified") return "bg-red-500";
+    return null;
+  };
+
   return (
     <div
       onClick={onClick}
-      className={`flex h-full min-h-[90px] sm:min-h-[120px] w-full cursor-pointer flex-col overflow-hidden p-1.5 transition-colors hover:bg-gray-50/80 dark:hover:bg-slate-800/40 ${!inMonth ? "bg-gray-50/30 opacity-50 dark:bg-slate-900/30" : ""
-        }`}
+      className={`flex h-full min-h-[90px] sm:min-h-[120px] w-full cursor-pointer flex-col overflow-hidden p-1.5 transition-colors hover:bg-gray-50/80 dark:hover:bg-slate-800/40 ${
+        !inMonth ? "bg-gray-50/30 opacity-50 dark:bg-slate-900/30" : ""
+      }`}
     >
       <div className="mb-1.5 flex w-full items-start justify-between">
         <span
-          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${today
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${
+            today
               ? "bg-brand-600 text-white shadow-sm"
               : "text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
-            }`}
+          }`}
         >
           {d.getDate()}
         </span>
@@ -56,22 +67,25 @@ export function MonthDayCell({
           const name = a.patient?.full_name ?? a.provider?.display_name ?? (a.type === "blocked" ? "Bloqueio" : "Sessão");
           const displayName = a.title ? `${name.split(' ')[0]} · ${a.title}` : name;
           const hasCustomColor = !!a.color && a.type !== "blocked";
+          const dotColor = getStatusDot(a.status);
+          const isCompleted = a.status === "completed";
 
           const customStyle = hasCustomColor
             ? {
-              backgroundColor: `${a.color!}15`, // <-- Adicionado !
-              color: a.color!,                  // <-- Adicionado !
-              borderLeftColor: a.color!,        // <-- Adicionado !
-            }
+                backgroundColor: `${a.color!}15`,
+                color: a.color!,
+                borderLeftColor: a.color!,
+              }
             : {};
 
           return (
             <div
               key={a.id}
-              className={`group flex w-full max-w-full items-center gap-1.5 overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-[10px] shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${!hasCustomColor ? `${style.bg} ${style.border} ${style.text}` : "bg-white dark:bg-slate-800 border-transparent"
-                }`}
+              className={`group relative flex w-full max-w-full items-center gap-1.5 overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-[10px] shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                !hasCustomColor ? `${style.bg} ${style.border} ${style.text}` : "bg-white dark:bg-slate-800 border-transparent"
+              } ${isCompleted ? "opacity-75" : ""}`}
               style={customStyle}
-              title={`${name} - ${a.title || style.label}`}
+              title={`${name} - ${a.title || style.label} (${a.status})`}
             >
               {a.start_time && (
                 <span className="shrink-0 font-semibold opacity-80">
@@ -79,6 +93,11 @@ export function MonthDayCell({
                 </span>
               )}
               <span className="truncate font-medium">{displayName}</span>
+              
+              {/* Bolinha de status */}
+              {dotColor && (
+                <span className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${dotColor}`} />
+              )}
             </div>
           );
         })}

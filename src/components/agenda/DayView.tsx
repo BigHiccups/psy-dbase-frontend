@@ -27,23 +27,10 @@ type Props = {
 };
 
 export function DayView({
-  date,
-  appointments,
-  onAppointmentClick,
-  onResize,
-  onSlotClick,
-  onReload,
-  onDrawStart,
-  onDrawMove,
-  onDrawEnd,
-  previewBlock,
-  billings = [],
-  onBillingsClick,
+  date, appointments, onAppointmentClick, onResize, onSlotClick, onReload,
+  onDrawStart, onDrawMove, onDrawEnd, previewBlock, billings = [], onBillingsClick,
 }: Props) {
-  const [stackModal, setStackModal] = useState<
-    AppointmentWithRelations[] | null
-  >(null);
-
+  const [stackModal, setStackModal] = useState<AppointmentWithRelations[] | null>(null);
   const [cancelledModal, setCancelledModal] = useState<{
     startTime: string;
     appointments: AppointmentWithRelations[];
@@ -59,11 +46,12 @@ export function DayView({
       continue;
     }
     if (a.status === "cancelled") {
-      const startTime = a.start_time.slice(0, 5);
+      // PROTEÇÃO: Se não tiver hora, usa string vazia
+      const startTime = (a.start_time || "").slice(0, 5);
       if (!cancelledBySlot[startTime]) cancelledBySlot[startTime] = [];
       cancelledBySlot[startTime].push(a);
     } else {
-      active.push(a);
+      active.push(a); // O status completed, no_show, etc., entram aqui
     }
   }
 
@@ -118,13 +106,7 @@ export function DayView({
           )}
         </div>
 
-        <div
-          className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${
-            isToday(date)
-              ? "ring-1 ring-brand-200 dark:ring-brand-800"
-              : ""
-          }`}
-        >
+        <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${isToday(date) ? "ring-1 ring-brand-200 dark:ring-brand-800" : ""}`}>
           <div className="flex pt-4">
             <TimeColumn headerHeight={0} />
             <div className="relative flex-1 border-l border-gray-100 dark:border-slate-800">
@@ -146,10 +128,7 @@ export function DayView({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setCancelledModal({
-                            startTime,
-                            appointments: cancelledHere,
-                          });
+                          setCancelledModal({ startTime, appointments: cancelledHere });
                         }}
                         className="absolute right-2 top-1 z-10 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
                         title={`${cancelledHere.length} cancelado(s) neste horário`}
@@ -179,23 +158,15 @@ export function DayView({
 
               {Object.entries(hiddenByStack).map(([stackIdStr, count]) => {
                 const stackId = Number(stackIdStr);
-                const hidden = layouts.filter(
-                  (l) => l.stackId === stackId && l.isHidden
-                );
+                const hidden = layouts.filter((l) => l.stackId === stackId && l.isHidden);
                 if (hidden.length === 0) return null;
                 const anchor = hidden[0];
                 return (
                   <button
                     key={`stack-${stackId}`}
-                    onClick={() =>
-                      setStackModal(hidden.map((l) => l.appointment))
-                    }
+                    onClick={() => setStackModal(hidden.map((l) => l.appointment))}
                     className="absolute rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                    style={{
-                      top: anchor.top + 4,
-                      right: 8,
-                      zIndex: 100,
-                    }}
+                    style={{ top: anchor.top + 4, right: 8, zIndex: 100 }}
                   >
                     +{count}
                   </button>
@@ -214,10 +185,7 @@ export function DayView({
           date={date}
           appointments={stackModal}
           onClose={() => setStackModal(null)}
-          onAppointmentClick={(a) => {
-            setStackModal(null);
-            onAppointmentClick(a);
-          }}
+          onAppointmentClick={(a) => { setStackModal(null); onAppointmentClick(a); }}
         />
       )}
 
