@@ -340,7 +340,7 @@ o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
 - [x] Mover sessão individual
 - [x] Redimensionar duração
 - [x] Preview visual em tempo real durante o redimensionamento
-- [ ] Criar por drag (arrastar de slot vazio) — FASE 3
+- [x] Criar por drag (arrastar de slot vazio) — FASE 3
 - [x] Validação de bloqueio e cancelados (não arrastáveis)
 - [x] Modal de confirmação para mover (`MoveAppointmentModal`)
 - [x] Modal de confirmação para redimensionar (`ResizeAppointmentModal`)
@@ -355,15 +355,17 @@ o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
 
 - [ ] Página 404 customizada
 - [ ] Favicon + metadados (adiado com re-branding)
-- [ ] Criar `AlertDialog` no design system
-- [ ] Trocar `alert()` restantes (`PatientDetail`, `ProviderDetail`)
+- [x] Criar `AlertDialog` no design system
+- [x] Trocar `alert()` restantes (`PatientDetail`, `ProviderDetail`)
 - [ ] Busca em `/patients` e `/providers` (nome + telefone + CPF)
 - [ ] Editar perfil em `/settings`
 - [ ] Editar preferências do consultório em `/settings`
 - [ ] `postMessage` do OAuth callback (evitar F5)
 - [ ] Paginação quando a lista crescer
-- [ ] Substituir `MaskedDateInput` por `<input type="date">` quando o browser
-      suportar locale BR universalmente (não urgente)
+- [ ] Substituir `MaskedDateInput` por `<input type="date">` quando o browser  suportar locale BR universalmente (não urgente)
+- [ ] **Sincronização de Cores no Histórico:** Fazer o `useAppointments` mesclar a cor do agendamento com a cor atual do serviço no banco, para que o passado mude de cor sem precisar de UPDATE em massa no SQL.
+- [ ] **Multi-Serviços no Mobile:** Refinar a responsividade do componente `ServiceScheduleField` (os inputs de data e hora estavam apertados no celular).
+- [ ] **Busca server-side:** Implementar busca em `/patients` e `/providers` (nome + telefone + CPF).
 
 
 ---
@@ -396,13 +398,13 @@ o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
 
 ## Fase 5 — Financeiro + Recibos + Relatórios
 
-- [ ] Lançamento de entradas (por sessão, por pacote)
-- [ ] Lançamento de saídas categorizadas
-- [ ] Lançamento de gastos específicos (terapia pessoal, supervisão)
-- [ ] Integração com `provider_billings`
-- [ ] Filtros por período, status, forma de pagamento
-- [ ] Alertas de vencimento
-- [ ] Dashboard com entradas x saídas
+- [x] Lançamento de entradas (por sessão)
+- [x] Lançamento de saídas categorizadas
+- [x] Integração com `provider_billings`
+- [x] Filtros por período e status
+- [x] Dashboard com entradas x saídas (resumo no topo)
+- [ ] Lançamento de gastos específicos (terapia pessoal, supervisão) — *manual via TransactionModal*
+- [ ] Alertas de vencimento proativos
 - [ ] Relatórios (pacientes novos, ocupação, faturamento)
 - [ ] Download do recibo em PDF (backend)
 
@@ -480,6 +482,7 @@ o dia" (ex: pagamento de fatura). Hoje `appointments.start_time` é `not null`.
   dinâmico, `MaskedDateInput`, badges, `callRpcWithFallback`
 - **Fase 3 estendida (Agenda Premium):** frequência configurável, drag and drop (mover, redimensionar, criar), bloqueios inteligentes, provider billings, refatorações de modal.
 - **Migração Tailwind v3 → v4**
+- **Fase 3 estendida (Multi-Serviços e Financeiro):** Refatoração de pacientes/prestadores para múltiplos blocos de serviço (com títulos, cores e valores independentes). Módulo financeiro completo (Regime de Caixa, sugestões, comprovantes). Sincronização de agenda e importação via RPC em lote.
 ```
 
 ---
