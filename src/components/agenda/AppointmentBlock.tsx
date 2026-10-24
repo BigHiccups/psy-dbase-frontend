@@ -53,8 +53,7 @@ export function AppointmentBlock({
       const endH = Math.floor(endTotalMins / 60) % 24;
       const endM = endTotalMins % 60;
       const endTimeStr = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
-      const isMultiDay = appointment.starts_on !== appointment.ends_on;
-      subtitle = !isMultiDay ? `${formatTime(appointment.start_time)} às ${endTimeStr}` : "Vários dias";
+      subtitle = appointment.starts_on === appointment.ends_on ? `${formatTime(appointment.start_time)} às ${endTimeStr}` : "Vários dias";
     } else {
       subtitle = "Dia inteiro";
     }
@@ -76,22 +75,22 @@ export function AppointmentBlock({
   const dragStyle = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
 
   const hasCustomColor = !!appointment.color && !isBlocked;
+  
+  // Borda fina e fundo sutil. O texto agora usa a cor padrão do tema para garantir leitura.
   const customColorStyle = hasCustomColor ? {
-    backgroundColor: `${appointment.color!}18`,
-    borderLeftColor: appointment.color!,
-    color: appointment.color!,
+    backgroundColor: `${appointment.color!}15`, 
+    borderColor: `${appointment.color!}50`, 
   } : {};
 
-  const defaultStyleClasses = !hasCustomColor ? `${style.bg} ${style.border} ${style.text}` : 'border-l-[4px]';
+  const defaultStyleClasses = !hasCustomColor 
+    ? `${style.bg} ${style.border} ${style.text}` 
+    : 'text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-800'; 
 
-  const blockBgStyle = isBlocked
-    ? { backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.05) 4px, rgba(0,0,0,0.05) 8px)" }
-    : {};
-
-  let statusDot = null;
-  if (isCompleted) statusDot = <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-green-500 shadow-sm" title="Realizada" />;
-  else if (isNoShowJust) statusDot = <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-500 shadow-sm" title="Falta Justificada" />;
-  else if (isNoShowUnjust) statusDot = <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 shadow-sm" title="Falta Injustificada" />;
+  // Cores do status (pílula)
+  let statusBg = "bg-slate-400 dark:bg-slate-500"; // Opaca
+  if (isCompleted) statusBg = "bg-green-500";
+  else if (isNoShowJust) statusBg = "bg-amber-500";
+  else if (isNoShowUnjust) statusBg = "bg-red-500";
 
   function handleResizeMove(deltaY: number) {
     if (!onResize || !hasTime) return;
@@ -112,13 +111,14 @@ export function AppointmentBlock({
 
   return (
     <div
-      className="absolute"
+      className="absolute group"
       style={{
         top: computedTop,
         height: currentHeight,
         left: `calc(${leftPercent}% + 4px)`,
         width: `calc(${widthPercent}% - 8px)`,
-        zIndex: previewHeight ? 1000 : isDragging ? 999 : zIndex,
+        // Z-INDEX FORÇADO PARA 10 PARA FICAR ACIMA DA GRADE
+        zIndex: previewHeight ? 1000 : isDragging ? 999 : Math.max(zIndex, 10),
       }}
     >
       <button
@@ -128,19 +128,20 @@ export function AppointmentBlock({
         type="button"
         onClick={() => onClick(appointment)}
         className={`
-          absolute inset-0 w-full h-full overflow-hidden rounded-lg border-l-[4px] px-2.5 py-1.5
+          absolute inset-0 w-full h-full overflow-hidden rounded-lg border py-1.5 pl-3 pr-2.5
           text-left text-xs shadow-sm transition-all hover:shadow-md hover:brightness-[0.98] focus:outline-none
           focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 dark:focus:ring-offset-slate-950
           ${defaultStyleClasses}
           ${isCancelled ? "line-through opacity-50" : ""}
           ${isCompleted || isNoShowJust || isNoShowUnjust ? "opacity-85" : ""}
-          ${isDragging ? "opacity-50 shadow-xl ring-2 ring-brand-500 cursor-grabbing z-50" : "cursor-grab"}
+          ${isDragging ? "opacity-60 shadow-xl ring-2 ring-brand-500 cursor-grabbing z-50" : "cursor-grab"}
         `}
-        style={{ ...blockBgStyle, ...dragStyle, ...customColorStyle }}
+        style={{ ...dragStyle, ...customColorStyle }}
       >
-        {statusDot}
+        {/* PÍLULA DE STATUS */}
+        <div className={`absolute left-1.5 top-1.5 bottom-1.5 w-1 rounded-full ${statusBg} opacity-90`} />
         
-        <div className="flex items-start gap-1.5 pr-3">
+        <div className="flex items-start gap-1.5 pl-2">
           {isCancelled && <X size={12} className="shrink-0 mt-0.5" strokeWidth={3} />}
           <div className="flex flex-col min-w-0">
             <p className="truncate font-semibold text-[13px] leading-tight">
@@ -148,7 +149,7 @@ export function AppointmentBlock({
               {mainTitle}
             </p>
             {currentHeight >= 45 && subtitle && (
-              <p className="mt-0.5 truncate text-[11px] opacity-80 font-medium">{subtitle}</p>
+              <p className="mt-0.5 truncate text-[11px] opacity-75 font-medium">{subtitle}</p>
             )}
           </div>
         </div>

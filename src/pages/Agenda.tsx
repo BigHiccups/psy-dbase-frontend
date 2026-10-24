@@ -304,7 +304,7 @@ export function Agenda() {
             {agenda.view === "day" && (
               <DayView
                 date={agenda.date}
-                appointments={appointments.filter(a => a.status === 'active')} 
+                appointments={appointments.filter(a => a.status !== 'cancelled')} 
                 billings={billings}
                 onBillingsClick={(date, billings) => setBillingsModal({ date, billings })}
                 onAppointmentClick={handleAppointmentClick}

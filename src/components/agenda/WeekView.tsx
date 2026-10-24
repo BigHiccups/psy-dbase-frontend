@@ -59,6 +59,7 @@ export function WeekView({
       if (!cancelledBySlot[key]) cancelledBySlot[key] = [];
       cancelledBySlot[key].push(appt);
     } else {
+      // AQUI: Realizados e no_show entram aqui
       activeByDate[appt.starts_on].push(appt);
     }
   }
@@ -104,10 +105,7 @@ export function WeekView({
                   const hiddenByStack = countHiddenByStack(layouts);
 
                   return (
-                    <div
-                      key={d}
-                      className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""}`}
-                    >
+                    <div key={d} className={`relative min-w-0 flex-1 border-r border-gray-100 last:border-r-0 dark:border-slate-800 ${isToday(d) ? "bg-brand-50/20 dark:bg-brand-950/10" : ""}`}>
                       {hours.map((h) => {
                         const startTime = `${String(h).padStart(2, "0")}:00`;
                         const key = `${d}|${startTime}`;

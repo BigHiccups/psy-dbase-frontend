@@ -46,12 +46,12 @@ export function DayView({
       continue;
     }
     if (a.status === "cancelled") {
-      // PROTEÇÃO: Se não tiver hora, usa string vazia
       const startTime = (a.start_time || "").slice(0, 5);
       if (!cancelledBySlot[startTime]) cancelledBySlot[startTime] = [];
       cancelledBySlot[startTime].push(a);
     } else {
-      active.push(a); // O status completed, no_show, etc., entram aqui
+      // AQUI: Os status completed e no_show entram na lista "active"
+      active.push(a); 
     }
   }
 
