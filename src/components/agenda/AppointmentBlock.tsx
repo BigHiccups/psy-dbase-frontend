@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Check, X } from "lucide-react";
+import { X } from "lucide-react";
 import { TYPE_STYLES } from "../../lib/appointment-colors";
-import { formatTime, timeToMinutes, parseDateString } from "../../lib/agenda-date";
+import { formatTime, timeToMinutes } from "../../lib/agenda-date";
 import { HOUR_HEIGHT, START_HOUR } from "./TimeColumn";
 import { ResizeHandle } from "./ResizeHandle";
 import type { AppointmentWithRelations } from "../../types";
@@ -21,15 +21,8 @@ type Props = {
 };
 
 export function AppointmentBlock({
-  appointment,
-  onClick,
-  onResize,
-  expanded,
-  top,
-  height,
-  leftPercent = 0,
-  widthPercent = 100,
-  zIndex = 0,
+  appointment, onClick, onResize, expanded, top, height,
+  leftPercent = 0, widthPercent = 100, zIndex = 0,
 }: Props) {
   const style = TYPE_STYLES[appointment.type];
   const hasTime = !!appointment.start_time;
@@ -46,6 +39,8 @@ export function AppointmentBlock({
 
   const isCancelled = appointment.status === "cancelled";
   const isCompleted = appointment.status === "completed";
+  const isNoShowJust = appointment.status === "no_show_justified";
+  const isNoShowUnjust = appointment.status === "no_show_unjustified";
   const isBlocked = appointment.type === "blocked";
 
   let mainTitle = appointment.patient?.full_name ?? appointment.provider?.display_name;
@@ -58,20 +53,8 @@ export function AppointmentBlock({
       const endH = Math.floor(endTotalMins / 60) % 24;
       const endM = endTotalMins % 60;
       const endTimeStr = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
-      
-      const startDateObj = parseDateString(appointment.starts_on);
       const isMultiDay = appointment.starts_on !== appointment.ends_on;
-
-      if (!isMultiDay) {
-        subtitle = `${formatTime(appointment.start_time)} às ${endTimeStr}`;
-      } else {
-        const startD = String(startDateObj.getDate()).padStart(2, "0");
-        const startM = String(startDateObj.getMonth() + 1).padStart(2, "0");
-        const endDateObj = parseDateString(appointment.ends_on);
-        const endD = String(endDateObj.getDate()).padStart(2, "0");
-        const endM = String(endDateObj.getMonth() + 1).padStart(2, "0");
-        subtitle = `início ${formatTime(appointment.start_time)} do dia ${startD}/${startM}, fim ${endTimeStr} do dia ${endD}/${endM}`;
-      }
+      subtitle = !isMultiDay ? `${formatTime(appointment.start_time)} às ${endTimeStr}` : "Vários dias";
     } else {
       subtitle = "Dia inteiro";
     }
@@ -94,9 +77,9 @@ export function AppointmentBlock({
 
   const hasCustomColor = !!appointment.color && !isBlocked;
   const customColorStyle = hasCustomColor ? {
-    backgroundColor: `${appointment.color!}18`, // <-- Adicionado !
-    borderLeftColor: appointment.color!,        // <-- Adicionado !
-    color: appointment.color!,                  // <-- Adicionado !
+    backgroundColor: `${appointment.color!}18`,
+    borderLeftColor: appointment.color!,
+    color: appointment.color!,
   } : {};
 
   const defaultStyleClasses = !hasCustomColor ? `${style.bg} ${style.border} ${style.text}` : 'border-l-[4px]';
@@ -104,6 +87,11 @@ export function AppointmentBlock({
   const blockBgStyle = isBlocked
     ? { backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.05) 4px, rgba(0,0,0,0.05) 8px)" }
     : {};
+
+  let statusDot = null;
+  if (isCompleted) statusDot = <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-green-500 shadow-sm" title="Realizada" />;
+  else if (isNoShowJust) statusDot = <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-500 shadow-sm" title="Falta Justificada" />;
+  else if (isNoShowUnjust) statusDot = <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 shadow-sm" title="Falta Injustificada" />;
 
   function handleResizeMove(deltaY: number) {
     if (!onResize || !hasTime) return;
@@ -145,13 +133,14 @@ export function AppointmentBlock({
           focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 dark:focus:ring-offset-slate-950
           ${defaultStyleClasses}
           ${isCancelled ? "line-through opacity-50" : ""}
-          ${isCompleted ? "opacity-75 saturate-50" : ""}
+          ${isCompleted || isNoShowJust || isNoShowUnjust ? "opacity-85" : ""}
           ${isDragging ? "opacity-50 shadow-xl ring-2 ring-brand-500 cursor-grabbing z-50" : "cursor-grab"}
         `}
         style={{ ...blockBgStyle, ...dragStyle, ...customColorStyle }}
       >
-        <div className="flex items-start gap-1.5">
-          {isCompleted && <Check size={12} className="shrink-0 mt-0.5" strokeWidth={3} />}
+        {statusDot}
+        
+        <div className="flex items-start gap-1.5 pr-3">
           {isCancelled && <X size={12} className="shrink-0 mt-0.5" strokeWidth={3} />}
           <div className="flex flex-col min-w-0">
             <p className="truncate font-semibold text-[13px] leading-tight">
@@ -171,7 +160,7 @@ export function AppointmentBlock({
         </div>
       )}
 
-      {onResize && !isBlocked && !isCancelled && !isCompleted && hasTime && (
+      {onResize && !isBlocked && !isCancelled && !isCompleted && !isNoShowJust && !isNoShowUnjust && hasTime && (
         <ResizeHandle
           onResizeMove={handleResizeMove}
           onResizeEnd={handleResizeEnd}

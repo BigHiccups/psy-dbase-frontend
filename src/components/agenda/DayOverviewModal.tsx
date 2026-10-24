@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CalendarDays, CheckCircle2, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { Button, Modal } from "../ui";
 import { TYPE_STYLES } from "../../lib/appointment-colors";
 import { formatTime, formatLongDate } from "../../lib/agenda-date";
@@ -56,12 +56,14 @@ export function DayOverviewModal({
               const name = appt.patient?.full_name ?? appt.provider?.display_name ?? "(sem nome)";
               const isCancelled = appt.status === "cancelled";
               const isCompleted = appt.status === "completed";
+              const isNoShowJust = appt.status === "no_show_justified";
+              const isNoShowUnjust = appt.status === "no_show_unjustified";
               
               const hasCustomColor = !!appt.color && appt.type !== "blocked";
               const customColorStyle = hasCustomColor ? {
-                backgroundColor: `${appt.color!}10`, // <-- Adicionado !
-                borderLeftColor: appt.color!,        // <-- Adicionado !
-                color: appt.color!,                  // <-- Adicionado !
+                backgroundColor: `${appt.color!}10`,
+                borderLeftColor: appt.color!,
+                color: appt.color!,
               } : {};
               const defaultClasses = !hasCustomColor ? `${style.bg} ${style.border}` : "border-transparent bg-white dark:bg-slate-800";
 
@@ -72,7 +74,7 @@ export function DayOverviewModal({
                     onClose();
                     onAppointmentClick(appt);
                   }}
-                  className={`group flex w-full items-center gap-4 rounded-xl border-l-[4px] p-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${defaultClasses}`}
+                  className={`group flex w-full items-center gap-4 rounded-xl border-l-[4px] p-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${defaultClasses} ${isCompleted || isNoShowJust || isNoShowUnjust ? "opacity-85" : ""}`}
                   style={customColorStyle}
                 >
                   <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-black/5 py-1 dark:bg-white/5">
@@ -89,8 +91,28 @@ export function DayOverviewModal({
                       <p className={`truncate text-sm font-semibold ${isCancelled ? "line-through opacity-50" : ""} ${!hasCustomColor ? style.text : ''}`}>
                         {name}
                       </p>
-                      {isCompleted && <CheckCircle2 size={14} className="text-green-500 shrink-0" />}
-                      {isCancelled && <XCircle size={14} className="text-red-500 shrink-0" />}
+                      
+                      {/* ICONES COM TITLE ENVOLVIDOS EM SPAN */}
+                      {isCompleted && (
+                        <span title="Realizada">
+                          <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                        </span>
+                      )}
+                      {isNoShowJust && (
+                        <span title="Falta Justificada">
+                          <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+                        </span>
+                      )}
+                      {isNoShowUnjust && (
+                        <span title="Falta Injustificada">
+                          <XCircle size={14} className="text-red-500 shrink-0" />
+                        </span>
+                      )}
+                      {isCancelled && (
+                        <span title="Cancelada">
+                          <XCircle size={14} className="text-gray-400 shrink-0" />
+                        </span>
+                      )}
                     </div>
                     <p className={`truncate text-xs mt-0.5 font-medium opacity-80 ${!hasCustomColor ? style.text : ''}`}>
                       {appt.title ? appt.title : style.label}
