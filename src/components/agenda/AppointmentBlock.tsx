@@ -32,7 +32,6 @@ export function AppointmentBlock({
   zIndex = 0,
 }: Props) {
   const style = TYPE_STYLES[appointment.type];
-
   const hasTime = !!appointment.start_time;
   const startMin = hasTime ? timeToMinutes(appointment.start_time) : 0;
   const startOffset = startMin - START_HOUR * 60;
@@ -43,7 +42,7 @@ export function AppointmentBlock({
   const [previewHeight, setPreviewHeight] = useState<number | null>(null);
   const [previewEndTime, setPreviewEndTime] = useState<string | null>(null);
 
-  const currentHeight = previewHeight ?? Math.max(originalHeight, 20);
+  const currentHeight = previewHeight ?? Math.max(originalHeight, 24);
 
   const isCancelled = appointment.status === "cancelled";
   const isCompleted = appointment.status === "completed";
@@ -93,15 +92,14 @@ export function AppointmentBlock({
 
   const dragStyle = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
 
-  // Lógica de cor customizada
   const hasCustomColor = !!appointment.color && !isBlocked;
   const customColorStyle = hasCustomColor ? {
-    backgroundColor: `${appointment.color!}20`, // <-- Adicionado !
-    borderColor: appointment.color!,            // <-- Adicionado !
+    backgroundColor: `${appointment.color!}18`, // <-- Adicionado !
+    borderLeftColor: appointment.color!,        // <-- Adicionado !
     color: appointment.color!,                  // <-- Adicionado !
   } : {};
 
-  const defaultStyleClasses = !hasCustomColor ? `${style.bg} ${style.border} ${style.text}` : '';
+  const defaultStyleClasses = !hasCustomColor ? `${style.bg} ${style.border} ${style.text}` : 'border-l-[4px]';
 
   const blockBgStyle = isBlocked
     ? { backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.05) 4px, rgba(0,0,0,0.05) 8px)" }
@@ -142,31 +140,33 @@ export function AppointmentBlock({
         type="button"
         onClick={() => onClick(appointment)}
         className={`
-          absolute inset-0 w-full h-full overflow-hidden rounded-md border-l-2 px-2 py-1
-          text-left text-xs transition hover:brightness-95 focus:outline-none
+          absolute inset-0 w-full h-full overflow-hidden rounded-lg border-l-[4px] px-2.5 py-1.5
+          text-left text-xs shadow-sm transition-all hover:shadow-md hover:brightness-[0.98] focus:outline-none
           focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 dark:focus:ring-offset-slate-950
           ${defaultStyleClasses}
           ${isCancelled ? "line-through opacity-50" : ""}
-          ${isCompleted ? "opacity-70" : ""}
-          ${isDragging ? "opacity-40 shadow-2xl ring-2 ring-brand-500 cursor-grabbing" : "cursor-grab"}
+          ${isCompleted ? "opacity-75 saturate-50" : ""}
+          ${isDragging ? "opacity-50 shadow-xl ring-2 ring-brand-500 cursor-grabbing z-50" : "cursor-grab"}
         `}
         style={{ ...blockBgStyle, ...dragStyle, ...customColorStyle }}
       >
-        <div className="flex items-center gap-1">
-          {isCompleted && <Check size={10} className="shrink-0" />}
-          {isCancelled && <X size={10} className="shrink-0" />}
-          <p className="truncate font-medium">
-            {expanded && !isBlocked && hasTime ? `${formatTime(appointment.start_time)} · ` : ""}
-            {mainTitle}
-          </p>
+        <div className="flex items-start gap-1.5">
+          {isCompleted && <Check size={12} className="shrink-0 mt-0.5" strokeWidth={3} />}
+          {isCancelled && <X size={12} className="shrink-0 mt-0.5" strokeWidth={3} />}
+          <div className="flex flex-col min-w-0">
+            <p className="truncate font-semibold text-[13px] leading-tight">
+              {expanded && !isBlocked && hasTime ? `${formatTime(appointment.start_time)} · ` : ""}
+              {mainTitle}
+            </p>
+            {currentHeight >= 45 && subtitle && (
+              <p className="mt-0.5 truncate text-[11px] opacity-80 font-medium">{subtitle}</p>
+            )}
+          </div>
         </div>
-        {currentHeight >= 40 && subtitle && (
-          <p className="mt-0.5 truncate text-[10px] opacity-80">{subtitle}</p>
-        )}
       </button>
 
       {previewHeight && previewEndTime && (
-        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-medium text-white shadow-lg z-50 pointer-events-none">
+        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1 text-[11px] font-medium text-white shadow-lg z-50 pointer-events-none">
           Término: {previewEndTime}
         </div>
       )}
