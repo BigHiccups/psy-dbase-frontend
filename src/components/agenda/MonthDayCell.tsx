@@ -32,50 +32,60 @@ export function MonthDayCell({
   return (
     <div
       onClick={onClick}
-      className={`flex h-full min-h-[80px] sm:min-h-[110px] w-full cursor-pointer flex-col overflow-hidden p-1 transition hover:bg-gray-50 dark:hover:bg-slate-800/40 ${!inMonth ? "bg-gray-50/50 opacity-40 dark:bg-slate-900/50" : ""
+      className={`flex h-full min-h-[90px] sm:min-h-[120px] w-full cursor-pointer flex-col overflow-hidden p-1.5 transition-colors hover:bg-gray-50/80 dark:hover:bg-slate-800/40 ${!inMonth ? "bg-gray-50/30 opacity-50 dark:bg-slate-900/30" : ""
         }`}
     >
-      <div className="mb-1 flex w-full items-start justify-between">
+      <div className="mb-1.5 flex w-full items-start justify-between">
         <span
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${today ? "bg-brand-600 text-white" : "text-gray-700 dark:text-slate-300"
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${today
+              ? "bg-brand-600 text-white shadow-sm"
+              : "text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
         >
           {d.getDate()}
         </span>
 
         {billings.length > 0 && (
-          <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+          <div className="mt-1.5 flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" title="Vencimento hoje" />
         )}
       </div>
 
-      <div className="flex flex-col gap-0.5 w-full max-w-full overflow-hidden">
+      <div className="flex flex-col gap-1 w-full max-w-full overflow-hidden">
         {visibleAppointments.map((a) => {
           const style = TYPE_STYLES[a.type];
           const name = a.patient?.full_name ?? a.provider?.display_name ?? (a.type === "blocked" ? "Bloqueio" : "Sessão");
           const displayName = a.title ? `${name.split(' ')[0]} · ${a.title}` : name;
-
           const hasCustomColor = !!a.color && a.type !== "blocked";
-          const customColorStyle = hasCustomColor ? {
-            backgroundColor: `${a.color!}25`, // <-- Adicionado !
-            color: a.color!,                  // <-- Adicionado !
-          } : {};
-          const defaultClasses = !hasCustomColor ? `${style.bg} ${style.text}` : '';
+
+          const customStyle = hasCustomColor
+            ? {
+              backgroundColor: `${a.color!}15`, // <-- Adicionado !
+              color: a.color!,                  // <-- Adicionado !
+              borderLeftColor: a.color!,        // <-- Adicionado !
+            }
+            : {};
 
           return (
             <div
               key={a.id}
-              className={`block w-full max-w-full truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight ${defaultClasses}`}
-              style={customColorStyle}
+              className={`group flex w-full max-w-full items-center gap-1.5 overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-[10px] shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${!hasCustomColor ? `${style.bg} ${style.border} ${style.text}` : "bg-white dark:bg-slate-800 border-transparent"
+                }`}
+              style={customStyle}
               title={`${name} - ${a.title || style.label}`}
             >
-              {displayName}
+              {a.start_time && (
+                <span className="shrink-0 font-semibold opacity-80">
+                  {a.start_time.slice(0, 5)}
+                </span>
+              )}
+              <span className="truncate font-medium">{displayName}</span>
             </div>
           );
         })}
 
         {hiddenCount > 0 && (
-          <div className="w-full truncate pl-1 text-[9px] font-medium text-gray-500 dark:text-slate-400">
-            + {hiddenCount}
+          <div className="w-full pl-1 text-[10px] font-medium text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200">
+            + {hiddenCount} mais
           </div>
         )}
       </div>
